@@ -1,7 +1,9 @@
+
 {
-  "name": "trmnl-ultimate-plusplus",
+  "name": "ptv-trmnl-new",
   "version": "1.0.0",
   "description": "Melbourne PT Dashboard for TRMNL e-ink display",
+  "type": "module",
   "main": "server.js",
   "engines": {
     "node": "20.x"
@@ -12,11 +14,18 @@
   },
   "dependencies": {
     "axios": "1.6.0",
+    "dotenv": "^16.4.5",
     "express": "4.18.2",
     "rss-parser": "3.13.0",
     "sharp": "0.33.0"
   },
-  "keywords": ["trmnl", "melbourne", "transport", "e-ink"],
+  "keywords": [
+    "trmnl",
+    "melbourne",
+    "transport",
+    "ptv",
+    "e-ink"
+  ],
   "author": "Angus",
   "license": "MIT"
 }
