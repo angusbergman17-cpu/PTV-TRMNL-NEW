@@ -1,21 +1,14 @@
+
 services:
   - type: web
-    name: trmnl-ultimate-plusplus
+    name: ptv-trmnl-new
     env: node
-    region: oregon
     plan: free
-    branch: main
-    buildCommand: npm install --prefer-offline --loglevel=error
+    buildCommand: npm ci
     startCommand: node server.js
-    healthCheckPath: /
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NODE_VERSION
-        value: 20.11.0
-      - key: PTV_DEV_ID
+      - key: ODATA_KEY
         sync: false
-      - key: PTV_KEY
-        sync: false
+      # Optional
       - key: WEATHER_KEY
         sync: false
