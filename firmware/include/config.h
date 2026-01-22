@@ -11,7 +11,7 @@
 
 // Default Server Configuration
 // This will be overwritten when you configure via WiFi portal
-#define DEFAULT_SERVER_URL "https://your-app.onrender.com"
+#define DEFAULT_SERVER_URL "https://ptv-trmnl-new.onrender.com"
 
 // WiFi Access Point (for initial setup)
 #define WIFI_AP_NAME "PTV-TRMNL-Setup"
