@@ -135,7 +135,305 @@ async function getImage() {
 
 // Health check
 app.get('/', (req, res) => {
-  res.send('✅ PTV-TRMNL service running');
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="apple-mobile-web-app-capable" content="yes">
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+      <meta name="apple-mobile-web-app-title" content="PTV-TRMNL">
+      <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23000' width='100' height='100' rx='20'/><text y='70' x='50' text-anchor='middle' font-size='50'>🚊</text></svg>">
+      <title>PTV-TRMNL Home</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          color: #fff;
+          min-height: 100vh;
+          padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 {
+          font-size: 2rem;
+          text-align: center;
+          margin-bottom: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+        }
+        .subtitle {
+          text-align: center;
+          color: #8892b0;
+          margin-bottom: 30px;
+          font-size: 0.9rem;
+        }
+        .status-badge {
+          display: inline-block;
+          background: #10b981;
+          color: #fff;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          margin-bottom: 20px;
+        }
+        .card {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 16px;
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+        .card h2 {
+          font-size: 1rem;
+          color: #64ffda;
+          margin-bottom: 15px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .link-grid {
+          display: grid;
+          gap: 10px;
+        }
+        .link-item {
+          display: flex;
+          align-items: center;
+          background: rgba(255,255,255,0.08);
+          border-radius: 12px;
+          padding: 15px;
+          text-decoration: none;
+          color: #fff;
+          transition: all 0.2s;
+        }
+        .link-item:hover {
+          background: rgba(255,255,255,0.15);
+          transform: translateX(5px);
+        }
+        .link-icon {
+          width: 40px;
+          height: 40px;
+          background: rgba(100,255,218,0.2);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          margin-right: 15px;
+        }
+        .link-text h3 { font-size: 0.95rem; margin-bottom: 2px; }
+        .link-text p { font-size: 0.75rem; color: #8892b0; }
+        .preview-img {
+          width: 100%;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.1);
+          margin-top: 15px;
+        }
+        .trmnl-setup {
+          background: linear-gradient(135deg, #0f4c81 0%, #1a237e 100%);
+          border: none;
+        }
+        .trmnl-setup h2 { color: #fff; }
+        .setup-steps {
+          list-style: none;
+          counter-reset: steps;
+        }
+        .setup-steps li {
+          counter-increment: steps;
+          padding: 10px 0;
+          padding-left: 35px;
+          position: relative;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .setup-steps li:last-child { border-bottom: none; }
+        .setup-steps li::before {
+          content: counter(steps);
+          position: absolute;
+          left: 0;
+          width: 24px;
+          height: 24px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+        .webhook-url {
+          background: rgba(0,0,0,0.3);
+          padding: 10px;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 0.8rem;
+          word-break: break-all;
+          margin-top: 10px;
+        }
+        .copy-btn {
+          background: #64ffda;
+          color: #1a1a2e;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-weight: 600;
+          cursor: pointer;
+          margin-top: 10px;
+          font-size: 0.8rem;
+        }
+        .copy-btn:active { transform: scale(0.95); }
+        .refresh-note {
+          text-align: center;
+          color: #8892b0;
+          font-size: 0.75rem;
+          margin-top: 10px;
+        }
+        @media (max-width: 480px) {
+          h1 { font-size: 1.5rem; }
+          .card { padding: 15px; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>🚊 PTV-TRMNL</h1>
+        <p class="subtitle">Melbourne Transport Display for TRMNL</p>
+        <center><span class="status-badge">LIVE</span></center>
+
+        <!-- Quick Links -->
+        <div class="card">
+          <h2>📱 Quick Links</h2>
+          <div class="link-grid">
+            <a href="/preview" class="link-item">
+              <div class="link-icon">🖥️</div>
+              <div class="link-text">
+                <h3>Live Preview</h3>
+                <p>Full screen preview with auto-refresh</p>
+              </div>
+            </a>
+            <a href="/api/live-image.png" class="link-item">
+              <div class="link-icon">🖼️</div>
+              <div class="link-text">
+                <h3>PNG Screen</h3>
+                <p>Raw 800x480 e-ink display image</p>
+              </div>
+            </a>
+            <a href="/api/status" class="link-item">
+              <div class="link-icon">📊</div>
+              <div class="link-text">
+                <h3>Status & Diagnostics</h3>
+                <p>Cache, data counts, API health</p>
+              </div>
+            </a>
+            <a href="/api/diagnostic" class="link-item">
+              <div class="link-icon">🔬</div>
+              <div class="link-text">
+                <h3>Full Diagnostic</h3>
+                <p>Detailed system audit</p>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- API Endpoints -->
+        <div class="card">
+          <h2>🔗 API Endpoints</h2>
+          <div class="link-grid">
+            <a href="/api/screen" class="link-item">
+              <div class="link-icon">📋</div>
+              <div class="link-text">
+                <h3>/api/screen</h3>
+                <p>TRMNL webhook JSON markup</p>
+              </div>
+            </a>
+            <a href="/api/partial" class="link-item">
+              <div class="link-icon">⚡</div>
+              <div class="link-text">
+                <h3>/api/partial</h3>
+                <p>Fast partial refresh data</p>
+              </div>
+            </a>
+            <a href="/api/config" class="link-item">
+              <div class="link-icon">⚙️</div>
+              <div class="link-text">
+                <h3>/api/config</h3>
+                <p>Firmware configuration</p>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- TRMNL Setup -->
+        <div class="card trmnl-setup">
+          <h2>🔌 TRMNL Device Setup</h2>
+          <ol class="setup-steps">
+            <li>Go to <strong>usetrmnl.com</strong> and log in</li>
+            <li>Click <strong>Add Plugin</strong> → <strong>Webhook</strong></li>
+            <li>Paste webhook URL below</li>
+            <li>Set refresh to <strong>20 seconds</strong></li>
+            <li>Save and sync your device</li>
+          </ol>
+          <div class="webhook-url" id="webhook-url">${baseUrl}/api/screen</div>
+          <button class="copy-btn" onclick="copyUrl()">📋 Copy Webhook URL</button>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="card">
+          <h2>📺 Live Display</h2>
+          <img id="preview" class="preview-img" src="/api/live-image.png" alt="Live Display">
+          <p class="refresh-note">Auto-refreshes every 30 seconds</p>
+        </div>
+
+        <!-- External Links -->
+        <div class="card">
+          <h2>🌐 External Links</h2>
+          <div class="link-grid">
+            <a href="https://usetrmnl.com" target="_blank" class="link-item">
+              <div class="link-icon">📟</div>
+              <div class="link-text">
+                <h3>TRMNL Dashboard</h3>
+                <p>Manage your device</p>
+              </div>
+            </a>
+            <a href="https://opendata.transport.vic.gov.au" target="_blank" class="link-item">
+              <div class="link-icon">🚆</div>
+              <div class="link-text">
+                <h3>PTV Open Data</h3>
+                <p>API key management</p>
+              </div>
+            </a>
+            <a href="https://dashboard.render.com" target="_blank" class="link-item">
+              <div class="link-icon">☁️</div>
+              <div class="link-text">
+                <h3>Render Dashboard</h3>
+                <p>Server management</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function copyUrl() {
+          const url = document.getElementById('webhook-url').textContent;
+          navigator.clipboard.writeText(url).then(() => {
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => btn.textContent = '📋 Copy Webhook URL', 2000);
+          });
+        }
+        // Auto-refresh preview
+        setInterval(() => {
+          document.getElementById('preview').src = '/api/live-image.png?t=' + Date.now();
+        }, 30000);
+      </script>
+    </body>
+    </html>
+  `);
 });
 
 // Status endpoint
@@ -152,6 +450,7 @@ app.get('/api/status', async (req, res) => {
       data: {
         trains: data.trains.length,
         trams: data.trams.length,
+        connections: data.connections?.length || 0,
         alerts: data.news ? 1 : 0
       },
       meta: data.meta
@@ -162,6 +461,92 @@ app.get('/api/status', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Full diagnostic endpoint
+app.get('/api/diagnostic', async (req, res) => {
+  const startTime = Date.now();
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    server: {
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      nodeVersion: process.version,
+      env: process.env.NODE_ENV || 'development'
+    },
+    config: {
+      hasOdataKey: !!process.env.ODATA_KEY,
+      hasWeatherKey: !!process.env.WEATHER_KEY,
+      cacheSeconds: config.cacheSeconds,
+      refreshSeconds: config.refreshSeconds
+    },
+    cache: {
+      hasData: !!cachedData,
+      hasImage: !!cachedImage,
+      ageSeconds: Math.round((Date.now() - lastUpdate) / 1000),
+      maxAgeSeconds: Math.round(CACHE_MS / 1000)
+    },
+    tests: {}
+  };
+
+  try {
+    // Test data fetch
+    const data = await getData();
+    const fetchTime = Date.now() - startTime;
+
+    diagnostics.tests.dataFetch = {
+      success: true,
+      timeMs: fetchTime
+    };
+
+    diagnostics.data = {
+      trains: {
+        count: data.trains.length,
+        items: data.trains.slice(0, 3).map(t => ({
+          minutes: t.minutes,
+          platform: t.platform,
+          destination: t.destination
+        }))
+      },
+      trams: {
+        count: data.trams.length,
+        items: data.trams.slice(0, 3).map(t => ({
+          minutes: t.minutes,
+          destination: t.destination
+        }))
+      },
+      connections: {
+        count: data.connections?.length || 0,
+        optimal: data.connections?.[0] ? {
+          tramIn: data.connections[0].tramMinutes + ' min',
+          trainIn: data.connections[0].trainMinutes + ' min',
+          platform: data.connections[0].trainPlatform,
+          totalJourney: data.connections[0].totalTime + ' min'
+        } : null
+      },
+      coffee: data.coffee,
+      alerts: data.news
+    };
+
+    diagnostics.sources = data.meta?.sources || {};
+
+    // Test image generation
+    const imgStart = Date.now();
+    await getImage();
+    diagnostics.tests.imageGen = {
+      success: true,
+      timeMs: Date.now() - imgStart
+    };
+
+  } catch (error) {
+    diagnostics.tests.error = {
+      message: error.message,
+      stack: error.stack
+    };
+  }
+
+  diagnostics.totalTimeMs = Date.now() - startTime;
+  res.json(diagnostics);
 });
 
 // TRMNL screen endpoint (JSON markup)
