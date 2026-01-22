@@ -423,10 +423,24 @@ app.get('/', (req, res) => {
           <p class="refresh-note">Auto-refreshes every 30 seconds</p>
         </div>
 
+        <!-- Firmware Management -->
+        <div class="card" style="background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); border: none;">
+          <h2 style="color: #fff;">🔧 Standalone Firmware</h2>
+          <p style="color: rgba(255,255,255,0.8); margin-bottom: 15px;">Flash custom firmware to bypass TRMNL servers entirely</p>
+          <a href="/firmware" style="display: inline-block; background: #fff; color: #065f46; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Open Firmware Manager →</a>
+        </div>
+
         <!-- External Links -->
         <div class="card">
           <h2>🌐 External Links</h2>
           <div class="link-grid">
+            <a href="/firmware" class="link-item">
+              <div class="link-icon">🔧</div>
+              <div class="link-text">
+                <h3>Firmware Manager</h3>
+                <p>Flash & manage standalone devices</p>
+              </div>
+            </a>
             <a href="https://usetrmnl.com" target="_blank" class="link-item">
               <div class="link-icon">📟</div>
               <div class="link-text">
@@ -1221,6 +1235,605 @@ app.get('/preview', (req, res) => {
       <h2>Live Display:</h2>
       <img id="live-image" src="/api/live-image.png" alt="Live TRMNL Display">
       <p style="color: #666; font-size: 14px;">Image refreshes every 30 seconds</p>
+    </body>
+    </html>
+  `);
+});
+
+/* =========================================================
+   DEVICE MANAGEMENT (Standalone Firmware Support)
+   ========================================================= */
+
+// In-memory device registry (in production, use a database)
+const devices = new Map();
+const FIRMWARE_VERSION = 200; // v2.0.0
+
+// Parse JSON body
+app.use(express.json());
+
+// Device registration endpoint
+app.post('/api/device/register', (req, res) => {
+  const { deviceId, deviceName, firmwareVersion, mac, ip, bootCount } = req.body;
+
+  if (!deviceId) {
+    return res.status(400).json({ error: 'deviceId required' });
+  }
+
+  const device = {
+    deviceId,
+    deviceName: deviceName || 'Unknown',
+    firmwareVersion: firmwareVersion || 0,
+    mac: mac || 'unknown',
+    ip: ip || 'unknown',
+    bootCount: bootCount || 0,
+    registeredAt: devices.has(deviceId) ? devices.get(deviceId).registeredAt : new Date().toISOString(),
+    lastSeen: new Date().toISOString(),
+    healthReports: devices.has(deviceId) ? devices.get(deviceId).healthReports : []
+  };
+
+  devices.set(deviceId, device);
+  console.log(`[DEVICE] Registered: ${deviceId} (${deviceName})`);
+
+  res.status(201).json({ success: true, deviceId });
+});
+
+// Device health reporting
+app.post('/api/device/health', (req, res) => {
+  const { deviceId, batteryMv, wifiRssi, freeHeap, uptime, partialCount, firmwareVersion } = req.body;
+
+  if (!deviceId) {
+    return res.status(400).json({ error: 'deviceId required' });
+  }
+
+  const device = devices.get(deviceId);
+  if (device) {
+    device.lastSeen = new Date().toISOString();
+    device.lastHealth = {
+      batteryMv,
+      wifiRssi,
+      freeHeap,
+      uptime,
+      partialCount,
+      firmwareVersion,
+      timestamp: new Date().toISOString()
+    };
+
+    // Keep last 10 health reports
+    device.healthReports = device.healthReports || [];
+    device.healthReports.unshift(device.lastHealth);
+    if (device.healthReports.length > 10) {
+      device.healthReports = device.healthReports.slice(0, 10);
+    }
+
+    devices.set(deviceId, device);
+  }
+
+  res.json({ success: true });
+});
+
+// Device configuration endpoint (device pulls config from server)
+app.get('/api/device/config', (req, res) => {
+  const deviceId = req.query.id || req.headers['x-device-id'];
+
+  // Return device-specific config or defaults
+  res.json({
+    partialRefreshMs: 60000,    // 1 minute
+    fullRefreshMs: 300000,      // 5 minutes
+    sleepMs: 55000,             // 55 seconds
+    timezone: 'Australia/Melbourne',
+    serverVersion: '2.0.0',
+    firmwareVersion: FIRMWARE_VERSION
+  });
+});
+
+// OTA firmware check endpoint
+app.get('/api/firmware/check', (req, res) => {
+  const currentVersion = parseInt(req.query.version) || 0;
+  const deviceId = req.query.device || 'unknown';
+
+  const updateAvailable = currentVersion < FIRMWARE_VERSION;
+
+  res.json({
+    updateAvailable,
+    currentVersion,
+    latestVersion: FIRMWARE_VERSION,
+    firmwareUrl: updateAvailable ? `${req.protocol}://${req.get('host')}/api/firmware/download` : null,
+    releaseNotes: updateAvailable ? 'Standalone firmware v2.0 with OTA support' : null
+  });
+});
+
+// Firmware download endpoint (placeholder - in production, serve actual binary)
+app.get('/api/firmware/download', (req, res) => {
+  // In production, this would serve the compiled firmware.bin
+  // For now, return instructions
+  res.status(404).json({
+    error: 'Firmware binary not uploaded',
+    instructions: 'Upload firmware.bin to /firmware/builds/ directory',
+    manualFlash: 'Use PlatformIO: pio run -t upload'
+  });
+});
+
+// List all registered devices
+app.get('/api/devices', (req, res) => {
+  const deviceList = Array.from(devices.values()).map(d => ({
+    deviceId: d.deviceId,
+    deviceName: d.deviceName,
+    firmwareVersion: d.firmwareVersion,
+    lastSeen: d.lastSeen,
+    lastHealth: d.lastHealth
+  }));
+
+  res.json({
+    count: deviceList.length,
+    devices: deviceList
+  });
+});
+
+// Get specific device details
+app.get('/api/device/:id', (req, res) => {
+  const device = devices.get(req.params.id);
+
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+
+  res.json(device);
+});
+
+// Update device settings from web UI
+app.post('/api/device/:id/settings', (req, res) => {
+  const device = devices.get(req.params.id);
+
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+
+  const { deviceName, partialRefreshMs, fullRefreshMs } = req.body;
+
+  if (deviceName) device.deviceName = deviceName;
+  if (partialRefreshMs) device.configOverride = { ...device.configOverride, partialRefreshMs };
+  if (fullRefreshMs) device.configOverride = { ...device.configOverride, fullRefreshMs };
+
+  devices.set(req.params.id, device);
+
+  res.json({ success: true, device });
+});
+
+// ========== FIRMWARE MANAGEMENT DASHBOARD ==========
+
+app.get('/firmware', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Firmware Manager - PTV-TRMNL</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #0f0f1a;
+          color: #e0e0e0;
+          min-height: 100vh;
+          padding: 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 10px; color: #64ffda; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+
+        .tabs {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+          border-bottom: 1px solid #333;
+          padding-bottom: 10px;
+        }
+        .tab {
+          padding: 10px 20px;
+          background: #1a1a2e;
+          border: 1px solid #333;
+          border-radius: 8px 8px 0 0;
+          cursor: pointer;
+          color: #888;
+        }
+        .tab.active { background: #2a2a4e; color: #64ffda; border-color: #64ffda; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .card {
+          background: #1a1a2e;
+          border: 1px solid #333;
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+        .card h2 { color: #64ffda; margin-bottom: 15px; font-size: 1.1rem; }
+        .card h3 { color: #888; margin: 15px 0 10px; font-size: 0.9rem; }
+
+        .device-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 15px;
+        }
+        .device-card {
+          background: #252540;
+          border: 1px solid #444;
+          border-radius: 10px;
+          padding: 15px;
+        }
+        .device-card.online { border-color: #10b981; }
+        .device-card.offline { border-color: #ef4444; opacity: 0.7; }
+        .device-name { font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; }
+        .device-id { color: #888; font-family: monospace; font-size: 0.8rem; }
+        .device-stats { margin-top: 10px; font-size: 0.85rem; }
+        .device-stats div { padding: 3px 0; display: flex; justify-content: space-between; }
+        .device-stats .label { color: #888; }
+
+        .status-badge {
+          display: inline-block;
+          padding: 3px 10px;
+          border-radius: 20px;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+        .status-badge.online { background: #10b981; color: #000; }
+        .status-badge.offline { background: #ef4444; color: #fff; }
+
+        .code-block {
+          background: #000;
+          border: 1px solid #333;
+          border-radius: 8px;
+          padding: 15px;
+          font-family: 'Monaco', 'Consolas', monospace;
+          font-size: 0.85rem;
+          overflow-x: auto;
+          margin: 10px 0;
+        }
+        .code-block code { color: #64ffda; }
+
+        .step-list {
+          list-style: none;
+          counter-reset: steps;
+        }
+        .step-list li {
+          counter-increment: steps;
+          padding: 15px 15px 15px 50px;
+          position: relative;
+          border-bottom: 1px solid #333;
+        }
+        .step-list li:last-child { border-bottom: none; }
+        .step-list li::before {
+          content: counter(steps);
+          position: absolute;
+          left: 10px;
+          width: 28px;
+          height: 28px;
+          background: #64ffda;
+          color: #000;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 0.9rem;
+        }
+
+        .btn {
+          display: inline-block;
+          padding: 10px 20px;
+          background: #64ffda;
+          color: #000;
+          border: none;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          font-size: 0.9rem;
+        }
+        .btn:hover { background: #4fd1c5; }
+        .btn.secondary { background: #333; color: #fff; }
+        .btn.danger { background: #ef4444; color: #fff; }
+
+        .input-group {
+          margin-bottom: 15px;
+        }
+        .input-group label {
+          display: block;
+          margin-bottom: 5px;
+          color: #888;
+          font-size: 0.85rem;
+        }
+        .input-group input, .input-group select {
+          width: 100%;
+          padding: 10px;
+          background: #252540;
+          border: 1px solid #444;
+          border-radius: 6px;
+          color: #fff;
+          font-size: 0.9rem;
+        }
+
+        .copy-btn {
+          background: #333;
+          color: #64ffda;
+          border: 1px solid #64ffda;
+          padding: 5px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.75rem;
+          margin-left: 10px;
+        }
+
+        .info-box {
+          background: rgba(100,255,218,0.1);
+          border: 1px solid #64ffda;
+          border-radius: 8px;
+          padding: 15px;
+          margin: 15px 0;
+        }
+        .warning-box {
+          background: rgba(251,191,36,0.1);
+          border: 1px solid #fbbf24;
+          border-radius: 8px;
+          padding: 15px;
+          margin: 15px 0;
+        }
+
+        #device-list { min-height: 100px; }
+        .loading { text-align: center; padding: 40px; color: #888; }
+
+        @media (max-width: 600px) {
+          .tabs { flex-wrap: wrap; }
+          .tab { flex: 1; text-align: center; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>🔧 Firmware Manager</h1>
+        <p class="subtitle">Manage your standalone PTV-TRMNL devices</p>
+
+        <div class="tabs">
+          <div class="tab active" onclick="showPanel('devices')">📟 Devices</div>
+          <div class="tab" onclick="showPanel('flash')">⚡ Flash Guide</div>
+          <div class="tab" onclick="showPanel('settings')">⚙️ Settings</div>
+          <div class="tab" onclick="showPanel('ota')">📦 OTA Updates</div>
+        </div>
+
+        <!-- DEVICES PANEL -->
+        <div id="panel-devices" class="panel active">
+          <div class="card">
+            <h2>Connected Devices</h2>
+            <div id="device-list" class="device-grid">
+              <div class="loading">Loading devices...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLASH GUIDE PANEL -->
+        <div id="panel-flash" class="panel">
+          <div class="card">
+            <h2>🔌 Flash Your Device</h2>
+            <p style="color: #888; margin-bottom: 20px;">Follow these steps to flash the standalone firmware to your TRMNL device (or any ESP32-C3 with 7.5" e-ink).</p>
+
+            <div class="warning-box">
+              <strong>⚠️ Important:</strong> Flashing custom firmware will replace the stock TRMNL firmware.
+              Your device will no longer connect to TRMNL servers - it will connect directly to your Render server.
+            </div>
+
+            <h3>Prerequisites</h3>
+            <ul style="margin-left: 20px; margin-bottom: 20px; color: #aaa;">
+              <li>PlatformIO installed (VS Code extension or CLI)</li>
+              <li>USB-C cable for flashing</li>
+              <li>Your Render server URL</li>
+            </ul>
+
+            <ol class="step-list">
+              <li>
+                <strong>Clone or download the firmware</strong>
+                <div class="code-block">
+                  <code>git clone https://github.com/YOUR_REPO/PTV-TRMNL-NEW.git<br>cd PTV-TRMNL-NEW/firmware</code>
+                </div>
+              </li>
+              <li>
+                <strong>Update your server URL</strong>
+                <p style="color: #888; margin: 10px 0;">Edit <code>include/config.h</code> and set your Render URL:</p>
+                <div class="code-block">
+                  <code>#define DEFAULT_SERVER_URL "${baseUrl}"</code>
+                </div>
+                <button class="copy-btn" onclick="copyText('${baseUrl}')">Copy URL</button>
+              </li>
+              <li>
+                <strong>Connect your device via USB</strong>
+                <p style="color: #888; margin: 10px 0;">Put the ESP32-C3 in bootloader mode if needed (hold BOOT while pressing RESET)</p>
+              </li>
+              <li>
+                <strong>Build and flash</strong>
+                <div class="code-block">
+                  <code>pio run -t upload</code>
+                </div>
+              </li>
+              <li>
+                <strong>Configure via WiFi</strong>
+                <p style="color: #888; margin: 10px 0;">After flashing, the device creates a WiFi hotspot:</p>
+                <div class="info-box">
+                  <strong>Network:</strong> PTV-TRMNL-Setup<br>
+                  <strong>Password:</strong> ptvsetup123<br>
+                  <strong>Config URL:</strong> http://192.168.4.1
+                </div>
+                <p style="color: #888; margin: 10px 0;">Connect and enter your WiFi credentials + server URL.</p>
+              </li>
+              <li>
+                <strong>Verify connection</strong>
+                <p style="color: #888; margin: 10px 0;">Once configured, the device will appear in the Devices tab above.</p>
+              </li>
+            </ol>
+          </div>
+
+          <div class="card">
+            <h2>📁 Firmware Files</h2>
+            <div style="display: grid; gap: 10px;">
+              <a href="/firmware/src/main.cpp" class="btn secondary" style="text-align: center;" download>📄 main.cpp</a>
+              <a href="/firmware/include/config.h" class="btn secondary" style="text-align: center;" download>📄 config.h</a>
+              <a href="/firmware/platformio.ini" class="btn secondary" style="text-align: center;" download>📄 platformio.ini</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTINGS PANEL -->
+        <div id="panel-settings" class="panel">
+          <div class="card">
+            <h2>Default Device Settings</h2>
+            <p style="color: #888; margin-bottom: 20px;">These settings are sent to devices when they connect.</p>
+
+            <div class="input-group">
+              <label>Partial Refresh Interval (seconds)</label>
+              <input type="number" id="setting-partial" value="60" min="30" max="300">
+            </div>
+            <div class="input-group">
+              <label>Full Refresh Interval (seconds)</label>
+              <input type="number" id="setting-full" value="300" min="60" max="900">
+            </div>
+            <div class="input-group">
+              <label>Sleep Duration (seconds)</label>
+              <input type="number" id="setting-sleep" value="55" min="25" max="295">
+            </div>
+
+            <button class="btn" onclick="saveSettings()">Save Settings</button>
+          </div>
+
+          <div class="card">
+            <h2>Server Information</h2>
+            <div style="font-family: monospace; font-size: 0.9rem;">
+              <div style="padding: 8px 0; border-bottom: 1px solid #333;">
+                <span style="color: #888;">Server URL:</span>
+                <span style="color: #64ffda;">${baseUrl}</span>
+                <button class="copy-btn" onclick="copyText('${baseUrl}')">Copy</button>
+              </div>
+              <div style="padding: 8px 0; border-bottom: 1px solid #333;">
+                <span style="color: #888;">Partial Data API:</span>
+                <span>${baseUrl}/api/partial</span>
+              </div>
+              <div style="padding: 8px 0; border-bottom: 1px solid #333;">
+                <span style="color: #888;">Device Config API:</span>
+                <span>${baseUrl}/api/device/config</span>
+              </div>
+              <div style="padding: 8px 0;">
+                <span style="color: #888;">Firmware Version:</span>
+                <span>v2.0.0 (${FIRMWARE_VERSION})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OTA PANEL -->
+        <div id="panel-ota" class="panel">
+          <div class="card">
+            <h2>📦 Over-The-Air Updates</h2>
+            <p style="color: #888; margin-bottom: 20px;">
+              Devices check for updates on startup. When you upload a new firmware binary,
+              devices will automatically download and install it.
+            </p>
+
+            <div class="info-box">
+              <strong>Current Firmware:</strong> v2.0.0 (build ${FIRMWARE_VERSION})<br>
+              <strong>Status:</strong> No pending updates
+            </div>
+
+            <h3>Upload New Firmware</h3>
+            <p style="color: #888; margin: 10px 0;">
+              To deploy OTA updates, compile your firmware and upload the binary:
+            </p>
+            <div class="code-block">
+              <code># Build firmware<br>cd firmware && pio run<br><br># Binary location:<br>.pio/build/trmnl/firmware.bin</code>
+            </div>
+
+            <div class="warning-box">
+              <strong>Note:</strong> OTA update hosting requires file storage.
+              For production, upload firmware.bin to your Render static files or a CDN.
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #333;">
+          <a href="/" class="btn secondary">← Back to Home</a>
+          <a href="/setup" class="btn secondary">Device Setup</a>
+          <a href="/api/devices" class="btn secondary">Devices JSON</a>
+        </div>
+      </div>
+
+      <script>
+        function showPanel(name) {
+          document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.getElementById('panel-' + name).classList.add('active');
+          event.target.classList.add('active');
+        }
+
+        function copyText(text) {
+          navigator.clipboard.writeText(text).then(() => {
+            alert('Copied: ' + text);
+          });
+        }
+
+        function saveSettings() {
+          alert('Settings saved! (In production, this would update the server config)');
+        }
+
+        async function loadDevices() {
+          try {
+            const response = await fetch('/api/devices');
+            const data = await response.json();
+
+            const container = document.getElementById('device-list');
+
+            if (data.count === 0) {
+              container.innerHTML = '<div class="loading">No devices registered yet.<br><br>Flash a device and it will appear here.</div>';
+              return;
+            }
+
+            container.innerHTML = data.devices.map(device => {
+              const lastSeen = new Date(device.lastSeen);
+              const now = new Date();
+              const diffMin = Math.round((now - lastSeen) / 60000);
+              const isOnline = diffMin < 10;
+
+              return \`
+                <div class="device-card \${isOnline ? 'online' : 'offline'}">
+                  <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                      <div class="device-name">\${device.deviceName}</div>
+                      <div class="device-id">\${device.deviceId}</div>
+                    </div>
+                    <span class="status-badge \${isOnline ? 'online' : 'offline'}">\${isOnline ? 'ONLINE' : 'OFFLINE'}</span>
+                  </div>
+                  <div class="device-stats">
+                    <div><span class="label">Firmware:</span> <span>v\${(device.firmwareVersion/100).toFixed(1)}</span></div>
+                    <div><span class="label">Last Seen:</span> <span>\${diffMin < 1 ? 'Just now' : diffMin + ' min ago'}</span></div>
+                    \${device.lastHealth ? \`
+                      <div><span class="label">Battery:</span> <span>\${device.lastHealth.batteryMv}mV</span></div>
+                      <div><span class="label">WiFi:</span> <span>\${device.lastHealth.wifiRssi}dBm</span></div>
+                    \` : ''}
+                  </div>
+                </div>
+              \`;
+            }).join('');
+          } catch (err) {
+            document.getElementById('device-list').innerHTML =
+              '<div class="loading">Error loading devices: ' + err.message + '</div>';
+          }
+        }
+
+        // Load devices on page load
+        loadDevices();
+        // Refresh every 30 seconds
+        setInterval(loadDevices, 30000);
+      </script>
     </body>
     </html>
   `);
