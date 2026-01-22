@@ -4,11 +4,5 @@ services:
     name: ptv-trmnl-new
     env: node
     plan: free
-    buildCommand: npm ci
+    buildCommand: npm install --no-audit --no-fund
     startCommand: node server.js
-    envVars:
-      - key: ODATA_KEY
-        sync: false
-      # Optional
-      - key: WEATHER_KEY
-        sync: false
