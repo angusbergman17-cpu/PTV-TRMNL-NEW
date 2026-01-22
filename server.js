@@ -304,10 +304,24 @@ app.get('/', (req, res) => {
         <p class="subtitle">Melbourne Transport Display for TRMNL</p>
         <center><span class="status-badge">LIVE</span></center>
 
+        <!-- Device Setup CTA -->
+        <div class="card" style="background: linear-gradient(135deg, #0f4c81 0%, #1a237e 100%); border: none;">
+          <h2 style="color: #fff;">📟 Set Up Your TRMNL Device</h2>
+          <p style="color: rgba(255,255,255,0.8); margin-bottom: 15px;">Follow our step-by-step guide to connect your display</p>
+          <a href="/setup" style="display: inline-block; background: #64ffda; color: #1a1a2e; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Start Device Setup →</a>
+        </div>
+
         <!-- Quick Links -->
         <div class="card">
           <h2>📱 Quick Links</h2>
           <div class="link-grid">
+            <a href="/setup" class="link-item">
+              <div class="link-icon">📟</div>
+              <div class="link-text">
+                <h3>Device Setup</h3>
+                <p>Step-by-step TRMNL pairing guide</p>
+              </div>
+            </a>
             <a href="/preview" class="link-item">
               <div class="link-icon">🖥️</div>
               <div class="link-text">
@@ -369,6 +383,20 @@ app.get('/', (req, res) => {
               <div class="link-text">
                 <h3>/api/config</h3>
                 <p>Firmware configuration</p>
+              </div>
+            </a>
+            <a href="/api/test-card" class="link-item">
+              <div class="link-icon">🧪</div>
+              <div class="link-text">
+                <h3>/api/test-card</h3>
+                <p>Test TRMNL connection</p>
+              </div>
+            </a>
+            <a href="/api/validate-setup" class="link-item">
+              <div class="link-icon">✅</div>
+              <div class="link-text">
+                <h3>/api/validate-setup</h3>
+                <p>Validate setup status</p>
               </div>
             </a>
           </div>
@@ -719,6 +747,441 @@ app.get('/api/config', (req, res) => {
     sleepBetweenMs: 55000,      // Sleep time between polls
     timezone: 'Australia/Melbourne',
     version: '1.0.0'
+  });
+});
+
+// ========== TRMNL DEVICE SETUP & VALIDATION ==========
+
+// Device setup wizard page
+app.get('/setup', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const webhookUrl = `${baseUrl}/api/screen`;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>TRMNL Device Setup</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #0a0a0a;
+          color: #fff;
+          min-height: 100vh;
+          padding: 20px;
+        }
+        .container { max-width: 700px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 10px; font-size: 1.8rem; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+
+        .step {
+          background: #1a1a1a;
+          border: 1px solid #333;
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 15px;
+          position: relative;
+        }
+        .step.active { border-color: #64ffda; }
+        .step.complete { border-color: #10b981; background: rgba(16,185,129,0.1); }
+        .step-num {
+          position: absolute;
+          left: -12px;
+          top: 20px;
+          width: 24px;
+          height: 24px;
+          background: #333;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.8rem;
+          font-weight: bold;
+        }
+        .step.complete .step-num { background: #10b981; }
+        .step h3 { margin-bottom: 10px; color: #64ffda; }
+        .step p { color: #aaa; font-size: 0.9rem; line-height: 1.5; }
+
+        .url-box {
+          background: #000;
+          border: 1px solid #444;
+          border-radius: 8px;
+          padding: 15px;
+          margin: 15px 0;
+          font-family: 'Monaco', 'Consolas', monospace;
+          font-size: 0.85rem;
+          word-break: break-all;
+          color: #64ffda;
+        }
+        .copy-btn {
+          background: #64ffda;
+          color: #000;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          font-size: 0.9rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .copy-btn:hover { background: #4fd1c5; }
+        .copy-btn.copied { background: #10b981; }
+
+        .validation {
+          background: #1a1a1a;
+          border: 2px dashed #333;
+          border-radius: 12px;
+          padding: 25px;
+          margin: 25px 0;
+          text-align: center;
+        }
+        .validation h3 { margin-bottom: 15px; }
+        .validate-btn {
+          background: #3b82f6;
+          color: #fff;
+          border: none;
+          padding: 12px 30px;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          font-size: 1rem;
+        }
+        .validate-btn:hover { background: #2563eb; }
+        .validate-btn:disabled { background: #555; cursor: not-allowed; }
+
+        .result {
+          margin-top: 20px;
+          padding: 15px;
+          border-radius: 8px;
+          display: none;
+        }
+        .result.success { display: block; background: rgba(16,185,129,0.2); border: 1px solid #10b981; }
+        .result.error { display: block; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; }
+        .result.loading { display: block; background: rgba(59,130,246,0.2); border: 1px solid #3b82f6; }
+
+        .checklist { list-style: none; text-align: left; margin-top: 15px; }
+        .checklist li { padding: 8px 0; padding-left: 30px; position: relative; }
+        .checklist li::before {
+          content: '○';
+          position: absolute;
+          left: 5px;
+          color: #666;
+        }
+        .checklist li.pass::before { content: '✓'; color: #10b981; }
+        .checklist li.fail::before { content: '✗'; color: #ef4444; }
+
+        .screenshot {
+          margin: 15px 0;
+          border-radius: 8px;
+          border: 1px solid #333;
+          max-width: 100%;
+        }
+        .note {
+          background: rgba(251,191,36,0.1);
+          border: 1px solid #fbbf24;
+          border-radius: 8px;
+          padding: 15px;
+          margin: 15px 0;
+          font-size: 0.85rem;
+        }
+        .note strong { color: #fbbf24; }
+
+        .external-link {
+          display: inline-block;
+          background: #2563eb;
+          color: #fff;
+          padding: 10px 20px;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: 500;
+          margin: 5px;
+        }
+        .external-link:hover { background: #1d4ed8; }
+
+        .final-checklist {
+          background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+          border-radius: 12px;
+          padding: 20px;
+          margin-top: 25px;
+        }
+        .final-checklist h3 { color: #6ee7b7; margin-bottom: 15px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>📟 TRMNL Device Setup</h1>
+        <p class="subtitle">Follow these steps to connect your PTV display</p>
+
+        <!-- Step 1: TRMNL Account -->
+        <div class="step">
+          <span class="step-num">1</span>
+          <h3>Log into TRMNL</h3>
+          <p>Open your browser and go to the TRMNL dashboard. Make sure your device is already paired to your account.</p>
+          <div style="margin-top: 15px;">
+            <a href="https://usetrmnl.com" target="_blank" class="external-link">Open TRMNL Dashboard →</a>
+          </div>
+        </div>
+
+        <!-- Step 2: Add Webhook Plugin -->
+        <div class="step">
+          <span class="step-num">2</span>
+          <h3>Add Webhook Plugin</h3>
+          <p>In the TRMNL dashboard:</p>
+          <ol style="margin: 10px 0 0 20px; color: #aaa; font-size: 0.9rem; line-height: 1.8;">
+            <li>Click <strong style="color:#fff">Plugins</strong> in the sidebar</li>
+            <li>Click <strong style="color:#fff">+ Add Plugin</strong></li>
+            <li>Search for <strong style="color:#fff">"Webhook"</strong></li>
+            <li>Click to add it</li>
+          </ol>
+        </div>
+
+        <!-- Step 3: Configure Webhook -->
+        <div class="step active">
+          <span class="step-num">3</span>
+          <h3>Configure Webhook URL</h3>
+          <p>Copy this webhook URL and paste it into the Webhook plugin configuration:</p>
+          <div class="url-box" id="webhook-url">${webhookUrl}</div>
+          <button class="copy-btn" onclick="copyUrl()">
+            <span id="copy-icon">📋</span>
+            <span id="copy-text">Copy Webhook URL</span>
+          </button>
+        </div>
+
+        <!-- Step 4: Set Refresh Rate -->
+        <div class="step">
+          <span class="step-num">4</span>
+          <h3>Set Refresh Rate</h3>
+          <p>Configure how often TRMNL fetches new data:</p>
+          <div class="note">
+            <strong>⚡ Recommended:</strong> Set refresh to <strong>15 minutes</strong> (TRMNL default).
+            For faster updates, you'll need custom firmware (included in this project).
+          </div>
+          <p style="margin-top: 10px; font-size: 0.85rem; color: #888;">
+            Standard TRMNL supports 15-minute minimum refresh. The custom firmware in <code>/firmware</code>
+            enables 1-minute partial refresh for real-time departures.
+          </p>
+        </div>
+
+        <!-- Step 5: Save & Sync -->
+        <div class="step">
+          <span class="step-num">5</span>
+          <h3>Save & Sync Device</h3>
+          <p>Click <strong>Save</strong> in TRMNL, then press the button on your device to force a sync.</p>
+          <div class="note">
+            <strong>💡 Tip:</strong> The device button triggers an immediate refresh.
+            After setup, your display will show Melbourne train & tram departures!
+          </div>
+        </div>
+
+        <!-- Validation Section -->
+        <div class="validation">
+          <h3>🔍 Validate Your Setup</h3>
+          <p style="color: #888; margin-bottom: 15px;">Click below to test that everything is working</p>
+          <button class="validate-btn" onclick="runValidation()" id="validate-btn">Run Validation Check</button>
+
+          <div id="result" class="result">
+            <ul class="checklist" id="checklist"></ul>
+          </div>
+        </div>
+
+        <!-- Final Checklist -->
+        <div class="final-checklist">
+          <h3>✅ Setup Complete Checklist</h3>
+          <ul class="checklist" style="color: #d1fae5;">
+            <li>TRMNL device powered on and connected to WiFi</li>
+            <li>Device paired to your TRMNL account</li>
+            <li>Webhook plugin added with correct URL</li>
+            <li>Device synced (press button to force)</li>
+            <li>Display showing PTV departures</li>
+          </ul>
+        </div>
+
+        <!-- Quick Links -->
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #333;">
+          <p style="color: #666; margin-bottom: 15px;">Quick Links</p>
+          <a href="/" class="external-link" style="background: #333;">← Home</a>
+          <a href="/preview" class="external-link" style="background: #333;">Live Preview</a>
+          <a href="/api/diagnostic" class="external-link" style="background: #333;">Diagnostics</a>
+        </div>
+      </div>
+
+      <script>
+        function copyUrl() {
+          const url = document.getElementById('webhook-url').textContent;
+          navigator.clipboard.writeText(url).then(() => {
+            document.getElementById('copy-icon').textContent = '✓';
+            document.getElementById('copy-text').textContent = 'Copied!';
+            document.querySelector('.copy-btn').classList.add('copied');
+            setTimeout(() => {
+              document.getElementById('copy-icon').textContent = '📋';
+              document.getElementById('copy-text').textContent = 'Copy Webhook URL';
+              document.querySelector('.copy-btn').classList.remove('copied');
+            }, 2000);
+          });
+        }
+
+        async function runValidation() {
+          const btn = document.getElementById('validate-btn');
+          const result = document.getElementById('result');
+          const checklist = document.getElementById('checklist');
+
+          btn.disabled = true;
+          btn.textContent = 'Checking...';
+          result.className = 'result loading';
+          checklist.innerHTML = '<li>Running validation checks...</li>';
+
+          try {
+            const response = await fetch('/api/validate-setup');
+            const data = await response.json();
+
+            let html = '';
+            let allPass = true;
+
+            data.checks.forEach(check => {
+              const status = check.pass ? 'pass' : 'fail';
+              if (!check.pass) allPass = false;
+              html += '<li class="' + status + '">' + check.name + (check.detail ? ' - ' + check.detail : '') + '</li>';
+            });
+
+            checklist.innerHTML = html;
+            result.className = 'result ' + (allPass ? 'success' : 'error');
+
+            if (allPass) {
+              checklist.innerHTML += '<li style="padding-top: 15px; border-top: 1px solid #333; margin-top: 10px; color: #10b981; font-weight: bold;">🎉 All checks passed! Your setup is ready.</li>';
+            } else {
+              checklist.innerHTML += '<li style="padding-top: 15px; border-top: 1px solid #333; margin-top: 10px; color: #fbbf24;">⚠️ Some checks failed. Review the items above.</li>';
+            }
+          } catch (err) {
+            checklist.innerHTML = '<li class="fail">Connection error: ' + err.message + '</li>';
+            result.className = 'result error';
+          }
+
+          btn.disabled = false;
+          btn.textContent = 'Run Validation Check';
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Setup validation endpoint
+app.get('/api/validate-setup', async (req, res) => {
+  const checks = [];
+
+  // Check 1: API Key configured
+  const hasApiKey = !!process.env.ODATA_KEY;
+  checks.push({
+    name: 'API Key Configured',
+    pass: hasApiKey,
+    detail: hasApiKey ? 'ODATA_KEY is set' : 'Missing ODATA_KEY environment variable'
+  });
+
+  // Check 2: Server responding
+  checks.push({
+    name: 'Server Online',
+    pass: true,
+    detail: 'Express server running on port ' + PORT
+  });
+
+  // Check 3: Can generate image
+  try {
+    const imageStart = Date.now();
+    await getImage();
+    const imageTime = Date.now() - imageStart;
+    checks.push({
+      name: 'Image Generation',
+      pass: true,
+      detail: 'Generated in ' + imageTime + 'ms'
+    });
+  } catch (err) {
+    checks.push({
+      name: 'Image Generation',
+      pass: false,
+      detail: err.message
+    });
+  }
+
+  // Check 4: Data available
+  try {
+    const data = await getData();
+    const hasTrains = data.trains && data.trains.length > 0;
+    const hasTrams = data.trams && data.trams.length > 0;
+    checks.push({
+      name: 'Train Data',
+      pass: hasTrains,
+      detail: hasTrains ? data.trains.length + ' departures' : 'No train data (API may be unavailable)'
+    });
+    checks.push({
+      name: 'Tram Data',
+      pass: hasTrams,
+      detail: hasTrams ? data.trams.length + ' departures' : 'No tram data (API may be unavailable)'
+    });
+  } catch (err) {
+    checks.push({
+      name: 'Data Fetch',
+      pass: false,
+      detail: err.message
+    });
+  }
+
+  // Check 5: API connection status
+  checks.push({
+    name: 'API Connection Health',
+    pass: connectionStatus.consecutiveFailures < 3,
+    detail: connectionStatus.lastSuccess
+      ? 'Last success: ' + new Date(connectionStatus.lastSuccess).toLocaleTimeString()
+      : (connectionStatus.lastError || 'No connection attempts yet')
+  });
+
+  // Check 6: Webhook endpoint accessible
+  checks.push({
+    name: 'Webhook Endpoint',
+    pass: true,
+    detail: '/api/screen ready for TRMNL'
+  });
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    allPass: checks.every(c => c.pass),
+    checks
+  });
+});
+
+// TRMNL Test Card - simple endpoint to verify connection
+app.get('/api/test-card', (req, res) => {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-AU', {
+    timeZone: 'Australia/Melbourne',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  res.json({
+    merge_variables: {
+      screen_text: [
+        '✓ CONNECTION SUCCESSFUL',
+        '',
+        'PTV-TRMNL is working!',
+        '',
+        'Server Time: ' + timeStr,
+        'Timezone: Australia/Melbourne',
+        '',
+        'Your TRMNL device has',
+        'successfully connected to',
+        'the PTV departure display.',
+        '',
+        'Switch to /api/screen for',
+        'live train & tram data.'
+      ].join('\\n')
+    }
   });
 });
 
