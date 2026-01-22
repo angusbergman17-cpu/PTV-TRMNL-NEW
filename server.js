@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import config from './config.js';
-import { getSnapshot } from './data-scraper.js';
+import { getSnapshot, connectionStatus } from './data-scraper.js';
 import PidsRenderer from './pids-renderer.js';
 import CoffeeDecision from './coffee-decision.js';
 
@@ -336,6 +336,13 @@ app.get('/', (req, res) => {
                 <p>Detailed system audit</p>
               </div>
             </a>
+            <a href="/api/test-connection" class="link-item">
+              <div class="link-icon">🔌</div>
+              <div class="link-text">
+                <h3>Test API Connection</h3>
+                <p>Fresh API test (bypasses cache)</p>
+              </div>
+            </a>
           </div>
         </div>
 
@@ -476,9 +483,14 @@ app.get('/api/diagnostic', async (req, res) => {
     },
     config: {
       hasOdataKey: !!process.env.ODATA_KEY,
+      odataKeyPreview: process.env.ODATA_KEY ? process.env.ODATA_KEY.substring(0, 8) + '...' : null,
       hasWeatherKey: !!process.env.WEATHER_KEY,
       cacheSeconds: config.cacheSeconds,
       refreshSeconds: config.refreshSeconds
+    },
+    connection: {
+      ...connectionStatus,
+      healthy: connectionStatus.consecutiveFailures < 3
     },
     cache: {
       hasData: !!cachedData,
@@ -547,6 +559,76 @@ app.get('/api/diagnostic', async (req, res) => {
 
   diagnostics.totalTimeMs = Date.now() - startTime;
   res.json(diagnostics);
+});
+
+// Force fresh API test (bypasses cache)
+app.get('/api/test-connection', async (req, res) => {
+  const apiKey = process.env.ODATA_KEY;
+
+  if (!apiKey) {
+    return res.status(500).json({
+      success: false,
+      error: 'ODATA_KEY not configured',
+      hint: 'Add ODATA_KEY to environment variables in Render dashboard'
+    });
+  }
+
+  const results = {
+    timestamp: new Date().toISOString(),
+    apiKey: apiKey.substring(0, 8) + '...',
+    tests: {}
+  };
+
+  // Import the fetch functions directly for testing
+  const { getMetroTripUpdates, getTramTripUpdates, getMetroServiceAlerts } = await import('./opendata.js');
+  const mBase = config.feeds.metro.base;
+  const tBase = config.feeds.tram.base;
+
+  // Test Metro
+  try {
+    const start = Date.now();
+    const metroFeed = await getMetroTripUpdates(apiKey, mBase);
+    results.tests.metro = {
+      success: true,
+      entities: metroFeed.entity?.length || 0,
+      timeMs: Date.now() - start,
+      headerTimestamp: metroFeed.header?.timestamp?.toString()
+    };
+  } catch (err) {
+    results.tests.metro = { success: false, error: err.message };
+  }
+
+  // Test Tram
+  try {
+    const start = Date.now();
+    const tramFeed = await getTramTripUpdates(apiKey, tBase);
+    results.tests.tram = {
+      success: true,
+      entities: tramFeed.entity?.length || 0,
+      timeMs: Date.now() - start,
+      headerTimestamp: tramFeed.header?.timestamp?.toString()
+    };
+  } catch (err) {
+    results.tests.tram = { success: false, error: err.message };
+  }
+
+  // Test Alerts
+  try {
+    const start = Date.now();
+    const alertsFeed = await getMetroServiceAlerts(apiKey, mBase);
+    results.tests.alerts = {
+      success: true,
+      entities: alertsFeed.entity?.length || 0,
+      timeMs: Date.now() - start
+    };
+  } catch (err) {
+    results.tests.alerts = { success: false, error: err.message };
+  }
+
+  results.allPassed = Object.values(results.tests).every(t => t.success);
+  results.connectionStatus = connectionStatus;
+
+  res.json(results);
 });
 
 // TRMNL screen endpoint (JSON markup)

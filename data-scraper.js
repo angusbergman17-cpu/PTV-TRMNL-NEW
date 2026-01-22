@@ -8,8 +8,12 @@ import {
   getMetroTripUpdates,
   getMetroServiceAlerts,
   getTramTripUpdates,
-  getTramServiceAlerts
+  getTramServiceAlerts,
+  connectionStatus
 } from "./opendata.js";
+
+// Re-export connection status for diagnostics
+export { connectionStatus };
 import { tryLoadStops, resolveSouthYarraIds, buildTargetStopIdSet } from "./gtfs-static.js";
 
 // In-memory cache
