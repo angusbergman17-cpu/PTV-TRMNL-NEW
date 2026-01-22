@@ -29,27 +29,37 @@ async function fetchData() {
     // Transform snapshot into format for renderer
     const now = new Date();
 
-    // Process trains
+    // Process trains with dynamic platform info
     const trains = (snapshot.trains || []).slice(0, 5).map(train => {
       const departureTime = new Date(train.when);
       const minutes = Math.max(0, Math.round((departureTime - now) / 60000));
       return {
         minutes,
         destination: 'Flinders Street',
+        platform: train.platformCode || null,
         isScheduled: false
       };
     });
 
-    // Process trams
+    // Process trams (Route 58 at Tivoli Road)
     const trams = (snapshot.trams || []).slice(0, 5).map(tram => {
       const departureTime = new Date(tram.when);
       const minutes = Math.max(0, Math.round((departureTime - now) / 60000));
       return {
         minutes,
-        destination: 'West Coburg',
+        destination: tram.headsign || 'West Coburg',
         isScheduled: false
       };
     });
+
+    // Smart connections - optimal tram-train pairs
+    const connections = (snapshot.connections || []).slice(0, 3).map(conn => ({
+      tramMinutes: Math.max(0, Math.round((conn.tram.when - now) / 60000)),
+      trainMinutes: Math.max(0, Math.round((conn.train.when - now) / 60000)),
+      trainPlatform: conn.train.platformCode || null,
+      waitTime: conn.waitTime,
+      totalTime: conn.totalTime
+    }));
 
     // Coffee decision
     const nextTrain = trains[0] ? trains[0].minutes : 15;
@@ -70,6 +80,7 @@ async function fetchData() {
     return {
       trains,
       trams,
+      connections,
       weather,
       news,
       coffee,

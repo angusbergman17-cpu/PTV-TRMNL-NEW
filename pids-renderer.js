@@ -63,7 +63,7 @@ class PidsRenderer {
       ${this.renderServiceStatus(data.news)}
       
       <!-- ========== RIGHT COLUMN (40%) - ROUTE+ ========== -->
-      ${this.renderRoutePlus(routePlus, coffee)}
+      ${this.renderRoutePlus(routePlus, coffee, data.connections)}
       
     </svg>
     `;
@@ -96,27 +96,32 @@ class PidsRenderer {
     const train1 = trains[0] || null;
     const train2 = trains[1] || null;
 
+    // Dynamic platform display
+    const platform1 = train1?.platform ? `PLAT ${train1.platform}` : '';
+    const platform2 = train2?.platform ? `PLAT ${train2.platform}` : '';
+
     return `
       <!-- Header Bar -->
       <rect x="10" y="65" width="460" height="24" fill="black"/>
-      <text x="20" y="82" class="header-bar">METRO TRAINS - FLINDERS STREET</text>
-      
+      <text x="20" y="82" class="header-bar">METRO TRAINS - SOUTH YARRA</text>
+
       <!-- Next Departure Label -->
-      <text x="15" y="105" class="label">NEXT DEPARTURE:</text>
-      <text x="400" y="105" class="platform" text-anchor="end">PLAT 3</text>
-      
+      <text x="15" y="105" class="label">NEXT DEPARTURES:</text>
+
       <!-- Departure 1 -->
       ${train1 ? `
         <text x="15" y="130" class="departure-time">${train1.minutes} min${train1.isScheduled ? '*' : ''}</text>
         <text x="90" y="130" class="departure-dest">FLINDERS STREET (CITY LOOP)</text>
+        <text x="460" y="130" class="platform" text-anchor="end">${platform1}</text>
       ` : `
         <text x="15" y="130" class="departure-dest" fill="#666">No scheduled departures</text>
       `}
-      
+
       <!-- Departure 2 -->
       ${train2 ? `
         <text x="15" y="158" class="departure-time">${train2.minutes} min${train2.isScheduled ? '*' : ''}</text>
         <text x="90" y="158" class="departure-dest">FLINDERS STREET (CITY LOOP)</text>
+        <text x="460" y="158" class="platform" text-anchor="end">${platform2}</text>
       ` : ''}
     `;
   }
@@ -128,23 +133,23 @@ class PidsRenderer {
     return `
       <!-- Header Bar -->
       <rect x="10" y="175" width="460" height="24" fill="black"/>
-      <text x="20" y="192" class="header-bar">YARRA TRAMS - 58 WEST COBURG</text>
-      
+      <text x="20" y="192" class="header-bar">ROUTE 58 - TIVOLI ROAD</text>
+
       <!-- Next Departure Label -->
-      <text x="15" y="215" class="label">NEXT DEPARTURE:</text>
-      
+      <text x="15" y="215" class="label">NEXT DEPARTURES:</text>
+
       <!-- Departure 1 -->
       ${tram1 ? `
         <text x="15" y="240" class="departure-time">${tram1.minutes} min${tram1.isScheduled ? '*' : ''}</text>
-        <text x="90" y="240" class="departure-dest">TOORAK (VIA DOMAIN RD)</text>
+        <text x="90" y="240" class="departure-dest">${(tram1.destination || 'WEST COBURG').toUpperCase()}</text>
       ` : `
         <text x="15" y="240" class="departure-dest" fill="#666">No scheduled departures</text>
       `}
-      
+
       <!-- Departure 2 -->
       ${tram2 ? `
         <text x="15" y="268" class="departure-time">${tram2.minutes} min${tram2.isScheduled ? '*' : ''}</text>
-        <text x="90" y="268" class="departure-dest">TOORAK (VIA DOMAIN RD)</text>
+        <text x="90" y="268" class="departure-dest">${(tram2.destination || 'WEST COBURG').toUpperCase()}</text>
       ` : ''}
     `;
   }
@@ -172,56 +177,66 @@ class PidsRenderer {
     `;
   }
 
-  renderRoutePlus(routePlus, coffee) {
-    const headerText = coffee.canGet ? 'ROUTE+ ☕' : 'ROUTE+ ⚡';
-    const subText = coffee.canGet ? 'Optimised journey with coffee stop' : 'Direct route to work';
+  renderRoutePlus(routePlus, coffee, connections) {
+    const headerText = coffee.canGet ? 'ROUTE+ ' : 'ROUTE+ ';
+    const subText = coffee.canGet ? 'With coffee stop' : 'Direct route';
+
+    // Use smart connection if available
+    const bestConn = connections && connections[0];
+    const platformText = bestConn?.trainPlatform ? `PLAT ${bestConn.trainPlatform}` : '';
 
     return `
       <!-- Route+ Container -->
       <rect x="480" y="45" width="310" height="295" fill="white" stroke="black" stroke-width="1"/>
-      
+
       <!-- Header -->
       <text x="635" y="72" class="route-header" text-anchor="middle">${headerText}</text>
       <text x="635" y="90" class="route-sub" text-anchor="middle">${subText}</text>
-      
+
       <!-- Divider -->
       <line x1="500" y1="100" x2="770" y2="100" stroke="#ccc" stroke-width="1"/>
-      
+
       <!-- Journey Steps -->
-      <g transform="translate(500, 120)">
+      <g transform="translate(500, 115)">
         <!-- Tram Step -->
         <g transform="translate(0, 0)">
           <circle cx="20" cy="15" r="18" fill="black"/>
-          <text x="20" y="21" font-family="sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">T</text>
-          
-          <text x="50" y="12" class="route-step" font-weight="bold">TRAM 58:</text>
-          <text x="200" y="12" class="route-time" text-anchor="end">${routePlus.tramTime}</text>
+          <text x="20" y="21" font-family="sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">58</text>
+
+          <text x="50" y="8" class="route-step" font-weight="bold">TRAM - TIVOLI RD</text>
+          <text x="50" y="24" class="route-step">${bestConn ? bestConn.tramMinutes + ' min' : routePlus.tramTime}</text>
         </g>
-        
+
         <!-- Connector Line -->
         <line x1="20" y1="35" x2="20" y2="55" stroke="black" stroke-width="2" stroke-dasharray="4,2"/>
-        
+
         <!-- Train Step -->
         <g transform="translate(0, 60)">
           <circle cx="20" cy="15" r="18" fill="black"/>
-          <text x="20" y="21" font-family="sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">🚆</text>
-          
-          <text x="50" y="8" class="route-step" font-weight="bold">TRAIN</text>
-          <text x="50" y="22" class="route-step">PARLIAMENT:</text>
-          <text x="200" y="15" class="route-time" text-anchor="end">${routePlus.trainTime}</text>
+          <text x="20" y="21" font-family="sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">M</text>
+
+          <text x="50" y="8" class="route-step" font-weight="bold">TRAIN - SOUTH YARRA</text>
+          <text x="50" y="24" class="route-step">${bestConn ? bestConn.trainMinutes + ' min' : ''} ${platformText}</text>
         </g>
-        
+
         <!-- Connector Line -->
         <line x1="20" y1="95" x2="20" y2="115" stroke="black" stroke-width="2" stroke-dasharray="4,2"/>
-        
+
         <!-- Destination Step -->
         <g transform="translate(0, 120)">
           <circle cx="20" cy="15" r="18" fill="black"/>
-          <text x="20" y="21" font-family="sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">🏢</text>
-          
-          <text x="50" y="12" class="route-step" font-weight="bold">80 COLLINS ST:</text>
-          <text x="200" y="12" class="route-time" text-anchor="end">${routePlus.arrivalTime}</text>
+          <text x="20" y="21" font-family="sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">W</text>
+
+          <text x="50" y="8" class="route-step" font-weight="bold">80 COLLINS ST</text>
+          <text x="50" y="24" class="route-step">ETA: ${routePlus.arrivalTime}</text>
         </g>
+
+        <!-- Total Journey Time -->
+        ${bestConn ? `
+        <g transform="translate(0, 165)">
+          <text x="135" y="10" class="route-sub" text-anchor="middle">Total: ~${bestConn.totalTime} min</text>
+        </g>
+        ` : ''}
       </g>
     `;
   }

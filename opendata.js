@@ -9,7 +9,11 @@ import * as GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
 /** Build URL and include ?subscription-key=... for OpenAPI variant */
 function makeUrl(base, path, key) {
-  const url = new URL(path, base);
+  // Ensure base ends with slash for proper URL joining
+  const cleanBase = base.endsWith('/') ? base : base + '/';
+  // Remove leading slash from path
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  const url = new URL(cleanPath, cleanBase);
   if (key) url.searchParams.set("subscription-key", key);
   return url.toString();
 }

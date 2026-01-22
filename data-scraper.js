@@ -1,7 +1,6 @@
-
 // data-scraper.js
-// Combines Open Data GTFS‑R (trains + trams) with static GTFS (platforms),
-// includes ANY city‑bound train, prioritises South Yarra Platform 5, and returns a snapshot.
+// Smart scheduling: aligns Route 58 trams with city-bound trains at South Yarra
+// Includes dynamic platform detection and optimal journey planning
 
 import dayjs from "dayjs";
 import config from "./config.js";
@@ -13,19 +12,20 @@ import {
 } from "./opendata.js";
 import { tryLoadStops, resolveSouthYarraIds, buildTargetStopIdSet } from "./gtfs-static.js";
 
-// In‑memory cache to reduce upstream calls (and honour provider caching)
+// In-memory cache
 const mem = {
   cacheUntil: 0,
   snapshot: null,
   gtfs: null,
   ids: null,
-  targetStopIdSet: null
+  targetStopIdSet: null,
+  tramStopIds: null
 };
 
 function nowMs() { return Date.now(); }
 
 /**
- * Extract a numeric epoch (ms) for a stop_time_update (arrival or departure).
+ * Extract numeric epoch (ms) for a stop_time_update
  */
 function timeFromStu(stu) {
   const sec = Number(stu?.departure?.time || stu?.arrival?.time || 0);
@@ -33,90 +33,154 @@ function timeFromStu(stu) {
 }
 
 /**
- * Return true if the trip update will call at any of the target stop_ids
- * after the current South Yarra call (city‑bound heuristic).
+ * Check if trip will call at any target CBD stops after current stop
  */
-function isCityBoundTrip(tripUpdate, targetStopIds, southYarraStopId, southYarraSeq) {
+function isCityBoundTrip(tripUpdate, targetStopIds, currentStopId, currentSeq) {
   if (!tripUpdate?.stop_time_update?.length) return false;
 
-  // Identify sequence of current South Yarra call (if not provided, we still allow any future match)
-  const currentSeq = southYarraSeq ?? (() => {
-    const idx = tripUpdate.stop_time_update.findIndex(s => s.stop_id === southYarraStopId);
+  const seq = currentSeq ?? (() => {
+    const idx = tripUpdate.stop_time_update.findIndex(s => s.stop_id === currentStopId);
     return idx >= 0 ? Number(tripUpdate.stop_time_update[idx].stop_sequence ?? idx) : 0;
   })();
 
-  // Any downstream stop matching our CBD targets?
   return tripUpdate.stop_time_update.some(su => {
-    const seq = Number(su.stop_sequence ?? 0);
-    const isDownstream = !Number.isNaN(seq) ? seq > currentSeq : true;
+    const suSeq = Number(su.stop_sequence ?? 0);
+    const isDownstream = !Number.isNaN(suSeq) ? suSeq > seq : true;
     return isDownstream && targetStopIds.has(su.stop_id);
   });
 }
 
 /**
- * Sort departures: earliest first, but if within 2 minutes, prefer Platform 5.
+ * Get platform code from stop_id using GTFS data
  */
-function sortWithPlatformPreference(list, preferredStopId) {
-  const WINDOW_MS = 2 * 60 * 1000; // 2 minutes
-  return list.sort((a, b) => {
-    const dt = a.when - b.when;
-    if (Math.abs(dt) <= WINDOW_MS && (a.stopId === preferredStopId || b.stopId === preferredStopId)) {
-      return a.stopId === preferredStopId ? -1 : 1;
-    }
-    return dt;
-  });
+function getPlatformCode(stopId, gtfs) {
+  if (!gtfs?.stops?.length) return null;
+  const stop = gtfs.stops.find(s => s.stop_id === stopId);
+  return stop?.platform_code || null;
 }
 
 /**
- * Pluck header timestamp (ms) safely from a GTFS‑R feed.
+ * Check if this is a Route 58 tram
+ */
+function isRoute58(routeId) {
+  if (!routeId) return false;
+  // Route 58 has various ID formats: "3-58-", "58", etc.
+  return routeId.includes('58') || routeId === '58';
+}
+
+/**
+ * Build set of Tivoli Road stop IDs from GTFS
+ */
+function buildTramStopIds(gtfs, config) {
+  const set = new Set();
+
+  // Add configured stop ID
+  const tivoliId = config?.trams?.route58?.tivoliRoad?.stopId;
+  if (tivoliId) set.add(tivoliId);
+
+  // Also search by name in GTFS
+  if (gtfs?.stops?.length) {
+    for (const stop of gtfs.stops) {
+      const name = (stop.stop_name || "").toLowerCase();
+      if (name.includes('tivoli') && name.includes('toorak')) {
+        set.add(stop.stop_id);
+      }
+    }
+  }
+
+  return set;
+}
+
+/**
+ * Find optimal tram-train pairs for smart scheduling
+ * Returns trams with their connecting trains
+ */
+function findOptimalConnections(trams, trains, journey) {
+  const connections = [];
+  const tramRide = journey?.tramRide || 5;
+  const platformChange = journey?.platformChange || 3;
+
+  for (const tram of trams) {
+    // When does this tram arrive at South Yarra?
+    const tramArrivalMs = tram.when + (tramRide * 60 * 1000);
+
+    // What's the earliest train we can catch? (need platformChange minutes buffer)
+    const minTrainTime = tramArrivalMs + (platformChange * 60 * 1000);
+
+    // Find connecting trains
+    const connectingTrains = trains.filter(train => train.when >= minTrainTime);
+    const bestTrain = connectingTrains[0] || null;
+
+    if (bestTrain) {
+      const waitTime = Math.round((bestTrain.when - tramArrivalMs) / 60000);
+      connections.push({
+        tram,
+        train: bestTrain,
+        waitTime,
+        totalTime: Math.round((bestTrain.when - tram.when) / 60000) + (journey?.trainRide || 9)
+      });
+    }
+  }
+
+  // Sort by total journey time
+  return connections.sort((a, b) => a.totalTime - b.totalTime);
+}
+
+/**
+ * Get header timestamp from GTFS-R feed
  */
 function headerTs(feed) {
   return (feed?.header?.timestamp ? Number(feed.header.timestamp) * 1000 : 0);
 }
 
 /**
- * Main snapshot builder
+ * Main snapshot builder with smart scheduling
  */
 export async function getSnapshot(apiKey) {
   const now = nowMs();
   if (mem.snapshot && now < mem.cacheUntil) return mem.snapshot;
 
-  // Load static GTFS (for platforms + station name->stop_id mapping)
+  // Load static GTFS
   if (!mem.gtfs) mem.gtfs = tryLoadStops();
 
-  // Resolve South Yarra ids + platform 5 stop_id
+  // Resolve South Yarra platform IDs
   if (!mem.ids) mem.ids = resolveSouthYarraIds(config, mem.gtfs);
 
-  // Build a set of stop_ids for city‑bound targets (Parliament, State Library, etc.)
+  // Build CBD target stop IDs
   if (!mem.targetStopIdSet) {
     mem.targetStopIdSet = buildTargetStopIdSet(mem.gtfs, config.cityBoundTargetStopNames || []);
+  }
+
+  // Build tram stop IDs for Tivoli Road
+  if (!mem.tramStopIds) {
+    mem.tramStopIds = buildTramStopIds(mem.gtfs, config);
   }
 
   const snapshotBase = {
     meta: { generatedAt: new Date().toISOString(), sources: {} },
     trains: [],
     trams: [],
+    connections: [],  // Smart tram-train connections
     alerts: { metro: 0, tram: 0 },
     notes: {
       platformResolution: {
         usedStaticGtfs: !!(mem.gtfs?.stops?.length),
         southYarra: {
           parentStopId: mem.ids?.parentStopId || null,
-          platform5StopId: mem.ids?.platform5StopId || null,
           platformCount: mem.ids?.allPlatformStopIds?.length || 0
-        }
+        },
+        tramStops: Array.from(mem.tramStopIds || [])
       }
     }
   };
 
-  // If API key missing, return minimal snapshot (endpoints still work)
   if (!apiKey) {
     mem.snapshot = snapshotBase;
     mem.cacheUntil = now + (config.cacheSeconds ? config.cacheSeconds * 1000 : 60000);
     return mem.snapshot;
   }
 
-  // Pull GTFS‑R feeds in parallel (Trip Updates + Service Alerts)
+  // Fetch all GTFS-R feeds in parallel
   const mBase = config.feeds.metro.base;
   const tBase = config.feeds.tram.base;
 
@@ -127,7 +191,6 @@ export async function getSnapshot(apiKey) {
     getTramServiceAlerts(apiKey, tBase).catch(e => (console.warn("Tram SA error:", e.message), null))
   ]);
 
-  // Record feed timestamps
   snapshotBase.meta.sources = {
     metroTripUpdatesTs: headerTs(metroTU),
     metroServiceAlertsTs: headerTs(metroSA),
@@ -135,9 +198,8 @@ export async function getSnapshot(apiKey) {
     tramServiceAlertsTs: headerTs(tramSA)
   };
 
-  // ==== TRAINS (Metro) — include ANY city‑bound, prioritise South Yarra Platform 5 ====
+  // ==== TRAINS - All city-bound from South Yarra (any platform) ====
   const southYarraPlatformIds = new Set(mem.ids?.allPlatformStopIds || []);
-  const platform5StopId = mem.ids?.platform5StopId || null;
 
   if (metroTU?.entity?.length) {
     const trainDeps = [];
@@ -146,14 +208,14 @@ export async function getSnapshot(apiKey) {
       const tu = ent.trip_update;
       if (!tu?.stop_time_update?.length) continue;
 
-      // Must call at South Yarra (any platform)
+      // Find South Yarra stop in this trip
       const syStu = tu.stop_time_update.find(s => southYarraPlatformIds.has(s.stop_id));
       if (!syStu) continue;
 
       const when = timeFromStu(syStu);
-      if (!when) continue;
+      if (!when || when < now) continue;
 
-      // City‑bound filter: true if downstream contains any of the target CBD stops
+      // City-bound filter
       const cityBound = isCityBoundTrip(
         tu,
         mem.targetStopIdSet,
@@ -162,44 +224,67 @@ export async function getSnapshot(apiKey) {
       );
       if (!cityBound) continue;
 
+      // Get platform code dynamically
+      const platformCode = getPlatformCode(syStu.stop_id, mem.gtfs);
+
       trainDeps.push({
         tripId: tu.trip?.trip_id || ent.id,
         routeId: tu.trip?.route_id || null,
         stopId: syStu.stop_id,
+        platformCode,
         when,
-        delaySec: Number(syStu.departure?.delay || syStu.arrival?.delay || 0),
-        platformPreferred: platform5StopId && syStu.stop_id === platform5StopId
+        delaySec: Number(syStu.departure?.delay || syStu.arrival?.delay || 0)
       });
     }
 
-    snapshotBase.trains = sortWithPlatformPreference(trainDeps, platform5StopId).slice(0, 12);
+    // Sort by departure time
+    snapshotBase.trains = trainDeps.sort((a, b) => a.when - b.when).slice(0, 12);
   }
 
-  // Alerts (count only — you can surface text in your renderer if you like)
   snapshotBase.alerts.metro = metroSA?.entity?.length || 0;
 
-  // ==== TRAMS (Yarra Trams) — minimal: earliest system-wide (you can filter Route 58/Tivoli) ====
+  // ==== TRAMS - Route 58 at Tivoli Road only ====
   if (tramTU?.entity?.length) {
     const tramDeps = [];
+
     for (const ent of tramTU.entity) {
       const tu = ent.trip_update;
       if (!tu?.stop_time_update?.length) continue;
-      const stu = tu.stop_time_update[0];
-      const when = timeFromStu(stu);
-      if (!when) continue;
+
+      // Check if this is Route 58
+      const routeId = tu.trip?.route_id || "";
+      if (!isRoute58(routeId)) continue;
+
+      // Find Tivoli Road stop in this trip
+      const tivoliStu = tu.stop_time_update.find(s => mem.tramStopIds.has(s.stop_id));
+      if (!tivoliStu) continue;
+
+      const when = timeFromStu(tivoliStu);
+      if (!when || when < now) continue;
 
       tramDeps.push({
         tripId: tu.trip?.trip_id || ent.id,
-        routeId: tu.trip?.route_id || null,
-        stopId: stu.stop_id,
+        routeId,
+        stopId: tivoliStu.stop_id,
         when,
-        delaySec: Number(stu.departure?.delay || stu.arrival?.delay || 0)
+        delaySec: Number(tivoliStu.departure?.delay || tivoliStu.arrival?.delay || 0),
+        headsign: tu.trip?.trip_headsign || "West Coburg"
       });
     }
+
     snapshotBase.trams = tramDeps.sort((a, b) => a.when - b.when).slice(0, 12);
   }
 
   snapshotBase.alerts.tram = tramSA?.entity?.length || 0;
+
+  // ==== SMART CONNECTIONS - Find optimal tram-train pairs ====
+  if (snapshotBase.trams.length > 0 && snapshotBase.trains.length > 0) {
+    snapshotBase.connections = findOptimalConnections(
+      snapshotBase.trams,
+      snapshotBase.trains,
+      config.journey
+    );
+  }
 
   // Cache snapshot
   mem.snapshot = snapshotBase;
