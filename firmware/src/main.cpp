@@ -47,6 +47,7 @@ void initDisplay();
 bool connectWiFi();
 bool downloadBaseTemplate();
 bool fetchAndDisplayRegionUpdates();
+void renderTextBasedDashboard(JsonDocument& doc);
 void deepSleep(int seconds);
 float getBatteryVoltage();
 int getWiFiRSSI();
@@ -89,27 +90,88 @@ void setup() {
     // Check for long press reset at boot
     checkLongPressReset();
 
-    // SETUP PHASE: Download and cache template (no refresh yet)
+    // SETUP PHASE: Render text-based dashboard and wait for confirmation
     if (!setupComplete) {
-        addLog("SETUP: Download template");
+        addLog("SETUP: Text dashboard");
+        showLog();
+        delay(1000);
+
+        // Fetch initial data
+        addLog("Fetching PTV data...");
         showLog();
 
-        if (!downloadBaseTemplate()) {
-            addLog("Template FAILED");
+        WiFiClientSecure *client = new WiFiClientSecure();
+        if (!client) {
+            addLog("SSL alloc FAILED");
             showLog();
             delay(3000);
-            deepSleep(300);  // Retry in 5 minutes
+            deepSleep(300);
             return;
         }
 
-        // Template downloaded and cached successfully
-        hasTemplate = true;
-        addLog("Template drawn!");
+        client->setInsecure();
+        HTTPClient http;
+        String url = String(SERVER_URL) + "/api/region-updates";
+        http.setTimeout(30000);
+
+        if (!http.begin(*client, url)) {
+            addLog("HTTP begin FAILED");
+            delete client;
+            deepSleep(300);
+            return;
+        }
+
+        int httpCode = http.GET();
+        if (httpCode != 200) {
+            addLog("HTTP failed");
+            http.end();
+            client->stop();
+            delete client;
+            deepSleep(300);
+            return;
+        }
+
+        String payload = http.getString();
+        http.end();
+        client->stop();
+        delete client;
+
+        addLog("Data received");
+        showLog();
+        delay(500);
+
+        // Parse JSON
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, payload);
+        if (error) {
+            addLog("JSON parse FAILED");
+            showLog();
+            delay(3000);
+            deepSleep(300);
+            return;
+        }
+
+        addLog("Rendering dashboard...");
+        showLog();
+        delay(500);
+
+        // Render text-based dashboard
+        renderTextBasedDashboard(doc);
+
+        addLog("Dashboard rendered!");
         addLog("Showing confirmation...");
         showLog();
-        delay(2000);
+        delay(1000);
+
+        // Disable watchdog and refresh
+        esp_task_wdt_reset();
+        esp_task_wdt_delete(NULL);
+        bbep.refresh(REFRESH_FULL, true);
+        esp_task_wdt_init(30, true);
+        esp_task_wdt_add(NULL);
 
         // Show confirmation prompt and wait for button press
+        delay(2000);
         showConfirmationPrompt();
 
         // Wait for confirmation (60 second timeout)
@@ -147,39 +209,87 @@ void setup() {
     // Check for long press reset at any time during operation
     checkLongPressReset();
 
-    // OPERATING PHASE: Check if we need to re-download template
-    bool needsTemplate = (refreshCounter >= FULL_REFRESH_CYCLES);
-
-    if (needsTemplate) {
-        addLog("Re-download template");
-        showLog();
-
-        if (!downloadBaseTemplate()) {
-            addLog("Template FAILED");
-        } else {
-            hasTemplate = true;
-            refreshCounter = 0;
-            preferences.putInt("refresh_count", refreshCounter);
-            addLog("Template updated");
-        }
-    }
-
-    // OPERATING PHASE: Display and update
+    // OPERATING PHASE: Fetch data and render text dashboard
     addLog("Fetching PTV data...");
-    if (showingLog) showLog();
 
-    if (!fetchAndDisplayRegionUpdates()) {
-        addLog("Update FAILED");
-        if (showingLog) showLog();
-        delay(3000);
-    } else {
-        addLog("Update complete");
+    WiFiClientSecure *client = new WiFiClientSecure();
+    if (!client) {
+        addLog("SSL alloc FAILED");
+        deepSleep(refreshRate);
+        return;
     }
+
+    client->setInsecure();
+    HTTPClient http;
+    String url = String(SERVER_URL) + "/api/region-updates";
+    http.setTimeout(30000);
+
+    if (!http.begin(*client, url)) {
+        addLog("HTTP begin FAILED");
+        delete client;
+        deepSleep(refreshRate);
+        return;
+    }
+
+    int httpCode = http.GET();
+    if (httpCode != 200) {
+        char errMsg[60];
+        sprintf(errMsg, "HTTP %d", httpCode);
+        addLog(errMsg);
+        http.end();
+        client->stop();
+        delete client;
+        deepSleep(refreshRate);
+        return;
+    }
+
+    String payload = http.getString();
+    http.end();
+    client->stop();
+    delete client;
+
+    addLog("Data received");
+
+    // Parse JSON
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+        addLog("JSON parse FAILED");
+        deepSleep(refreshRate);
+        return;
+    }
+
+    addLog("Rendering dashboard...");
+
+    // Render text-based dashboard
+    renderTextBasedDashboard(doc);
+
+    // Determine refresh type
+    bool useFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
+
+    // Feed watchdog and refresh
+    esp_task_wdt_reset();
+    esp_task_wdt_delete(NULL);
+
+    if (useFullRefresh) {
+        addLog("Full refresh");
+        bbep.refresh(REFRESH_FULL, true);
+        refreshCounter = 0;
+    } else {
+        addLog("Partial refresh");
+        bbep.refresh(REFRESH_PARTIAL, false);
+    }
+
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
+
+    addLog("Update complete");
+    templateDisplayed = true;
 
     // Increment counter and save
     refreshCounter++;
     if (refreshCounter >= FULL_REFRESH_CYCLES) {
-        refreshCounter = 0;  // Will trigger template download next cycle
+        refreshCounter = 0;
     }
     preferences.putInt("refresh_count", refreshCounter);
 
@@ -187,14 +297,6 @@ void setup() {
     char sleepMsg[60];
     sprintf(sleepMsg, "Sleep %ds (next: %d/20)", refreshRate, refreshCounter);
     addLog(sleepMsg);
-
-    // Don't show log if template is displayed - keep template visible
-    if (showingLog) {
-        showLog();
-        delay(2000);  // Show final log for 2s
-    } else {
-        delay(1000);  // Brief pause before sleep
-    }
 
     deepSleep(refreshRate);
 }
@@ -213,25 +315,157 @@ void initDisplay() {
     pinMode(PIN_INTERRUPT, INPUT_PULLUP);
 }
 
-// Show confirmation prompt on display
-void showConfirmationPrompt() {
+// Render full text-based PTV dashboard
+void renderTextBasedDashboard(JsonDocument& doc) {
+    // Clear screen
     bbep.fillScreen(BBEP_WHITE);
+
+    // Get current time
+    unsigned long currentMillis = millis();
+    unsigned long minutes = (currentMillis / 60000) % 60;
+    unsigned long hours = (currentMillis / 3600000) % 24;
+
+    // ===== HEADER BAR =====
     bbep.setFont(FONT_12x16);
+    bbep.setCursor(20, 20);
+    char timeStr[10];
+    sprintf(timeStr, "%02lu:%02lu", hours, minutes);
+    bbep.print(timeStr);
 
-    bbep.setCursor(50, 100);
-    bbep.print("SETUP COMPLETE!");
+    // Coffee status
+    const char* coffeeText = "CHECK COFFEE STATUS";
+    if (doc.containsKey("regions")) {
+        JsonArray regions = doc["regions"].as<JsonArray>();
+        for (JsonObject region : regions) {
+            if (strcmp(region["id"] | "", "coffee") == 0) {
+                coffeeText = region["text"] | "NO COFFEE";
+                break;
+            }
+        }
+    }
+    bbep.setCursor(300, 20);
+    bbep.setFont(FONT_8x8);
+    bbep.print(coffeeText);
 
-    bbep.setCursor(50, 140);
-    bbep.print("Can you see the dashboard?");
+    // ===== METRO TRAINS SECTION =====
+    bbep.fillRect(20, 50, 440, 30, BBEP_BLACK);
+    bbep.setFont(FONT_12x16);
+    bbep.setTextColor(BBEP_WHITE, BBEP_BLACK);
+    bbep.setCursor(30, 65);
+    bbep.print("METRO TRAINS - FLINDERS ST");
+    bbep.setTextColor(BBEP_BLACK, BBEP_WHITE);
 
-    bbep.setCursor(50, 180);
-    bbep.print("SHORT PRESS: Confirm & Continue");
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(30, 95);
+    bbep.print("NEXT DEPARTURE:");
+    bbep.setCursor(400, 95);
+    bbep.print("PLAT 3");
 
-    bbep.setCursor(50, 220);
-    bbep.print("LONG PRESS (5s): Reset Setup");
+    // Train departures
+    bbep.setFont(FONT_12x16);
+    int trainY = 120;
+    int trainCount = 0;
+    if (doc.containsKey("regions")) {
+        JsonArray regions = doc["regions"].as<JsonArray>();
+        for (JsonObject region : regions) {
+            const char* id = region["id"] | "";
+            if (strncmp(id, "train", 5) == 0) {
+                bbep.setCursor(30, trainY);
+                bbep.print(region["text"] | "-- min");
+                bbep.setFont(FONT_8x8);
+                bbep.setCursor(150, trainY + 5);
+                bbep.print("FLINDERS STREET (CITY LOOP)");
+                bbep.setFont(FONT_12x16);
+                trainY += 30;
+                trainCount++;
+                if (trainCount >= 3) break;
+            }
+        }
+    }
+    if (trainCount == 0) {
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(30, trainY);
+        bbep.print("No scheduled departures");
+    }
 
-    bbep.setCursor(50, 280);
+    // ===== YARRA TRAMS SECTION =====
+    bbep.fillRect(20, 230, 440, 30, BBEP_BLACK);
+    bbep.setFont(FONT_12x16);
+    bbep.setTextColor(BBEP_WHITE, BBEP_BLACK);
+    bbep.setCursor(30, 245);
+    bbep.print("YARRA TRAMS - 58 WEST COBURG");
+    bbep.setTextColor(BBEP_BLACK, BBEP_WHITE);
+
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(30, 275);
+    bbep.print("NEXT DEPARTURE:");
+
+    // Tram departures
+    bbep.setFont(FONT_12x16);
+    int tramY = 300;
+    int tramCount = 0;
+    if (doc.containsKey("regions")) {
+        JsonArray regions = doc["regions"].as<JsonArray>();
+        for (JsonObject region : regions) {
+            const char* id = region["id"] | "";
+            if (strncmp(id, "tram", 4) == 0) {
+                bbep.setCursor(30, tramY);
+                bbep.print(region["text"] | "-- min");
+                bbep.setFont(FONT_8x8);
+                bbep.setCursor(150, tramY + 5);
+                bbep.print("TOORAK (VIA DOMAIN RD)");
+                bbep.setFont(FONT_12x16);
+                tramY += 30;
+                tramCount++;
+                if (tramCount >= 3) break;
+            }
+        }
+    }
+    if (tramCount == 0) {
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(30, tramY);
+        bbep.print("No scheduled departures");
+    }
+
+    // ===== SERVICE STATUS =====
+    bbep.drawRect(20, 410, 440, 60, BBEP_BLACK);
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(190, 425);
+    bbep.print("SERVICE STATUS:");
+    bbep.setCursor(30, 445);
+    bbep.print("METRO TRAINS: GOOD SERVICE");
+    bbep.setCursor(30, 460);
+    bbep.print("YARRA TRAMS: GOOD SERVICE");
+
+    // ===== FOOTER =====
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(150, 465);
+    sprintf(timeStr, "Cycle: %d/20", refreshCounter);
+    bbep.print(timeStr);
+}
+
+// Show confirmation prompt OVERLAID on current screen (bottom section)
+void showConfirmationPrompt() {
+    // Draw white box at bottom for prompt (don't clear whole screen)
+    bbep.fillRect(0, 360, 480, 120, BBEP_WHITE);
+    bbep.drawRect(0, 360, 480, 120, BBEP_BLACK);
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(50, 375);
+    bbep.print("Can you see this text?");
+
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(50, 400);
+    bbep.print("SHORT PRESS: Yes, confirm setup");
+
+    bbep.setCursor(50, 415);
+    bbep.print("LONG PRESS (5s): No, reset device");
+
+    bbep.setCursor(50, 435);
     bbep.print("Waiting for button press...");
+
+    bbep.setCursor(50, 455);
+    bbep.print("(60 second timeout)");
 
     // Feed watchdog before refresh
     esp_task_wdt_reset();
