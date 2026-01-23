@@ -28,10 +28,8 @@ PNG png;
 // Preferences for persistent storage
 Preferences preferences;
 
-// Refresh rate and counters
+// Refresh rate
 int refreshRate = 30;  // seconds (30 second updates for real-time data)
-int refreshCounter = 0;  // Track refresh cycles for full refresh
-const int FULL_REFRESH_CYCLES = 20;  // Full refresh every 20 cycles (10 minutes)
 
 // Template storage
 bool hasTemplate = false;  // Track if we have the base template
@@ -63,7 +61,6 @@ void showConfirmationPrompt();
 void setup() {
     // Initialize preferences
     preferences.begin("trmnl", false);
-    refreshCounter = preferences.getInt("refresh_count", 0);
     setupComplete = preferences.getBool("setup_done", false);
 
     // Initialize display
@@ -92,13 +89,11 @@ void setup() {
     showLog();
     delay(300);
 
-    char bootMsg[60];
     if (setupComplete) {
-        sprintf(bootMsg, "Operating mode - update %d", refreshCounter);
+        addLog("Operating mode");
     } else {
-        sprintf(bootMsg, "First boot - initializing");
+        addLog("First boot - initializing");
     }
-    addLog(bootMsg);
     showLog();
     delay(300);
 
@@ -225,21 +220,11 @@ void setup() {
         showLog();
         delay(500);
 
-        addLog("Clearing screen...");
+        addLog("Displaying...");
         showLog();
-        delay(500);
+        delay(300);
 
-        // Proper screen clean to avoid ghosting: BLACK -> WHITE -> DASHBOARD
-        bbep.fillScreen(BBEP_BLACK);
-        bbep.refresh(REFRESH_FULL, true);
-        delay(100);
-
-        bbep.fillScreen(BBEP_WHITE);
-        bbep.refresh(REFRESH_FULL, true);
-        delay(100);
-
-        // Now draw and show the dashboard
-        drawInitialDashboard(doc);
+        // Single full refresh to show dashboard
         bbep.refresh(REFRESH_FULL, true);
 
         // Re-enable watchdog
@@ -258,9 +243,7 @@ void setup() {
         if (confirmed) {
             // User confirmed they can see dashboard
             setupComplete = true;
-            refreshCounter = 0;
             preferences.putBool("setup_done", true);
-            preferences.putInt("refresh_count", 0);
 
             addLog("Setup CONFIRMED!");
             addLog("Moving to operating mode");
@@ -327,51 +310,17 @@ void setup() {
         return;
     }
 
-    // Check if it's time for full refresh (ghosting clear every 10 minutes)
-    refreshCounter++;
-    bool needsFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
+    // Update only changed regions
+    updateDashboardRegions(doc);
 
-    if (needsFullRefresh) {
-        // PERIODIC FULL REFRESH: Clear ghosting while preserving all data
-        esp_task_wdt_reset();
-        esp_task_wdt_delete(NULL);
+    // Single partial refresh
+    esp_task_wdt_reset();
+    esp_task_wdt_delete(NULL);
 
-        // Redraw complete dashboard to buffer first (preserves current data)
-        drawInitialDashboard(doc);
+    bbep.refresh(REFRESH_PARTIAL, false);
 
-        // Black/white clean to remove ghosting
-        bbep.fillScreen(BBEP_BLACK);
-        bbep.refresh(REFRESH_FULL, true);
-        delay(50);
-
-        bbep.fillScreen(BBEP_WHITE);
-        bbep.refresh(REFRESH_FULL, true);
-        delay(50);
-
-        // Redraw dashboard with current data
-        drawInitialDashboard(doc);
-        bbep.refresh(REFRESH_FULL, true);
-
-        esp_task_wdt_init(30, true);
-        esp_task_wdt_add(NULL);
-
-        refreshCounter = 0;
-        preferences.putInt("refresh_count", 0);
-    } else {
-        // NORMAL UPDATE: Only update changed regions (efficient)
-        updateDashboardRegions(doc);
-
-        // Partial refresh only
-        esp_task_wdt_reset();
-        esp_task_wdt_delete(NULL);
-
-        bbep.refresh(REFRESH_PARTIAL, false);
-
-        esp_task_wdt_init(30, true);
-        esp_task_wdt_add(NULL);
-
-        preferences.putInt("refresh_count", refreshCounter);
-    }
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
 
     // Sleep until next refresh
     deepSleep(refreshRate);
@@ -726,12 +675,6 @@ void showLog() {
         y += 15;
         if (y > 460) break;
     }
-
-    // Footer with cycle info
-    char footer[60];
-    sprintf(footer, "Cycle: %d/20 | Refresh: %ds", refreshCounter, refreshRate);
-    bbep.setCursor(10, 465);
-    bbep.print(footer);
 
     bbep.refresh(REFRESH_FULL, true);
 }
