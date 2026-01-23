@@ -68,7 +68,15 @@ class PidsRenderer {
     </svg>
     `;
 
-    return await sharp(Buffer.from(svg)).png().toBuffer();
+    // Generate 1-bit black and white PNG for e-ink (much smaller file size and memory usage)
+    return await sharp(Buffer.from(svg))
+      .png({
+        compressionLevel: 9,  // Maximum compression
+        palette: true,        // Use indexed color
+        colors: 2,            // 1-bit: black and white only
+        dither: 1.0          // Floyd-Steinberg dithering for better quality
+      })
+      .toBuffer();
   }
 
   renderHeader(timeStr, weather, coffee) {
