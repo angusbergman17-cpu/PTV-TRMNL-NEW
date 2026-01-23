@@ -27,6 +27,7 @@ const CACHE_MS = 25 * 1000; // 25 seconds (device refreshes every 30s)
 const DEVICES_FILE = path.join(process.cwd(), 'devices.json');
 const CACHE_DIR = path.join(process.cwd(), 'cache');
 const PNG_CACHE_FILE = path.join(CACHE_DIR, 'display.png');
+const TEMPLATE_FILE = path.join(CACHE_DIR, 'base-template.png');
 
 /**
  * Load devices from persistent storage
@@ -154,6 +155,135 @@ async function getData() {
 }
 
 /**
+ * Generate base template (static layout) - called once
+ */
+async function getBaseTemplate() {
+  try {
+    // Check if template exists
+    const stats = await fs.stat(TEMPLATE_FILE);
+    const template = await fs.readFile(TEMPLATE_FILE);
+    console.log(`✅ Loaded cached template: ${template.length} bytes`);
+    return template;
+  } catch (err) {
+    // Generate new template
+    console.log('📝 Generating base template...');
+
+    // Create static data with placeholders
+    const templateData = {
+      trains: [
+        { minutes: 0, destination: 'Flinders Street', isScheduled: false },
+        { minutes: 0, destination: 'Flinders Street', isScheduled: false },
+        { minutes: 0, destination: 'Flinders Street', isScheduled: false }
+      ],
+      trams: [
+        { minutes: 0, destination: 'West Coburg', isScheduled: false },
+        { minutes: 0, destination: 'West Coburg', isScheduled: false },
+        { minutes: 0, destination: 'West Coburg', isScheduled: false }
+      ],
+      weather: { temp: '--', condition: 'Loading...', icon: '☁️' },
+      news: null,
+      coffee: { canGet: false, decision: 'LOADING', subtext: 'Please wait', urgent: false },
+      meta: { generatedAt: new Date().toISOString() }
+    };
+
+    const template = await renderer.render(templateData, templateData.coffee);
+
+    // Save template
+    await fs.writeFile(TEMPLATE_FILE, template);
+    console.log(`✅ Template saved: ${template.length} bytes`);
+
+    return template;
+  }
+}
+
+/**
+ * Get region updates (dynamic data with coordinates)
+ */
+async function getRegionUpdates() {
+  const data = await getData();
+  const now = new Date();
+  const timeFormatter = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Melbourne',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+
+  // Define regions that need updating (coordinates based on pids-renderer.js layout)
+  const regions = [];
+
+  // Time region (top left)
+  regions.push({
+    x: 20,
+    y: 45,
+    width: 135,
+    height: 50,
+    text: timeFormatter.format(now),
+    font: 'large',  // FONT_12x16 or larger
+    clear: true
+  });
+
+  // Temperature region
+  if (data.weather.temp !== '--') {
+    regions.push({
+      x: 180,
+      y: 30,
+      width: 80,
+      height: 20,
+      text: `${data.weather.temp}°C`,
+      font: 'normal',
+      clear: true
+    });
+  }
+
+  // Coffee status region
+  const coffeeText = data.coffee.canGet ? 'YOU HAVE TIME FOR A COFFEE!' : 'NO COFFEE CONNECTION';
+  regions.push({
+    x: 490,
+    y: 20,
+    width: 300,
+    height: 25,
+    text: coffeeText,
+    font: 'normal',
+    clear: true,
+    centered: true
+  });
+
+  // Train times (first 3 departures)
+  const trainY = 130;
+  const trainLineHeight = 28;
+  for (let i = 0; i < Math.min(3, data.trains.length); i++) {
+    regions.push({
+      x: 15,
+      y: trainY + (i * trainLineHeight),
+      width: 60,
+      height: 22,
+      text: `${data.trains[i].minutes} min`,
+      font: 'large',
+      clear: true
+    });
+  }
+
+  // Tram times (first 3 departures)
+  const tramY = 240;
+  const tramLineHeight = 28;
+  for (let i = 0; i < Math.min(3, data.trams.length); i++) {
+    regions.push({
+      x: 15,
+      y: tramY + (i * tramLineHeight),
+      width: 60,
+      height: 22,
+      text: `${data.trams[i].minutes} min`,
+      font: 'large',
+      clear: true
+    });
+  }
+
+  return {
+    timestamp: now.toISOString(),
+    regions
+  };
+}
+
+/**
  * Get cached or fresh image
  */
 async function getImage() {
@@ -270,7 +400,37 @@ app.get('/api/screen', async (req, res) => {
   }
 });
 
-// Live PNG image endpoint
+// Base template endpoint - static layout (downloaded once every 10 min)
+app.get('/api/base-template.png', async (req, res) => {
+  try {
+    const template = await getBaseTemplate();
+
+    res.set('Content-Type', 'image/png');
+    res.set('Content-Length', template.length);
+    res.set('Cache-Control', 'public, max-age=600'); // Cache for 10 minutes
+    res.set('X-Template-Size', template.length);
+    res.send(template);
+  } catch (error) {
+    console.error('Error generating template:', error);
+    res.status(500).send('Error generating template');
+  }
+});
+
+// Region updates endpoint - dynamic data (downloaded every 30 seconds)
+app.get('/api/region-updates', async (req, res) => {
+  try {
+    const updates = await getRegionUpdates();
+
+    res.set('Content-Type', 'application/json');
+    res.set('Cache-Control', 'no-cache');
+    res.json(updates);
+  } catch (error) {
+    console.error('Error generating region updates:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Live PNG image endpoint (legacy - for compatibility)
 app.get('/api/live-image.png', async (req, res) => {
   try {
     const image = await getImage();

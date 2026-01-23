@@ -10,6 +10,7 @@
 #include <WiFiClientSecure.h>
 #include <WiFiManager.h>
 #include <Preferences.h>
+#include <ArduinoJson.h>
 #include <bb_epaper.h>
 #include <PNGdec.h>
 #include "../include/config.h"
@@ -26,12 +27,16 @@ Preferences preferences;
 // Refresh rate and counters
 int refreshRate = 30;  // seconds (30 second updates for real-time data)
 int refreshCounter = 0;  // Track refresh cycles for full refresh
-const int FULL_REFRESH_CYCLES = 10;  // Full refresh every 10 cycles (5 minutes)
+const int FULL_REFRESH_CYCLES = 20;  // Full refresh every 20 cycles (10 minutes)
+
+// Template storage
+bool hasTemplate = false;  // Track if we have the base template
 
 // Function declarations
 void initDisplay();
 bool connectWiFi();
-bool fetchAndDisplayImage();
+bool downloadBaseTemplate();
+bool fetchAndDisplayRegionUpdates();
 void deepSleep(int seconds);
 float getBatteryVoltage();
 int getWiFiRSSI();
@@ -45,24 +50,51 @@ void setup() {
     // Initialize display
     initDisplay();
 
-    // Show startup message
-    char msg[50];
-    sprintf(msg, "Update %d/10", refreshCounter + 1);
-    showMessage("PTV-TRMNL", msg, "Connecting to WiFi...");
-    delay(1000);
-
     // Connect to WiFi
+    showMessage("PTV-TRMNL", "Connecting to WiFi...");
     if (!connectWiFi()) {
         showMessage("WiFi connection failed", "Entering sleep mode");
         deepSleep(300);  // Sleep 5 minutes
         return;
     }
 
-    // Fetch and display image directly
-    showMessage("Downloading image...");
-    if (!fetchAndDisplayImage()) {
-        showMessage("Failed to fetch image", "Check connection");
+    // Check if we need to download base template
+    bool needsTemplate = (refreshCounter == 0) || (refreshCounter >= FULL_REFRESH_CYCLES);
+
+    if (needsTemplate) {
+        // Download and display base template (full image, slow)
+        char msg[50];
+        sprintf(msg, "Full refresh (%d/20)", refreshCounter + 1);
+        showMessage("Downloading template...", msg);
+
+        if (!downloadBaseTemplate()) {
+            showMessage("Template failed", "Trying update anyway");
+        } else {
+            hasTemplate = true;
+            refreshCounter = 0;  // Reset counter after full refresh
+            preferences.putInt("refresh_count", refreshCounter);
+        }
     }
+
+    // Download and apply region updates (dynamic data, fast)
+    char msg[50];
+    if (hasTemplate) {
+        sprintf(msg, "Partial update (%d/20)", refreshCounter + 1);
+        showMessage("Fetching PTV data...", msg);
+    } else {
+        showMessage("Fetching PTV data...", "(no template yet)");
+    }
+
+    if (!fetchAndDisplayRegionUpdates()) {
+        showMessage("Update failed", "Will retry in 30s");
+    }
+
+    // Increment counter and save
+    refreshCounter++;
+    if (refreshCounter >= FULL_REFRESH_CYCLES) {
+        refreshCounter = 0;  // Will trigger template download next cycle
+    }
+    preferences.putInt("refresh_count", refreshCounter);
 
     // Sleep until next refresh
     deepSleep(refreshRate);
@@ -146,331 +178,213 @@ int PNGDraw(PNGDRAW *pDraw) {
     return 1;  // Success
 }
 
-bool fetchAndDisplayImage() {
-    // Test WiFi connectivity first
-    if (WiFi.status() != WL_CONNECTED) {
-        showMessage("WiFi disconnected", "Reconnecting...");
-        if (!connectWiFi()) {
-            showMessage("WiFi failed", "Cannot connect");
-            return false;
-        }
-    }
-
+bool downloadBaseTemplate() {
+    // Download full base template PNG (done every 10 minutes)
     WiFiClientSecure *client = new WiFiClientSecure();
     if (!client) {
         showMessage("Memory error", "Cannot allocate SSL client");
         return false;
     }
 
-    // CRITICAL: Skip SSL certificate validation for Render.com
     client->setInsecure();
-
     HTTPClient http;
-    String imageUrl = String(SERVER_URL) + "/api/live-image.png";
+    String url = String(SERVER_URL) + "/api/base-template.png";
 
-    showMessage("Connecting to:", "ptv-trmnl-new.onrender.com", "/api/live-image.png");
-    delay(2000);
+    showMessage("Downloading template...", "This takes time");
+    delay(1000);
 
-    // Set up HTTP client with secure client
-    http.setTimeout(60000);  // 60 seconds to handle Render cold starts
+    http.setTimeout(60000);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
-    if (!http.begin(*client, imageUrl)) {
+    if (!http.begin(*client, url)) {
         showMessage("HTTP begin failed", "Cannot connect");
         delete client;
         return false;
     }
 
-    showMessage("Sending GET request...", "Please wait");
-    delay(1000);
-
     int httpCode = http.GET();
 
-    char httpMsg[80];
-    sprintf(httpMsg, "HTTP %d", httpCode);
-
-    if (httpCode > 0) {
-        showMessage("Server responded", httpMsg);
-    } else {
-        // Negative codes are errors
-        const char* errorStr = "Unknown error";
-        if (httpCode == -1) errorStr = "Connection failed";
-        else if (httpCode == -2) errorStr = "Send header failed";
-        else if (httpCode == -3) errorStr = "Send payload failed";
-        else if (httpCode == -4) errorStr = "Not connected";
-        else if (httpCode == -5) errorStr = "Connection lost";
-        else if (httpCode == -6) errorStr = "No stream";
-        else if (httpCode == -7) errorStr = "No HTTP server";
-        else if (httpCode == -8) errorStr = "Too little RAM";
-        else if (httpCode == -9) errorStr = "Encoding error";
-        else if (httpCode == -10) errorStr = "Stream write error";
-        else if (httpCode == -11) errorStr = "Timeout";
-
-        showMessage("Request failed", httpMsg, errorStr);
-    }
-    delay(3000);  // Show for 3 seconds
-
-    if (httpCode == 200) {
-        // Get PNG image data size
-        int len = http.getSize();
-
-        // CRITICAL: Check if PNG size is within safe limits
-        if (len > MAX_PNG_SIZE) {
-            char errMsg[80];
-            sprintf(errMsg, "PNG too large: %d bytes", len);
-            showMessage("Size error!", errMsg, "Max: 80KB");
-            delay(3000);
-            http.end();
-            client->stop();
-            delete client;
-            return false;
-        }
-
-        // Check available heap memory
-        size_t freeHeap = ESP.getFreeHeap();
-        if (freeHeap < MIN_FREE_HEAP) {
-            char errMsg[80];
-            sprintf(errMsg, "Low memory: %d bytes", freeHeap);
-            showMessage("Memory error!", errMsg);
-            delay(3000);
-            http.end();
-            client->stop();
-            delete client;
-            return false;
-        }
-
-        char sizeMsg[80];
-        sprintf(sizeMsg, "Size: %d bytes (OK)", len);
-        showMessage("Downloading...", sizeMsg);
-        delay(1000);
-
-        // Initialize display buffer first
-        bbep.fillScreen(BBEP_WHITE);
-
-        // Get stream pointer
-        WiFiClient* stream = http.getStreamPtr();
-
-        // Allocate buffer for PNG (size already validated)
-        uint8_t* imgBuffer = (uint8_t*)malloc(len);
-        if (!imgBuffer) {
-            char errMsg[80];
-            sprintf(errMsg, "malloc failed: %d bytes", len);
-            showMessage("Memory error!", errMsg);
-            delay(3000);
-            http.end();
-            client->stop();
-            delete client;
-            return false;
-        }
-
-        // Log memory state
-        char memMsg[80];
-        sprintf(memMsg, "Allocated %d bytes", len);
-        showMessage("Memory OK", memMsg);
-        delay(500);
-
-        // Download all data
-        int totalRead = 0;
-        unsigned long timeout = millis();
-
-        while (http.connected() && totalRead < len) {
-            size_t available = stream->available();
-            if (available) {
-                int c = stream->readBytes(imgBuffer + totalRead, min((int)available, len - totalRead));
-                totalRead += c;
-                timeout = millis();
-            }
-            if (millis() - timeout > 10000) break;
-        }
-
-        if (totalRead != len) {
-            char msg[80];
-            sprintf(msg, "Incomplete: %d/%d", totalRead, len);
-            showMessage("Download error", msg);
-            free(imgBuffer);
-            http.end();
-            client->stop();
-            delete client;
-            return false;
-        }
-
-        showMessage("Opening PNG...");
-        delay(500);
-
-        // Open PNG to get dimensions
-        int rc = png.openRAM(imgBuffer, totalRead, PNGDraw);
-
-        if (rc != PNG_SUCCESS) {
-            char errMsg[80];
-            sprintf(errMsg, "Open failed: %d", rc);
-            showMessage("PNG error", errMsg);
-            delay(2000);
-            free(imgBuffer);
-            http.end();
-            client->stop();
-            delete client;
-            return false;
-        }
-
-        // Get PNG dimensions
-        imageWidth = png.getWidth();
-        imageHeight = png.getHeight();
-        int bpp = png.getBpp();
-
-        char debugMsg[80];
-        sprintf(debugMsg, "%dx%d, %dbpp", imageWidth, imageHeight, bpp);
-        showMessage("PNG info", debugMsg);
-        delay(1000);
-
-        // Allocate image buffer for decoded data
-        int bufferSize;
-        if (bpp == 1) {
-            bufferSize = ((imageWidth + 7) / 8) * imageHeight;  // 1-bit packed
-        } else {
-            bufferSize = imageWidth * imageHeight;  // 8-bit
-        }
-
-        imageBuffer = (uint8_t*)malloc(bufferSize);
-        if (!imageBuffer) {
-            char errMsg[80];
-            sprintf(errMsg, "Can't alloc %d bytes", bufferSize);
-            showMessage("Memory error!", errMsg);
-            delay(2000);
-            png.close();
-            free(imgBuffer);
-            http.end();
-            client->stop();
-            delete client;
-            return false;
-        }
-
-        showMessage("Decoding...", "Please wait");
-        delay(500);
-
-        // Decode PNG into our image buffer
-        drawCallCount = 0;
-        rc = png.decode(NULL, 0);
-        png.close();
-
-        sprintf(debugMsg, "Result: %d, calls: %d", rc, drawCallCount);
-        showMessage("Decode result", debugMsg);
-        delay(2000);
-
-        if (rc == PNG_SUCCESS) {
-            // Draw decoded image in chunks to prevent watchdog timeout
-            showMessage("Drawing image...", "This takes ~30s");
-            delay(500);
-
-            bbep.fillScreen(BBEP_WHITE);
-
-            // Draw the decoded image in chunks with yield() to prevent WDT
-            if (bpp == 1) {
-                // 1-bit monochrome - draw in 10-line chunks
-                int bytesPerLine = (imageWidth + 7) / 8;
-
-                for (int chunkStart = 0; chunkStart < imageHeight; chunkStart += 10) {
-                    int chunkEnd = min(chunkStart + 10, imageHeight);
-
-                    // Draw this chunk
-                    for (int y = chunkStart; y < chunkEnd; y++) {
-                        uint8_t *line = imageBuffer + (y * bytesPerLine);
-
-                        for (int x = 0; x < imageWidth; x++) {
-                            int byteIndex = x / 8;
-                            int bitIndex = 7 - (x % 8);
-                            uint8_t bit = (line[byteIndex] >> bitIndex) & 1;
-                            uint8_t color = bit ? BBEP_WHITE : BBEP_BLACK;
-                            bbep.drawPixel(x, y, color);
-                        }
-                    }
-
-                    // Yield to watchdog every chunk
-                    yield();
-
-                    // Show progress every 100 lines
-                    if (chunkStart % 100 == 0) {
-                        char progress[50];
-                        sprintf(progress, "Drawing: %d%%", (chunkStart * 100) / imageHeight);
-                        showMessage(progress);
-                    }
-                }
-            } else {
-                // 8-bit grayscale - draw in 10-line chunks
-                for (int chunkStart = 0; chunkStart < imageHeight; chunkStart += 10) {
-                    int chunkEnd = min(chunkStart + 10, imageHeight);
-
-                    for (int y = chunkStart; y < chunkEnd; y++) {
-                        uint8_t *line = imageBuffer + (y * imageWidth);
-                        for (int x = 0; x < imageWidth; x++) {
-                            uint8_t gray = line[x];
-                            uint8_t color = gray >> 4;
-                            bbep.drawPixel(x, y, color);
-                        }
-                    }
-
-                    yield();
-
-                    if (chunkStart % 100 == 0) {
-                        char progress[50];
-                        sprintf(progress, "Drawing: %d%%", (chunkStart * 100) / imageHeight);
-                        showMessage(progress);
-                    }
-                }
-            }
-
-            showMessage("Drawing complete!");
-            delay(500);
-
-            free(imageBuffer);
-            imageBuffer = NULL;
-            // Determine refresh type
-            refreshCounter++;
-            bool useFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
-
-            if (useFullRefresh) {
-                showMessage("Full refresh...", "(clearing ghosting)");
-                bbep.refresh(REFRESH_FULL, true);
-                refreshCounter = 0;  // Reset counter
-            } else {
-                char msg[50];
-                sprintf(msg, "Partial %d/10", refreshCounter);
-                showMessage("Fast update...", msg);
-                bbep.refresh(REFRESH_PARTIAL, false);
-            }
-
-            // Save refresh counter for next cycle
-            preferences.putInt("refresh_count", refreshCounter);
-
-            free(imgBuffer);
-            http.end();
-            client->stop();
-            delete client;
-            return true;
-        } else {
-            char errMsg[80];
-            sprintf(errMsg, "Decode error: %d", rc);
-            showMessage("Failed", errMsg);
-            delay(3000);
-
-            // Clean up image buffer
-            if (imageBuffer) {
-                free(imageBuffer);
-                imageBuffer = NULL;
-            }
-        }
-
-        free(imgBuffer);
-    } else {
-        // HTTP request failed
-        char errMsg[100];
+    if (httpCode != 200) {
+        char errMsg[80];
         sprintf(errMsg, "HTTP error: %d", httpCode);
-        showMessage("Request failed", errMsg);
+        showMessage("Download failed", errMsg);
+        http.end();
+        client->stop();
+        delete client;
+        return false;
     }
 
+    int len = http.getSize();
+
+    if (len > MAX_PNG_SIZE || len <= 0) {
+        char errMsg[80];
+        sprintf(errMsg, "Invalid size: %d", len);
+        showMessage("Size error", errMsg);
+        http.end();
+        client->stop();
+        delete client;
+        return false;
+    }
+
+    size_t freeHeap = ESP.getFreeHeap();
+    if (freeHeap < MIN_FREE_HEAP) {
+        char errMsg[80];
+        sprintf(errMsg, "Low memory: %d bytes", freeHeap);
+        showMessage("Memory error!", errMsg);
+        http.end();
+        client->stop();
+        delete client;
+        return false;
+    }
+
+    // Download PNG
+    uint8_t* imgBuffer = (uint8_t*)malloc(len);
+    if (!imgBuffer) {
+        showMessage("malloc failed");
+        http.end();
+        client->stop();
+        delete client;
+        return false;
+    }
+
+    WiFiClient* stream = http.getStreamPtr();
+    int totalRead = 0;
+    unsigned long timeout = millis();
+
+    while (http.connected() && totalRead < len) {
+        size_t available = stream->available();
+        if (available) {
+            int c = stream->readBytes(imgBuffer + totalRead, min((int)available, len - totalRead));
+            totalRead += c;
+            timeout = millis();
+        }
+        if (millis() - timeout > 10000) break;
+    }
+
+    if (totalRead != len) {
+        showMessage("Download incomplete");
+        free(imgBuffer);
+        http.end();
+        client->stop();
+        delete client;
+        return false;
+    }
+
+    showMessage("Decoding template...");
+
+    // Decode PNG (don't render, just verify)
+    int rc = png.openRAM(imgBuffer, totalRead, PNGDraw);
+
+    if (rc != PNG_SUCCESS) {
+        char errMsg[80];
+        sprintf(errMsg, "PNG open failed: %d", rc);
+        showMessage("Decode error", errMsg);
+        free(imgBuffer);
+        http.end();
+        client->stop();
+        delete client;
+        return false;
+    }
+
+    imageWidth = png.getWidth();
+    imageHeight = png.getHeight();
+
+    char msg[80];
+    sprintf(msg, "%dx%d, %dbpp", imageWidth, imageHeight, png.getBpp());
+    showMessage("Template OK", msg);
+    delay(1000);
+
+    png.close();
+
+    // For now, just show success message
+    // Full template rendering would go here (but takes too long)
+    showMessage("Template downloaded!", "Using text mode");
+    delay(2000);
+
+    free(imgBuffer);
     http.end();
     client->stop();
     delete client;
-    return false;
+
+    return true;
+}
+
+bool fetchAndDisplayRegionUpdates() {
+    // Download JSON region updates and draw text
+    WiFiClientSecure *client = new WiFiClientSecure();
+    if (!client) {
+        return false;
+    }
+
+    client->setInsecure();
+    HTTPClient http;
+    String url = String(SERVER_URL) + "/api/region-updates";
+
+    http.setTimeout(30000);
+
+    if (!http.begin(*client, url)) {
+        delete client;
+        return false;
+    }
+
+    int httpCode = http.GET();
+
+    if (httpCode != 200) {
+        http.end();
+        client->stop();
+        delete client;
+        return false;
+    }
+
+    String payload = http.getString();
+    http.end();
+    client->stop();
+    delete client;
+
+    // Parse JSON
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error) {
+        showMessage("JSON parse error");
+        return false;
+    }
+
+    // Clear screen and draw text-based layout
+    bbep.fillScreen(BBEP_WHITE);
+    bbep.setFont(FONT_12x16);
+
+    // Draw header
+    bbep.setCursor(20, 30);
+    bbep.print("PTV-TRMNL - LIVE DATA");
+
+    // Get regions array
+    JsonArray regions = doc["regions"].as<JsonArray>();
+
+    int yPos = 60;
+    for (JsonObject region : regions) {
+        const char* text = region["text"];
+
+        bbep.setCursor(20, yPos);
+        bbep.print(text);
+
+        yPos += 25;
+
+        if (yPos > 450) break;  // Screen limit
+    }
+
+    // Determine refresh type
+    refreshCounter++;
+    bool useFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
+
+    if (useFullRefresh) {
+        bbep.refresh(REFRESH_FULL, true);
+        refreshCounter = 0;
+    } else {
+        bbep.refresh(REFRESH_PARTIAL, false);
+    }
+
+    return true;
 }
 
 void deepSleep(int seconds) {
