@@ -212,9 +212,35 @@ bool fetchAndDisplayImage() {
     if (httpCode == 200) {
         // Get PNG image data size
         int len = http.getSize();
+
+        // CRITICAL: Check if PNG size is within safe limits
+        if (len > MAX_PNG_SIZE) {
+            char errMsg[80];
+            sprintf(errMsg, "PNG too large: %d bytes", len);
+            showMessage("Size error!", errMsg, "Max: 80KB");
+            delay(3000);
+            http.end();
+            client->stop();
+            delete client;
+            return false;
+        }
+
+        // Check available heap memory
+        size_t freeHeap = ESP.getFreeHeap();
+        if (freeHeap < MIN_FREE_HEAP) {
+            char errMsg[80];
+            sprintf(errMsg, "Low memory: %d bytes", freeHeap);
+            showMessage("Memory error!", errMsg);
+            delay(3000);
+            http.end();
+            client->stop();
+            delete client;
+            return false;
+        }
+
         char sizeMsg[80];
-        sprintf(sizeMsg, "Size: %d bytes", len);
-        showMessage("Streaming decode...", sizeMsg);
+        sprintf(sizeMsg, "Size: %d bytes (OK)", len);
+        showMessage("Downloading...", sizeMsg);
         delay(1000);
 
         // Initialize display buffer first
@@ -223,20 +249,24 @@ bool fetchAndDisplayImage() {
         // Get stream pointer
         WiFiClient* stream = http.getStreamPtr();
 
-        // Open PNG from stream (no RAM buffering!)
-        showMessage("Opening PNG stream...");
-        delay(500);
-
-        // For streaming, we need to buffer it - but let's try a smaller approach
-        // Download in chunks and let PNGdec handle it
+        // Allocate buffer for PNG (size already validated)
         uint8_t* imgBuffer = (uint8_t*)malloc(len);
         if (!imgBuffer) {
-            showMessage("Memory error", "Cannot allocate buffer");
+            char errMsg[80];
+            sprintf(errMsg, "malloc failed: %d bytes", len);
+            showMessage("Memory error!", errMsg);
+            delay(3000);
             http.end();
             client->stop();
             delete client;
             return false;
         }
+
+        // Log memory state
+        char memMsg[80];
+        sprintf(memMsg, "Allocated %d bytes", len);
+        showMessage("Memory OK", memMsg);
+        delay(500);
 
         // Download all data
         int totalRead = 0;

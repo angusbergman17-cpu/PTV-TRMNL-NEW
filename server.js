@@ -274,8 +274,18 @@ app.get('/api/screen', async (req, res) => {
 app.get('/api/live-image.png', async (req, res) => {
   try {
     const image = await getImage();
+
+    // Safety check: Verify image size
+    const MAX_SIZE = 80 * 1024; // 80KB
+    if (image.length > MAX_SIZE) {
+      console.error(`❌ PNG too large: ${image.length} bytes (max ${MAX_SIZE})`);
+      return res.status(500).send('Image too large for device');
+    }
+
     res.set('Content-Type', 'image/png');
+    res.set('Content-Length', image.length);
     res.set('Cache-Control', `public, max-age=${Math.round(CACHE_MS / 1000)}`);
+    res.set('X-Image-Size', image.length); // Debug header
     res.send(image);
   } catch (error) {
     console.error('Error generating image:', error);

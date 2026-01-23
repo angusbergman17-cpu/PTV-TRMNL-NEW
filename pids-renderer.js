@@ -70,15 +70,56 @@ class PidsRenderer {
 
     // Generate 8-bit grayscale PNG for e-ink (PNGdec compatible)
     // Rotate 270 degrees (-90) to fix display orientation on OG TRMNL hardware
-    return await sharp(Buffer.from(svg))
-      .rotate(270)  // Rotate counter-clockwise to fix right-rotated display
-      .grayscale()  // Convert to grayscale (8-bit)
+    const MAX_PNG_SIZE = 80 * 1024; // 80KB hard limit for ESP32-C3
+
+    let compressionLevel = 6;
+    let pngBuffer;
+
+    // Try compression level 6 first
+    pngBuffer = await sharp(Buffer.from(svg))
+      .rotate(270)
+      .grayscale()
       .png({
-        compressionLevel: 6,  // Moderate compression (balance between file size and decoder memory)
-        progressive: false,   // Disable interlacing (PNGdec doesn't support it)
-        adaptiveFiltering: false  // Simpler PNG format
+        compressionLevel: compressionLevel,
+        progressive: false,
+        adaptiveFiltering: false
       })
       .toBuffer();
+
+    // If still too large, increase compression
+    while (pngBuffer.length > MAX_PNG_SIZE && compressionLevel < 9) {
+      compressionLevel++;
+      console.log(`⚠️  PNG too large (${pngBuffer.length} bytes), retrying with compression ${compressionLevel}`);
+
+      pngBuffer = await sharp(Buffer.from(svg))
+        .rotate(270)
+        .grayscale()
+        .png({
+          compressionLevel: compressionLevel,
+          progressive: false,
+          adaptiveFiltering: false
+        })
+        .toBuffer();
+    }
+
+    // Final check - if still too large, reduce image size
+    if (pngBuffer.length > MAX_PNG_SIZE) {
+      console.log(`⚠️  PNG still too large (${pngBuffer.length} bytes), reducing to 600x360`);
+
+      pngBuffer = await sharp(Buffer.from(svg))
+        .resize(600, 360)
+        .rotate(270)
+        .grayscale()
+        .png({
+          compressionLevel: 9,
+          progressive: false,
+          adaptiveFiltering: false
+        })
+        .toBuffer();
+    }
+
+    console.log(`✅ PNG generated: ${pngBuffer.length} bytes (${(pngBuffer.length / 1024).toFixed(1)}KB)`);
+    return pngBuffer;
   }
 
   renderHeader(timeStr, weather, coffee) {
