@@ -47,26 +47,32 @@ bool showingLog = true;  // Control when to show log vs template
 void initDisplay();
 bool connectWiFi();
 void drawInitialDashboard(JsonDocument& doc);
+void drawDashboardSections(JsonDocument& doc);
 void updateDashboardRegions(JsonDocument& doc);
 void deepSleep(int seconds);
 float getBatteryVoltage();
 int getWiFiRSSI();
 void addLog(const char* message);
 void showLog();
+void showAllLogs();
 void showMessage(const char* line1, const char* line2 = "", const char* line3 = "");
 bool waitForButtonConfirmation(int timeoutSeconds);
 void checkLongPressReset();
 void showConfirmationPrompt();
 
 void setup() {
+    // Initialize display FIRST
+    initDisplay();
+
+    // Disable watchdog during boot
+    esp_task_wdt_reset();
+    esp_task_wdt_delete(NULL);
+
     // Initialize preferences
     preferences.begin("trmnl", false);
     setupComplete = preferences.getBool("setup_done", false);
 
-    // Initialize display
-    initDisplay();
-
-    // Clear screen and show setup header
+    // BOOT SCREEN with logs - draw header and prepare for logs
     bbep.fillScreen(BBEP_WHITE);
     bbep.setFont(FONT_12x16);
     bbep.setCursor(10, 20);
@@ -81,57 +87,70 @@ void setup() {
     }
 
     bbep.drawLine(0, 50, 480, 50, BBEP_BLACK);
-    bbep.refresh(REFRESH_FULL, true);
-    delay(500);
 
-    // Boot sequence with progressive logs
+    // Add boot logs (will display all at once)
     addLog("System boot");
-    showLog();
-    delay(300);
-
     if (setupComplete) {
         addLog("Operating mode");
     } else {
         addLog("First boot - initializing");
     }
-    showLog();
-    delay(300);
+    addLog("Connecting to WiFi...");
+
+    // Display header and initial logs - ONE full refresh
+    showAllLogs();
+    bbep.refresh(REFRESH_FULL, true);
+    delay(500);
+
+    // Check for reset button (5 second long press)
+    if (digitalRead(PIN_INTERRUPT) == LOW) {
+        unsigned long pressStart = millis();
+        addLog("Hold 5s to reset...");
+        showAllLogs();
+        bbep.refresh(REFRESH_PARTIAL, false);
+
+        while (digitalRead(PIN_INTERRUPT) == LOW) {
+            if (millis() - pressStart >= 5000) {
+                addLog("RESETTING...");
+                showAllLogs();
+                bbep.refresh(REFRESH_PARTIAL, false);
+                preferences.clear();
+                delay(2000);
+                ESP.restart();
+            }
+            delay(100);
+        }
+    }
 
     // Connect to WiFi
-    addLog("Connecting to WiFi...");
-    showLog();
-    delay(300);
+    WiFiManager wm;
+    wm.setConfigPortalTimeout(180);
 
-    if (!connectWiFi()) {
-        addLog("WiFi connection FAILED");
-        showLog();
+    if (!wm.autoConnect(WIFI_AP_NAME)) {
+        addLog("WiFi FAILED");
+        showAllLogs();
+        bbep.refresh(REFRESH_PARTIAL, false);
         delay(3000);
-        deepSleep(300);  // Sleep 5 minutes
+        deepSleep(300);
         return;
     }
 
     addLog("WiFi connected");
-    showLog();
-    delay(300);
+    showAllLogs();
+    bbep.refresh(REFRESH_PARTIAL, false);
+    delay(500);
 
-    // Check for long press reset at boot
-    checkLongPressReset();
-
-    // SETUP PHASE: Render text-based dashboard and wait for confirmation
+    // SETUP PHASE: First boot - show dashboard and wait for confirmation
     if (!setupComplete) {
-        addLog("Starting setup sequence");
-        showLog();
-        delay(300);
-
-        // Fetch initial data
-        addLog("Contacting server...");
-        showLog();
-        delay(300);
+        addLog("Fetching data...");
+        showAllLogs();
+        bbep.refresh(REFRESH_PARTIAL, false);
 
         WiFiClientSecure *client = new WiFiClientSecure();
         if (!client) {
-            addLog("ERROR: SSL allocation failed");
-            showLog();
+            addLog("ERROR: SSL failed");
+            showAllLogs();
+            bbep.refresh(REFRESH_PARTIAL, false);
             delay(3000);
             deepSleep(300);
             return;
@@ -142,135 +161,72 @@ void setup() {
         String url = String(SERVER_URL) + "/api/region-updates";
         http.setTimeout(30000);
 
-        addLog("Connecting to server...");
-        showLog();
-        delay(300);
-
-        if (!http.begin(*client, url)) {
-            addLog("ERROR: HTTP begin failed");
-            showLog();
-            delay(3000);
+        if (!http.begin(*client, url) || http.GET() != 200) {
+            addLog("ERROR: Server failed");
+            showAllLogs();
+            bbep.refresh(REFRESH_PARTIAL, false);
             delete client;
+            delay(3000);
             deepSleep(300);
             return;
         }
-
-        addLog("Requesting data...");
-        showLog();
-        delay(300);
-
-        int httpCode = http.GET();
-        if (httpCode != 200) {
-            char errMsg[50];
-            sprintf(errMsg, "ERROR: HTTP %d", httpCode);
-            addLog(errMsg);
-            showLog();
-            delay(3000);
-            http.end();
-            client->stop();
-            delete client;
-            deepSleep(300);
-            return;
-        }
-
-        addLog("Receiving data...");
-        showLog();
-        delay(300);
 
         String payload = http.getString();
         http.end();
         client->stop();
         delete client;
 
-        addLog("Data received successfully");
-        showLog();
-        delay(300);
-
-        // Parse JSON
-        addLog("Parsing transport data...");
-        showLog();
-        delay(300);
-
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, payload);
-        if (error) {
-            addLog("ERROR: JSON parse failed");
-            showLog();
+        if (deserializeJson(doc, payload)) {
+            addLog("ERROR: JSON failed");
+            showAllLogs();
+            bbep.refresh(REFRESH_PARTIAL, false);
             delay(3000);
             deepSleep(300);
             return;
         }
 
-        addLog("Data parsed OK");
-        showLog();
-        delay(300);
-
-        addLog("Building dashboard...");
-        showLog();
+        addLog("Data received OK");
+        addLog("Displaying dashboard...");
+        showAllLogs();
+        bbep.refresh(REFRESH_PARTIAL, false);
         delay(500);
 
-        // Disable watchdog for setup
-        esp_task_wdt_reset();
-        esp_task_wdt_delete(NULL);
-
-        // Draw initial dashboard to buffer (DOESN'T refresh yet)
-        drawInitialDashboard(doc);
-
-        addLog("Dashboard ready");
-        showLog();
-        delay(500);
-
-        addLog("Displaying...");
-        showLog();
-        delay(300);
-
-        // Single full refresh to show dashboard
+        // SCREEN WIPE: Black -> White -> Dashboard
+        bbep.fillScreen(BBEP_BLACK);
         bbep.refresh(REFRESH_FULL, true);
+        delay(100);
 
-        // Re-enable watchdog
-        esp_task_wdt_init(30, true);
-        esp_task_wdt_add(NULL);
-
-        // Wait for user to see dashboard
-        delay(2000);
+        bbep.fillScreen(BBEP_WHITE);
+        drawDashboardSections(doc);
+        bbep.refresh(REFRESH_FULL, true);
+        delay(1000);
 
         // Show confirmation prompt
         showConfirmationPrompt();
 
-        // Wait for confirmation (60 second timeout)
+        // Re-enable watchdog for button wait
+        esp_task_wdt_init(30, true);
+        esp_task_wdt_add(NULL);
+
         bool confirmed = waitForButtonConfirmation(60);
 
         if (confirmed) {
-            // User confirmed they can see dashboard
             setupComplete = true;
             preferences.putBool("setup_done", true);
-
-            addLog("Setup CONFIRMED!");
-            addLog("Moving to operating mode");
-            showLog();
-            delay(2000);
-
-            // Sleep and wake up to start operating
-            deepSleep(5);  // Wake in 5 seconds
+            deepSleep(5);
             return;
         } else {
-            // No confirmation - show status and retry
-            addLog("No confirmation");
-            addLog("Setup still in progress");
-            addLog("Retry in 30s");
-            showLog();
-            delay(3000);
-
-            // Sleep and retry
             deepSleep(30);
             return;
         }
     }
 
-    // Check for long press reset at any time during operation
-    checkLongPressReset();
+    // OPERATING MODE: Fetch and update regions
+    addLog("Fetching updates...");
+    showAllLogs();
+    bbep.refresh(REFRESH_PARTIAL, false);
 
-    // OPERATING PHASE: Fetch data and update regions only
     WiFiClientSecure *client = new WiFiClientSecure();
     if (!client) {
         deepSleep(refreshRate);
@@ -282,16 +238,7 @@ void setup() {
     String url = String(SERVER_URL) + "/api/region-updates";
     http.setTimeout(30000);
 
-    if (!http.begin(*client, url)) {
-        delete client;
-        deepSleep(refreshRate);
-        return;
-    }
-
-    int httpCode = http.GET();
-    if (httpCode != 200) {
-        http.end();
-        client->stop();
+    if (!http.begin(*client, url) || http.GET() != 200) {
         delete client;
         deepSleep(refreshRate);
         return;
@@ -302,27 +249,20 @@ void setup() {
     client->stop();
     delete client;
 
-    // Parse JSON
     JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
-    if (error) {
+    if (deserializeJson(doc, payload)) {
         deepSleep(refreshRate);
         return;
     }
 
-    // Update only changed regions
+    // Update only changed regions with black/white cleaning
     updateDashboardRegions(doc);
-
-    // Single partial refresh
-    esp_task_wdt_reset();
-    esp_task_wdt_delete(NULL);
-
     bbep.refresh(REFRESH_PARTIAL, false);
 
+    // Re-enable watchdog and sleep
     esp_task_wdt_init(30, true);
     esp_task_wdt_add(NULL);
 
-    // Sleep until next refresh
     deepSleep(refreshRate);
 }
 
@@ -436,7 +376,87 @@ void drawInitialDashboard(JsonDocument& doc) {
     bbep.print("SERVICE STATUS: GOOD SERVICE");
 }
 
-// OPERATING MODE: Update only changed regions (matches new PIDS layout)
+// Draw dashboard to buffer (NO refreshes - just draw content)
+void drawDashboardSections(JsonDocument& doc) {
+    // Extract data from JSON
+    JsonArray regions = doc["regions"].as<JsonArray>();
+    const char* timeText = "00:00";
+    const char* train1 = "--";
+    const char* train2 = "--";
+    const char* tram1 = "--";
+    const char* tram2 = "--";
+
+    for (JsonObject region : regions) {
+        const char* id = region["id"] | "";
+        if (strcmp(id, "time") == 0) timeText = region["text"] | "00:00";
+        else if (strcmp(id, "train1") == 0) train1 = region["text"] | "--";
+        else if (strcmp(id, "train2") == 0) train2 = region["text"] | "--";
+        else if (strcmp(id, "tram1") == 0) tram1 = region["text"] | "--";
+        else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | "--";
+    }
+
+    // Save initial values for change detection in operating mode
+    strncpy(prevTime, timeText, sizeof(prevTime) - 1);
+    strncpy(prevTrain1, train1, sizeof(prevTrain1) - 1);
+    strncpy(prevTrain2, train2, sizeof(prevTrain2) - 1);
+    strncpy(prevTram1, tram1, sizeof(prevTram1) - 1);
+    strncpy(prevTram2, tram2, sizeof(prevTram2) - 1);
+
+    // Draw all content to buffer (no refreshes)
+    // ========== HEADER ==========
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 20);
+    bbep.print("SOUTH YARRA");
+    bbep.setCursor(360, 20);
+    bbep.print(timeText);
+
+    // ========== METRO TRAINS SECTION ==========
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 60);
+    bbep.print("METRO TRAINS");
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(10, 80);
+    bbep.print("FLINDERS ST (LOOP)");
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 110);
+    bbep.print(train1);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 140);
+    bbep.print(train2);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    // ========== YARRA TRAMS SECTION ==========
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 200);
+    bbep.print("YARRA TRAMS");
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(10, 220);
+    bbep.print("58 TOORAK (DOMAIN)");
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 250);
+    bbep.print(tram1);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 280);
+    bbep.print(tram2);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    // ========== STATUS BAR ==========
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(10, 350);
+    bbep.print("SERVICE STATUS: GOOD SERVICE");
+}
+
+// OPERATING MODE: Update only changed regions with black/white cleaning
 void updateDashboardRegions(JsonDocument& doc) {
     // Extract current data
     JsonArray regions = doc["regions"].as<JsonArray>();
@@ -455,20 +475,19 @@ void updateDashboardRegions(JsonDocument& doc) {
         else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | "--";
     }
 
-    bool hasChanges = false;
-
-    // Update TIME region (header)
+    // Update TIME region with black/white clean
     if (strcmp(prevTime, timeText) != 0) {
+        bbep.fillRect(360, 10, 110, 25, BBEP_BLACK);
         bbep.fillRect(360, 10, 110, 25, BBEP_WHITE);
         bbep.setFont(FONT_12x16);
         bbep.setCursor(360, 20);
         bbep.print(timeText);
         strncpy(prevTime, timeText, sizeof(prevTime) - 1);
-        hasChanges = true;
     }
 
-    // Update TRAIN1 region
+    // Update TRAIN1 region with black/white clean
     if (strcmp(prevTrain1, train1) != 0) {
+        bbep.fillRect(10, 100, 200, 25, BBEP_BLACK);
         bbep.fillRect(10, 100, 200, 25, BBEP_WHITE);
         bbep.setFont(FONT_12x16);
         bbep.setCursor(10, 110);
@@ -476,11 +495,11 @@ void updateDashboardRegions(JsonDocument& doc) {
         bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTrain1, train1, sizeof(prevTrain1) - 1);
-        hasChanges = true;
     }
 
-    // Update TRAIN2 region
+    // Update TRAIN2 region with black/white clean
     if (strcmp(prevTrain2, train2) != 0) {
+        bbep.fillRect(10, 130, 200, 25, BBEP_BLACK);
         bbep.fillRect(10, 130, 200, 25, BBEP_WHITE);
         bbep.setFont(FONT_12x16);
         bbep.setCursor(10, 140);
@@ -488,11 +507,11 @@ void updateDashboardRegions(JsonDocument& doc) {
         bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTrain2, train2, sizeof(prevTrain2) - 1);
-        hasChanges = true;
     }
 
-    // Update TRAM1 region
+    // Update TRAM1 region with black/white clean
     if (strcmp(prevTram1, tram1) != 0) {
+        bbep.fillRect(10, 240, 200, 25, BBEP_BLACK);
         bbep.fillRect(10, 240, 200, 25, BBEP_WHITE);
         bbep.setFont(FONT_12x16);
         bbep.setCursor(10, 250);
@@ -500,11 +519,11 @@ void updateDashboardRegions(JsonDocument& doc) {
         bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTram1, tram1, sizeof(prevTram1) - 1);
-        hasChanges = true;
     }
 
-    // Update TRAM2 region
+    // Update TRAM2 region with black/white clean
     if (strcmp(prevTram2, tram2) != 0) {
+        bbep.fillRect(10, 270, 200, 25, BBEP_BLACK);
         bbep.fillRect(10, 270, 200, 25, BBEP_WHITE);
         bbep.setFont(FONT_12x16);
         bbep.setCursor(10, 280);
@@ -512,7 +531,6 @@ void updateDashboardRegions(JsonDocument& doc) {
         bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTram2, tram2, sizeof(prevTram2) - 1);
-        hasChanges = true;
     }
 }
 
@@ -653,30 +671,59 @@ void addLog(const char* message) {
 }
 
 // Display the operation log on screen
+// Track log Y position for incremental display
+static int currentLogY = 60;
+
 void showLog() {
-    bbep.fillScreen(BBEP_WHITE);
+    // Only display the LATEST log entry as a region update
+    if (logCount == 0) return;
+
+    // Get latest log index
+    int latestIdx = (logIndex - 1 + MAX_LOG_LINES) % MAX_LOG_LINES;
+    const char* latestLog = logBuffer[latestIdx];
+
+    const int logX = 10;
+    const int logW = 460;
+    const int logH = 15;
+
+    // REGION UPDATE with black/white clean to prevent ghosting
+    bbep.fillRect(logX, currentLogY, logW, logH, BBEP_BLACK);
+    bbep.fillRect(logX, currentLogY, logW, logH, BBEP_WHITE);
+
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(logX, currentLogY + 10);
+    bbep.print(latestLog);
+
+    bbep.refresh(REFRESH_PARTIAL, false);
+
+    // Move to next line
+    currentLogY += logH;
+    if (currentLogY > 450) currentLogY = 60; // Wrap
+}
+
+// Display ALL logs at once (for boot sequence)
+void showAllLogs() {
+    if (logCount == 0) return;
+
+    const int logX = 10;
+    const int logStartY = 60;
+    const int logLineHeight = 15;
+
     bbep.setFont(FONT_8x8);
 
-    // Header
-    bbep.setCursor(10, 10);
-    bbep.print("PTV-TRMNL OPERATION LOG");
-    bbep.setCursor(10, 25);
-    bbep.print("========================");
-
-    // Display log entries (oldest to newest)
-    int y = 45;
+    // Display all logs in order (oldest to newest)
     int displayCount = min(logCount, MAX_LOG_LINES);
     int startIdx = (logIndex - displayCount + MAX_LOG_LINES) % MAX_LOG_LINES;
 
     for (int i = 0; i < displayCount; i++) {
         int idx = (startIdx + i) % MAX_LOG_LINES;
-        bbep.setCursor(10, y);
+        int y = logStartY + (i * logLineHeight);
+
+        bbep.setCursor(logX, y + 10);
         bbep.print(logBuffer[idx]);
-        y += 15;
-        if (y > 460) break;
     }
 
-    bbep.refresh(REFRESH_FULL, true);
+    currentLogY = logStartY + (displayCount * logLineHeight);
 }
 
 void showMessage(const char* line1, const char* line2, const char* line3) {

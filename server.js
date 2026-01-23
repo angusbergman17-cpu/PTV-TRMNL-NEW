@@ -72,6 +72,31 @@ let cachedData = null;
 let lastUpdate = 0;
 const CACHE_MS = 25 * 1000; // 25 seconds (device refreshes every 30s)
 
+// Device tracking
+const devicePings = new Map(); // deviceId -> { lastSeen, requestCount, ip }
+
+function trackDevicePing(deviceId, ip) {
+  const now = Date.now();
+  const existing = devicePings.get(deviceId) || { requestCount: 0 };
+
+  devicePings.set(deviceId, {
+    lastSeen: now,
+    requestCount: existing.requestCount + 1,
+    ip: ip,
+    status: 'online'
+  });
+}
+
+// Mark devices offline if not seen in 2 minutes
+setInterval(() => {
+  const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+  for (const [deviceId, info] of devicePings.entries()) {
+    if (info.lastSeen < twoMinutesAgo) {
+      info.status = 'offline';
+    }
+  }
+}, 30000); // Check every 30 seconds
+
 // Persistent storage paths
 const DEVICES_FILE = path.join(process.cwd(), 'devices.json');
 const CACHE_DIR = path.join(process.cwd(), 'cache');
@@ -475,6 +500,10 @@ app.get('/api/base-template.png', async (req, res) => {
 // Region updates endpoint - dynamic data (downloaded every 30 seconds)
 app.get('/api/region-updates', async (req, res) => {
   try {
+    // Track device ping from user-agent or generate ID
+    const deviceId = req.headers['user-agent']?.includes('ESP32') ? 'TRMNL-Device' : 'Unknown';
+    trackDevicePing(deviceId, req.ip);
+
     const updates = await getRegionUpdates();
 
     res.set('Content-Type', 'application/json');
@@ -570,6 +599,11 @@ app.get('/api/display', (req, res) => {
   const fwVersion = req.headers['fw-version'] || req.headers['FW-Version'];
   const rssi = req.headers.rssi || req.headers['RSSI'];
 
+  // Track device ping
+  if (friendlyID) {
+    trackDevicePing(friendlyID, req.ip);
+  }
+
   // Log device status
   console.log(`📊 Device ${friendlyID}: Battery ${batteryVoltage}V, RSSI ${rssi}dBm, FW ${fwVersion}`);
 
@@ -652,6 +686,252 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+/* =========================================================
+   ADMIN PANEL ROUTES
+   ========================================================= */
+
+const API_CONFIG_FILE = path.join(process.cwd(), 'api-config.json');
+
+// Load API configuration
+async function loadApiConfig() {
+  try {
+    const data = await fs.readFile(API_CONFIG_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    // Return default config if file doesn't exist
+    return {
+      apis: {
+        ptv_opendata: {
+          name: "PTV Open Data API",
+          key: process.env.ODATA_KEY || "",
+          enabled: true,
+          baseUrl: "https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1",
+          lastChecked: null,
+          status: process.env.ODATA_KEY ? "active" : "unconfigured"
+        }
+      },
+      server: {
+        timezone: "Australia/Melbourne",
+        refreshInterval: 30,
+        fallbackEnabled: true
+      },
+      lastModified: null
+    };
+  }
+}
+
+// Save API configuration
+async function saveApiConfig(config) {
+  config.lastModified = new Date().toISOString();
+  await fs.writeFile(API_CONFIG_FILE, JSON.stringify(config, null, 2));
+
+  // Update environment variable if PTV key changed
+  if (config.apis.ptv_opendata?.key) {
+    process.env.ODATA_KEY = config.apis.ptv_opendata.key;
+  }
+}
+
+// Serve admin panel static files
+app.use('/admin', express.static(path.join(process.cwd(), 'public')));
+
+// Admin panel home
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'admin.html'));
+});
+
+// Get server status
+app.get('/admin/status', async (req, res) => {
+  const apiConfig = await loadApiConfig();
+  const totalApis = Object.keys(apiConfig.apis).length;
+  const activeApis = Object.values(apiConfig.apis).filter(api => api.enabled && api.key).length;
+
+  // Get data sources status
+  const dataSources = [
+    {
+      name: 'Metro Trains',
+      active: !!process.env.ODATA_KEY,
+      status: process.env.ODATA_KEY ? 'Live' : 'Offline'
+    },
+    {
+      name: 'Yarra Trams',
+      active: !!process.env.ODATA_KEY,
+      status: process.env.ODATA_KEY ? 'Live' : 'Offline'
+    },
+    {
+      name: 'Fallback Timetable',
+      active: apiConfig.server.fallbackEnabled,
+      status: apiConfig.server.fallbackEnabled ? 'Enabled' : 'Disabled'
+    }
+  ];
+
+  res.json({
+    status: 'Online',
+    lastUpdate: lastUpdate || Date.now(),
+    totalApis,
+    activeApis,
+    dataMode: process.env.ODATA_KEY ? 'Live' : 'Fallback',
+    dataSources
+  });
+});
+
+// Get all APIs
+app.get('/admin/apis', async (req, res) => {
+  const config = await loadApiConfig();
+  res.json(config.apis);
+});
+
+// Get single API
+app.get('/admin/api/:id', async (req, res) => {
+  const config = await loadApiConfig();
+  const api = config.apis[req.params.id];
+
+  if (!api) {
+    return res.status(404).json({ error: 'API not found' });
+  }
+
+  res.json(api);
+});
+
+// Update API
+app.put('/admin/api/:id', async (req, res) => {
+  const config = await loadApiConfig();
+  const apiId = req.params.id;
+
+  // Create or update API
+  config.apis[apiId] = {
+    ...config.apis[apiId],
+    ...req.body,
+    lastChecked: new Date().toISOString(),
+    status: req.body.enabled && req.body.key ? 'active' : 'unconfigured'
+  };
+
+  await saveApiConfig(config);
+
+  res.json({ success: true, api: config.apis[apiId] });
+});
+
+// Toggle API enabled/disabled
+app.post('/admin/api/:id/toggle', async (req, res) => {
+  const config = await loadApiConfig();
+  const api = config.apis[req.params.id];
+
+  if (!api) {
+    return res.status(404).json({ error: 'API not found' });
+  }
+
+  api.enabled = req.body.enabled;
+  api.lastChecked = new Date().toISOString();
+  api.status = api.enabled && api.key ? 'active' : 'inactive';
+
+  await saveApiConfig(config);
+
+  res.json({ success: true, api });
+});
+
+// Delete API
+app.delete('/admin/api/:id', async (req, res) => {
+  const config = await loadApiConfig();
+
+  if (!config.apis[req.params.id]) {
+    return res.status(404).json({ error: 'API not found' });
+  }
+
+  delete config.apis[req.params.id];
+  await saveApiConfig(config);
+
+  res.json({ success: true });
+});
+
+// Get system configuration
+app.get('/admin/config', async (req, res) => {
+  const config = await loadApiConfig();
+  res.json(config.server);
+});
+
+// Update system configuration
+app.put('/admin/config', async (req, res) => {
+  const config = await loadApiConfig();
+
+  config.server = {
+    ...config.server,
+    ...req.body
+  };
+
+  await saveApiConfig(config);
+
+  res.json({ success: true, config: config.server });
+});
+
+// Get connected devices
+app.get('/admin/devices', (req, res) => {
+  const deviceList = Array.from(devicePings.entries()).map(([id, info]) => ({
+    id,
+    lastSeen: info.lastSeen,
+    lastSeenAgo: Math.floor((Date.now() - info.lastSeen) / 1000),
+    requestCount: info.requestCount,
+    ip: info.ip,
+    status: info.status
+  }));
+
+  res.json(deviceList);
+});
+
+// Clear server caches
+app.post('/admin/cache/clear', async (req, res) => {
+  try {
+    // Clear in-memory caches
+    cachedImage = null;
+    cachedData = null;
+    lastUpdate = 0;
+
+    // Clear cached files
+    try {
+      await fs.unlink(PNG_CACHE_FILE);
+      console.log('🗑️  Cleared PNG cache');
+    } catch (err) {
+      // File might not exist
+    }
+
+    try {
+      await fs.unlink(TEMPLATE_FILE);
+      console.log('🗑️  Cleared template cache');
+    } catch (err) {
+      // File might not exist
+    }
+
+    res.json({ success: true, message: 'Caches cleared successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Force server refresh (re-fetch data immediately)
+app.post('/admin/server/refresh', async (req, res) => {
+  try {
+    // Force refresh by clearing cache
+    cachedData = null;
+    lastUpdate = 0;
+
+    // Fetch new data
+    const data = await getData();
+
+    res.json({ success: true, message: 'Server refreshed successfully', timestamp: lastUpdate });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Restart server (trigger process restart - requires PM2 or similar)
+app.post('/admin/server/restart', (req, res) => {
+  res.json({ success: true, message: 'Server restart initiated' });
+
+  // Graceful shutdown
+  setTimeout(() => {
+    console.log('🔄 Server restarting...');
+    process.exit(0);
+  }, 1000);
+});
+
 // Preview HTML page
 app.get('/preview', (req, res) => {
   res.send(`
@@ -680,6 +960,7 @@ app.get('/preview', (req, res) => {
       <div class="info">
         <h2>Available Endpoints:</h2>
         <ul class="endpoints">
+          <li><a href="/admin">/admin</a> - <strong>Admin Panel</strong> (Manage APIs & Configuration)</li>
           <li><a href="/api/status">/api/status</a> - Server status and data summary</li>
           <li><a href="/api/screen">/api/screen</a> - TRMNL JSON markup</li>
           <li><a href="/api/live-image.png">/api/live-image.png</a> - Live PNG image</li>
