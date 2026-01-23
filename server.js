@@ -283,78 +283,28 @@ async function getRegionUpdates() {
     hour: '2-digit', minute: '2-digit', hour12: false
   });
 
-  // Define regions that need updating (coordinates based on pids-renderer.js layout)
+  // Define regions for firmware (simple format: id + text only)
   const regions = [];
 
-  // Time region (top left)
+  // Time region (HH:MM format)
   regions.push({
     id: 'time',
-    x: 20,
-    y: 45,
-    width: 135,
-    height: 50,
-    text: timeFormatter.format(now),
-    font: 'large',
-    clear: true
+    text: timeFormatter.format(now)
   });
 
-  // Temperature region
-  if (data.weather.temp !== '--') {
-    regions.push({
-      id: 'weather',
-      x: 180,
-      y: 30,
-      width: 80,
-      height: 20,
-      text: `${data.weather.temp}°C`,
-      font: 'normal',
-      clear: true
-    });
-  }
-
-  // Coffee status region
-  const coffeeText = data.coffee.canGet ? 'YOU HAVE TIME FOR A COFFEE!' : 'NO COFFEE CONNECTION';
-  regions.push({
-    id: 'coffee',
-    x: 490,
-    y: 20,
-    width: 300,
-    height: 25,
-    text: coffeeText,
-    font: 'normal',
-    clear: true,
-    centered: true
-  });
-
-  // Train times (first 3 departures)
-  const trainY = 130;
-  const trainLineHeight = 28;
-  for (let i = 0; i < Math.min(3, data.trains.length); i++) {
+  // Train times (always send 2 departures, use "--" if not available)
+  for (let i = 0; i < 2; i++) {
     regions.push({
       id: `train${i + 1}`,
-      x: 15,
-      y: trainY + (i * trainLineHeight),
-      width: 60,
-      height: 22,
-      text: `${data.trains[i].minutes} min`,
-      font: 'large',
-      clear: true
+      text: data.trains[i] ? `${data.trains[i].minutes}` : '--'
     });
   }
 
-  // Tram times (first 3 departures)
-  const tramY = 240;
-  const tramLineHeight = 28;
-  for (let i = 0; i < Math.min(3, data.trams.length); i++) {
+  // Tram times (always send 2 departures, use "--" if not available)
+  for (let i = 0; i < 2; i++) {
     regions.push({
       id: `tram${i + 1}`,
-      x: 15,
-      y: tramY + (i * tramLineHeight),
-      width: 60,
-      height: 22,
-      text: `${data.trams[i].minutes} min`,
-      font: 'large',
-      clear: true
+      text: data.trams[i] ? `${data.trams[i].minutes}` : '--'
     });
   }
 
