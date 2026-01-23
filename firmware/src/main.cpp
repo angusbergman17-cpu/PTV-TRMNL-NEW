@@ -63,7 +63,7 @@ void initDisplay() {
     // Initialize bb_epaper display (7.5" 800x480) - same API as official TRMNL
     bbep.initIO(EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN, EPD_CS_PIN, EPD_MOSI_PIN, EPD_SCK_PIN, 8000000);
     bbep.setPanelType(EP75_800x480);
-    // No rotation - test native orientation
+    // No rotation - image is pre-rotated on server
 }
 
 void showMessage(const char* line1, const char* line2, const char* line3) {
@@ -137,89 +137,203 @@ int PNGDraw(PNGDRAW *pDraw) {
 }
 
 bool fetchAndDisplayImage() {
-    WiFiClientSecure *client = new WiFiClientSecure;
+    // Test WiFi connectivity first
+    if (WiFi.status() != WL_CONNECTED) {
+        showMessage("WiFi disconnected", "Reconnecting...");
+        if (!connectWiFi()) {
+            showMessage("WiFi failed", "Cannot connect");
+            return false;
+        }
+    }
+
+    WiFiClientSecure *client = new WiFiClientSecure();
     if (!client) {
         showMessage("Memory error", "Cannot allocate SSL client");
         return false;
     }
 
-    // Skip SSL certificate validation (for Render.com)
+    // CRITICAL: Skip SSL certificate validation for Render.com
     client->setInsecure();
 
     HTTPClient http;
     String imageUrl = String(SERVER_URL) + "/api/live-image.png";
 
-    // Add timeout
-    http.setTimeout(30000);  // 30 seconds
+    showMessage("Connecting to:", "ptv-trmnl-new.onrender.com", "/api/live-image.png");
+    delay(2000);
 
-    showMessage("Connecting...", imageUrl.c_str());
+    // Set up HTTP client with secure client
+    http.setTimeout(30000);  // 30 seconds
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     if (!http.begin(*client, imageUrl)) {
-        showMessage("HTTP begin failed", "Check URL");
+        showMessage("HTTP begin failed", "Cannot connect");
         delete client;
         return false;
     }
 
+    showMessage("Sending GET request...", "Please wait");
+    delay(1000);
+
     int httpCode = http.GET();
 
-    char httpMsg[50];
-    sprintf(httpMsg, "HTTP response: %d", httpCode);
-    showMessage("Server responded", httpMsg);
-    delay(2000);  // Show for 2 seconds
+    char httpMsg[80];
+    sprintf(httpMsg, "HTTP %d", httpCode);
+
+    if (httpCode > 0) {
+        showMessage("Server responded", httpMsg);
+    } else {
+        // Negative codes are errors
+        const char* errorStr = "Unknown error";
+        if (httpCode == -1) errorStr = "Connection failed";
+        else if (httpCode == -2) errorStr = "Send header failed";
+        else if (httpCode == -3) errorStr = "Send payload failed";
+        else if (httpCode == -4) errorStr = "Not connected";
+        else if (httpCode == -5) errorStr = "Connection lost";
+        else if (httpCode == -6) errorStr = "No stream";
+        else if (httpCode == -7) errorStr = "No HTTP server";
+        else if (httpCode == -8) errorStr = "Too little RAM";
+        else if (httpCode == -9) errorStr = "Encoding error";
+        else if (httpCode == -10) errorStr = "Stream write error";
+        else if (httpCode == -11) errorStr = "Timeout";
+
+        showMessage("Request failed", httpMsg, errorStr);
+    }
+    delay(3000);  // Show for 3 seconds
 
     if (httpCode == 200) {
         // Get PNG image data
         int len = http.getSize();
-        char sizeMsg[50];
-        sprintf(sizeMsg, "Image size: %d bytes", len);
+        char sizeMsg[80];
+        sprintf(sizeMsg, "Size: %d bytes", len);
         showMessage("Downloading...", sizeMsg);
+        delay(1000);
+
+        // Check if size is reasonable
+        if (len <= 0 || len > 100000) {
+            sprintf(sizeMsg, "Invalid size: %d", len);
+            showMessage("Download error", sizeMsg);
+            http.end();
+            client->stop();
+            delete client;
+            return false;
+        }
 
         uint8_t* imgBuffer = (uint8_t*)malloc(len);
-
-        if (imgBuffer) {
-            WiFiClient* stream = http.getStreamPtr();
-            int bytesRead = stream->readBytes(imgBuffer, len);
-
-            // Decode and display PNG
-            int rc = png.openRAM(imgBuffer, bytesRead, PNGDraw);
-            if (rc == PNG_SUCCESS) {
-                bbep.fillScreen(BBEP_WHITE);
-                rc = png.decode(NULL, 0);
-                png.close();
-
-                if (rc == PNG_SUCCESS) {
-                    // Refresh display
-                    bbep.refresh(REFRESH_FULL, true);
-                    free(imgBuffer);
-                    http.end();
-                    delete client;
-                    return true;
-                }
-            }
-
-            // If PNG decode failed, show error
-            bbep.fillScreen(BBEP_WHITE);
-            bbep.setFont(FONT_12x16);
-            bbep.setCursor(50, 100);
-            bbep.print("PNG decode failed");
-            bbep.setCursor(50, 130);
-            char errStr[50];
-            sprintf(errStr, "Error code: %d", rc);
-            bbep.print(errStr);
-            bbep.refresh(REFRESH_FULL, true);
-
-            free(imgBuffer);
-        } else {
-            showMessage("Memory error", "Cannot allocate image buffer");
+        if (!imgBuffer) {
+            showMessage("Memory error", "Cannot allocate buffer");
+            http.end();
+            client->stop();
+            delete client;
+            return false;
         }
+
+        // Download with progress
+        WiFiClient* stream = http.getStreamPtr();
+        int bytesRead = 0;
+        int totalRead = 0;
+        unsigned long timeout = millis();
+
+        while (http.connected() && totalRead < len) {
+            size_t available = stream->available();
+            if (available) {
+                int c = stream->readBytes(imgBuffer + totalRead, min((int)available, len - totalRead));
+                totalRead += c;
+                timeout = millis();
+            }
+            // Timeout after 10 seconds of no data
+            if (millis() - timeout > 10000) {
+                break;
+            }
+        }
+
+        char readMsg[80];
+        sprintf(readMsg, "Read: %d/%d bytes", totalRead, len);
+        showMessage("Download complete", readMsg);
+        delay(1000);
+
+        // Verify we got all the data
+        if (totalRead != len) {
+            sprintf(readMsg, "Incomplete: %d/%d", totalRead, len);
+            showMessage("Download error", readMsg);
+            free(imgBuffer);
+            http.end();
+            client->stop();
+            delete client;
+            return false;
+        }
+
+        // Check PNG signature (first 8 bytes: 89 50 4E 47 0D 0A 1A 0A)
+        if (imgBuffer[0] != 0x89 || imgBuffer[1] != 0x50 ||
+            imgBuffer[2] != 0x4E || imgBuffer[3] != 0x47) {
+            showMessage("Not a PNG file", "Invalid signature");
+            delay(2000);
+            free(imgBuffer);
+            http.end();
+            client->stop();
+            delete client;
+            return false;
+        }
+
+        showMessage("Decoding PNG...");
+        delay(500);
+
+        // Initialize display buffer first
+        bbep.fillScreen(BBEP_WHITE);
+
+        // Open PNG and get info
+        int rc = png.openRAM(imgBuffer, totalRead, PNGDraw);
+
+        char debugMsg[80];
+        sprintf(debugMsg, "openRAM returned: %d", rc);
+        showMessage("PNG open result", debugMsg);
+        delay(2000);
+
+        if (rc == PNG_SUCCESS) {
+            // Get PNG info
+            sprintf(debugMsg, "%dx%d, %dbpp", png.getWidth(), png.getHeight(), png.getBpp());
+            showMessage("PNG info", debugMsg);
+            delay(2000);
+
+            // Decode the PNG
+            showMessage("Calling decode...");
+            delay(500);
+
+            rc = png.decode(NULL, 0);
+            png.close();
+
+            sprintf(debugMsg, "decode returned: %d", rc);
+            showMessage("Decode result", debugMsg);
+            delay(2000);
+
+            if (rc == PNG_SUCCESS) {
+                // Refresh display
+                showMessage("Refreshing display...");
+                delay(500);
+                bbep.refresh(REFRESH_FULL, true);
+                free(imgBuffer);
+                http.end();
+                client->stop();
+                delete client;
+                return true;
+            }
+        }
+
+        // If PNG decode failed, show error
+        char errStr[80];
+        sprintf(errStr, "PNG error: %d", rc);
+        showMessage("Decode failed", errStr);
+        delay(3000);
+
+        free(imgBuffer);
     } else {
-        // Download failed
+        // HTTP request failed
         char errMsg[100];
         sprintf(errMsg, "HTTP error: %d", httpCode);
-        showMessage("Download failed", errMsg, imageUrl.c_str());
+        showMessage("Request failed", errMsg);
     }
 
     http.end();
+    client->stop();
     delete client;
     return false;
 }

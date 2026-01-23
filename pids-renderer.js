@@ -69,7 +69,9 @@ class PidsRenderer {
     `;
 
     // Generate 1-bit black and white PNG for e-ink (much smaller file size and memory usage)
+    // Rotate 270 degrees (-90) to fix display orientation on OG TRMNL hardware
     return await sharp(Buffer.from(svg))
+      .rotate(270)  // Rotate counter-clockwise to fix right-rotated display
       .png({
         compressionLevel: 9,  // Maximum compression
         palette: true,        // Use indexed color
