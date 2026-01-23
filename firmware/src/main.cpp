@@ -53,6 +53,9 @@ int getWiFiRSSI();
 void addLog(const char* message);
 void showLog();
 void showMessage(const char* line1, const char* line2 = "", const char* line3 = "");
+bool waitForButtonConfirmation(int timeoutSeconds);
+void checkLongPressReset();
+void showConfirmationPrompt();
 
 void setup() {
     // Initialize preferences
@@ -83,6 +86,9 @@ void setup() {
     }
     addLog("WiFi connected");
 
+    // Check for long press reset at boot
+    checkLongPressReset();
+
     // SETUP PHASE: Download and cache template (no refresh yet)
     if (!setupComplete) {
         addLog("SETUP: Download template");
@@ -98,20 +104,48 @@ void setup() {
 
         // Template downloaded and cached successfully
         hasTemplate = true;
-        setupComplete = true;
-        refreshCounter = 0;
-        preferences.putBool("setup_done", true);
-        preferences.putInt("refresh_count", 0);
-
-        addLog("Setup complete!");
-        addLog("Next: Display template");
+        addLog("Template drawn!");
+        addLog("Showing confirmation...");
         showLog();
         delay(2000);
 
-        // Sleep and wake up to display
-        deepSleep(5);  // Wake in 5 seconds to display
-        return;
+        // Show confirmation prompt and wait for button press
+        showConfirmationPrompt();
+
+        // Wait for confirmation (60 second timeout)
+        bool confirmed = waitForButtonConfirmation(60);
+
+        if (confirmed) {
+            // User confirmed they can see dashboard
+            setupComplete = true;
+            refreshCounter = 0;
+            preferences.putBool("setup_done", true);
+            preferences.putInt("refresh_count", 0);
+
+            addLog("Setup CONFIRMED!");
+            addLog("Moving to operating mode");
+            showLog();
+            delay(2000);
+
+            // Sleep and wake up to start operating
+            deepSleep(5);  // Wake in 5 seconds
+            return;
+        } else {
+            // No confirmation - show status and retry
+            addLog("No confirmation");
+            addLog("Setup still in progress");
+            addLog("Retry in 30s");
+            showLog();
+            delay(3000);
+
+            // Sleep and retry
+            deepSleep(30);
+            return;
+        }
     }
+
+    // Check for long press reset at any time during operation
+    checkLongPressReset();
 
     // OPERATING PHASE: Check if we need to re-download template
     bool needsTemplate = (refreshCounter >= FULL_REFRESH_CYCLES);
@@ -174,6 +208,126 @@ void initDisplay() {
     bbep.initIO(EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN, EPD_CS_PIN, EPD_MOSI_PIN, EPD_SCK_PIN, 8000000);
     bbep.setPanelType(EP75_800x480);
     // No rotation - PNG is pre-rotated 270° on server to compensate for hardware orientation
+
+    // Initialize button pin
+    pinMode(PIN_INTERRUPT, INPUT_PULLUP);
+}
+
+// Show confirmation prompt on display
+void showConfirmationPrompt() {
+    bbep.fillScreen(BBEP_WHITE);
+    bbep.setFont(FONT_12x16);
+
+    bbep.setCursor(50, 100);
+    bbep.print("SETUP COMPLETE!");
+
+    bbep.setCursor(50, 140);
+    bbep.print("Can you see the dashboard?");
+
+    bbep.setCursor(50, 180);
+    bbep.print("SHORT PRESS: Confirm & Continue");
+
+    bbep.setCursor(50, 220);
+    bbep.print("LONG PRESS (5s): Reset Setup");
+
+    bbep.setCursor(50, 280);
+    bbep.print("Waiting for button press...");
+
+    // Feed watchdog before refresh
+    esp_task_wdt_reset();
+    esp_task_wdt_delete(NULL);
+
+    bbep.refresh(REFRESH_FULL, true);
+
+    // Re-initialize watchdog
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
+}
+
+// Wait for button confirmation with timeout
+bool waitForButtonConfirmation(int timeoutSeconds) {
+    unsigned long startTime = millis();
+    unsigned long timeout = timeoutSeconds * 1000;
+    bool buttonPressed = false;
+    unsigned long pressStartTime = 0;
+    bool wasPressed = false;
+
+    while (millis() - startTime < timeout) {
+        bool isPressed = (digitalRead(PIN_INTERRUPT) == LOW);
+
+        // Detect button press start
+        if (isPressed && !wasPressed) {
+            pressStartTime = millis();
+            wasPressed = true;
+            addLog("Button pressed");
+        }
+
+        // Detect button release (short press)
+        if (!isPressed && wasPressed) {
+            unsigned long pressDuration = millis() - pressStartTime;
+            wasPressed = false;
+
+            if (pressDuration < 5000) {
+                // Short press - confirmation
+                addLog("Short press: Confirmed");
+                return true;
+            }
+        }
+
+        // Detect long press (5 seconds)
+        if (isPressed && wasPressed) {
+            unsigned long pressDuration = millis() - pressStartTime;
+            if (pressDuration >= 5000) {
+                // Long press - reset
+                addLog("Long press: RESET");
+                showLog();
+                delay(1000);
+
+                // Clear all preferences
+                preferences.clear();
+                addLog("Preferences cleared");
+                showLog();
+                delay(2000);
+
+                // Reboot
+                ESP.restart();
+            }
+        }
+
+        // Feed watchdog
+        esp_task_wdt_reset();
+        delay(100);
+    }
+
+    // Timeout - no button press
+    addLog("No button press - retry");
+    return false;
+}
+
+// Check for long press at any time to reset
+void checkLongPressReset() {
+    if (digitalRead(PIN_INTERRUPT) == LOW) {
+        unsigned long pressStart = millis();
+
+        while (digitalRead(PIN_INTERRUPT) == LOW) {
+            if (millis() - pressStart >= 5000) {
+                // Long press detected
+                addLog("LONG PRESS: Resetting...");
+                showLog();
+                delay(1000);
+
+                preferences.clear();
+                addLog("Preferences cleared");
+                addLog("Rebooting...");
+                showLog();
+                delay(2000);
+
+                ESP.restart();
+            }
+            esp_task_wdt_reset();
+            delay(100);
+        }
+    }
 }
 
 // Add a log entry to the circular buffer
