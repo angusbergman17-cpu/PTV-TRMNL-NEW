@@ -13,6 +13,7 @@
 #include <ArduinoJson.h>
 #include <bb_epaper.h>
 #include <PNGdec.h>
+#include <esp_task_wdt.h>
 #include "../include/config.h"
 
 // E-paper display object (using BBEPAPER class like official firmware)
@@ -461,6 +462,10 @@ bool downloadBaseTemplate() {
 
     bbep.fillScreen(BBEP_WHITE);
 
+    // Disable watchdog during long drawing operation
+    esp_task_wdt_reset();
+    esp_task_wdt_delete(NULL);
+
     // Draw the decoded image from cache
     if (imageBpp == 1) {
         int bytesPerLine = (imageWidth + 7) / 8;
@@ -473,11 +478,8 @@ bool downloadBaseTemplate() {
                 uint8_t color = bit ? BBEP_WHITE : BBEP_BLACK;
                 bbep.drawPixel(x, y, color);
             }
-            // Yield every line to prevent watchdog timeout
-            if (y % 1 == 0) {
-                yield();
-                delay(1);  // Give watchdog time
-            }
+            // Yield every line
+            if (y % 10 == 0) yield();
         }
     } else {
         for (int y = 0; y < imageHeight; y++) {
@@ -487,19 +489,28 @@ bool downloadBaseTemplate() {
                 uint8_t color = gray >> 4;
                 bbep.drawPixel(x, y, color);
             }
-            if (y % 1 == 0) {
-                yield();
-                delay(1);  // Give watchdog time
-            }
+            if (y % 10 == 0) yield();
         }
     }
+
+    // Re-initialize watchdog (30 second timeout)
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
 
     // Full refresh to show template
     addLog("Full refresh...");
     showLog();
     delay(500);
 
+    // Disable watchdog during long refresh operation
+    esp_task_wdt_reset();
+    esp_task_wdt_delete(NULL);
+
     bbep.refresh(REFRESH_FULL, true);
+
+    // Re-initialize watchdog (30 second timeout)
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
 
     addLog("Template displayed!");
     templateDisplayed = true;
@@ -517,6 +528,10 @@ bool downloadBaseTemplate() {
 void restoreCachedImage() {
     if (!cachedImageBuffer) return;
 
+    // Disable watchdog during long drawing operation
+    esp_task_wdt_reset();
+    esp_task_wdt_delete(NULL);
+
     // Copy cached buffer to display
     if (imageBpp == 1) {
         int bytesPerLine = (imageWidth + 7) / 8;
@@ -529,11 +544,8 @@ void restoreCachedImage() {
                 uint8_t color = bit ? BBEP_WHITE : BBEP_BLACK;
                 bbep.drawPixel(x, y, color);
             }
-            // Yield every line to prevent watchdog
-            if (y % 1 == 0) {
-                yield();
-                delay(1);
-            }
+            // Yield every 10 lines
+            if (y % 10 == 0) yield();
         }
     } else {
         for (int y = 0; y < imageHeight; y++) {
@@ -543,12 +555,13 @@ void restoreCachedImage() {
                 uint8_t color = gray >> 4;
                 bbep.drawPixel(x, y, color);
             }
-            if (y % 1 == 0) {
-                yield();
-                delay(1);
-            }
+            if (y % 10 == 0) yield();
         }
     }
+
+    // Re-initialize watchdog (30 second timeout)
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
 }
 
 bool fetchAndDisplayRegionUpdates() {
@@ -713,7 +726,17 @@ bool fetchAndDisplayRegionUpdates() {
     if (useFullRefresh) {
         addLog("Full refresh");
         if (!templateDisplayed) showLog();
+
+        // Disable watchdog during long refresh operation
+        esp_task_wdt_reset();
+        esp_task_wdt_delete(NULL);
+
         bbep.refresh(REFRESH_FULL, true);
+
+        // Re-initialize watchdog
+        esp_task_wdt_init(30, true);
+        esp_task_wdt_add(NULL);
+
         templateDisplayed = true;
         showingLog = false;  // After first full refresh, stop showing log
         refreshCounter = 0;
@@ -722,7 +745,15 @@ bool fetchAndDisplayRegionUpdates() {
         if (hasChanges) {
             addLog("Partial refresh");
             if (!templateDisplayed) showLog();
+
+            // Feed watchdog before refresh
+            esp_task_wdt_reset();
+
             bbep.refresh(REFRESH_PARTIAL, false);
+
+            // Feed watchdog after refresh
+            esp_task_wdt_reset();
+
             templateDisplayed = true;
             showingLog = false;  // After any refresh, stop showing log
         } else {
