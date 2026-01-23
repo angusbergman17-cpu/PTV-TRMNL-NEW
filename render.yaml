@@ -1,8 +1,18 @@
-
 services:
   - type: web
     name: ptv-trmnl-new
     env: node
     plan: free
+    region: oregon
     buildCommand: npm install --no-audit --no-fund
     startCommand: node server.js
+    healthCheckPath: /api/status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ODATA_API_KEY
+        sync: false
+      - key: ODATA_TOKEN
+        sync: false
+      - key: GOOGLE_PLACES_KEY
+        sync: false
