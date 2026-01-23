@@ -33,6 +33,7 @@ const int FULL_REFRESH_CYCLES = 20;  // Full refresh every 20 cycles (10 minutes
 // Template storage
 bool hasTemplate = false;  // Track if we have the base template
 bool templateDisplayed = false;  // Track if template is currently on screen
+bool setupComplete = false;  // Track if initial setup is done (loaded from Preferences)
 
 // Operation logging (circular buffer of recent operations)
 #define MAX_LOG_LINES 12
@@ -57,13 +58,18 @@ void setup() {
     // Initialize preferences
     preferences.begin("trmnl", false);
     refreshCounter = preferences.getInt("refresh_count", 0);
+    setupComplete = preferences.getBool("setup_done", false);
 
     // Initialize display
     initDisplay();
     addLog("System boot");
 
     char bootMsg[60];
-    sprintf(bootMsg, "Cycle %d/20", refreshCounter);
+    if (setupComplete) {
+        sprintf(bootMsg, "Operating: Cycle %d/20", refreshCounter);
+    } else {
+        sprintf(bootMsg, "Setup Phase");
+    }
     addLog(bootMsg);
 
     // Connect to WiFi
@@ -77,28 +83,54 @@ void setup() {
     }
     addLog("WiFi connected");
 
-    // Check if we need to download base template
-    bool needsTemplate = (refreshCounter == 0) || (refreshCounter >= FULL_REFRESH_CYCLES);
+    // SETUP PHASE: Download and cache template (no refresh yet)
+    if (!setupComplete) {
+        addLog("SETUP: Download template");
+        showLog();
+
+        if (!downloadBaseTemplate()) {
+            addLog("Template FAILED");
+            showLog();
+            delay(3000);
+            deepSleep(300);  // Retry in 5 minutes
+            return;
+        }
+
+        // Template downloaded and cached successfully
+        hasTemplate = true;
+        setupComplete = true;
+        refreshCounter = 0;
+        preferences.putBool("setup_done", true);
+        preferences.putInt("refresh_count", 0);
+
+        addLog("Setup complete!");
+        addLog("Next: Display template");
+        showLog();
+        delay(2000);
+
+        // Sleep and wake up to display
+        deepSleep(5);  // Wake in 5 seconds to display
+        return;
+    }
+
+    // OPERATING PHASE: Check if we need to re-download template
+    bool needsTemplate = (refreshCounter >= FULL_REFRESH_CYCLES);
 
     if (needsTemplate) {
-        // Download and display base template (full image, slow)
-        char msg[60];
-        sprintf(msg, "Template cycle %d/20", refreshCounter);
-        addLog(msg);
-        addLog("Downloading template...");
+        addLog("Re-download template");
         showLog();
 
         if (!downloadBaseTemplate()) {
             addLog("Template FAILED");
         } else {
             hasTemplate = true;
-            refreshCounter = 0;  // Reset counter after full refresh
+            refreshCounter = 0;
             preferences.putInt("refresh_count", refreshCounter);
-            addLog("Template cached");
+            addLog("Template updated");
         }
     }
 
-    // Download and apply region updates (dynamic data, fast)
+    // OPERATING PHASE: Display and update
     addLog("Fetching PTV data...");
     if (showingLog) showLog();
 
@@ -497,24 +529,31 @@ bool downloadBaseTemplate() {
     esp_task_wdt_init(30, true);
     esp_task_wdt_add(NULL);
 
-    // Full refresh to show template
-    addLog("Full refresh...");
-    showLog();
-    delay(500);
+    // Only refresh if we're in operating phase
+    if (setupComplete) {
+        // Operating phase - do full refresh to show template
+        addLog("Full refresh...");
+        showLog();
+        delay(500);
 
-    // Disable watchdog during long refresh operation
-    esp_task_wdt_reset();
-    esp_task_wdt_delete(NULL);
+        // Disable watchdog during long refresh operation
+        esp_task_wdt_reset();
+        esp_task_wdt_delete(NULL);
 
-    bbep.refresh(REFRESH_FULL, true);
+        bbep.refresh(REFRESH_FULL, true);
 
-    // Re-initialize watchdog (30 second timeout)
-    esp_task_wdt_init(30, true);
-    esp_task_wdt_add(NULL);
+        // Re-initialize watchdog (30 second timeout)
+        esp_task_wdt_init(30, true);
+        esp_task_wdt_add(NULL);
 
-    addLog("Template displayed!");
-    templateDisplayed = true;
-    showingLog = false;  // Stop showing log, keep template visible
+        addLog("Template displayed!");
+        templateDisplayed = true;
+        showingLog = false;  // Stop showing log, keep template visible
+    } else {
+        // Setup phase - just cache, don't refresh yet
+        addLog("Template cached!");
+        addLog("(No refresh in setup)");
+    }
 
     free(imgBuffer);
     http.end();
@@ -720,11 +759,18 @@ bool fetchAndDisplayRegionUpdates() {
     addLog(changeMsg);
 
     // Step 5: Refresh display
-    // Use partial refresh for speed (unless it's time for full refresh)
-    bool useFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
+    // First operating cycle after setup: do full refresh to show template for first time
+    // Otherwise: partial refresh (unless it's time for periodic full refresh)
+    bool firstDisplay = setupComplete && !templateDisplayed;
+    bool periodicFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
+    bool useFullRefresh = firstDisplay || periodicFullRefresh;
 
     if (useFullRefresh) {
-        addLog("Full refresh");
+        if (firstDisplay) {
+            addLog("FIRST DISPLAY");
+        } else {
+            addLog("Full refresh cycle");
+        }
         if (!templateDisplayed) showLog();
 
         // Disable watchdog during long refresh operation
@@ -739,7 +785,9 @@ bool fetchAndDisplayRegionUpdates() {
 
         templateDisplayed = true;
         showingLog = false;  // After first full refresh, stop showing log
-        refreshCounter = 0;
+        if (periodicFullRefresh) {
+            refreshCounter = 0;
+        }
     } else {
         // Only refresh if something changed
         if (hasChanges) {
