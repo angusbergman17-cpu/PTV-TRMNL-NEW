@@ -425,6 +425,8 @@
                 </div>
                 <div style="margin-top: 10px; padding: 10px; background: #e6fffa; border-radius: 6px; font-size: 12px; color: #234e52;">
                     <strong>✨ Tip:</strong> Start typing and select from the suggestions. Addresses are saved permanently once configured.
+                    <br>
+                    <strong>🔵 Better Search:</strong> Add <code style="background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">GOOGLE_PLACES_KEY</code> environment variable for enhanced cafe/business search via Google Places API.
                 </div>
             </div>
 
@@ -721,26 +723,46 @@
                     const data = await response.json();
 
                     if (data.success && data.results.length > 0) {
-                        displayAutocompleteResults(type, data.results);
+                        displayAutocompleteResults(type, data.results, data.source);
                     } else {
-                        dropdown.innerHTML = '<div class="autocomplete-empty">No addresses found. Try being more specific.</div>';
+                        const suggestGoogle = data.source === 'nominatim' || !data.source;
+                        dropdown.innerHTML = `
+                            <div class="autocomplete-empty">
+                                No addresses found. Try being more specific.
+                                ${suggestGoogle ? '<br><small style="color: #718096; margin-top: 5px; display: block;">💡 Tip: Add Google Places API key for better cafe/business search</small>' : ''}
+                            </div>
+                        `;
                     }
                 } catch (error) {
                     console.error('Address search error:', error);
-                    dropdown.innerHTML = '<div class="autocomplete-empty">Error searching addresses</div>';
+                    dropdown.innerHTML = '<div class="autocomplete-empty">Error searching addresses. Please try again.</div>';
                 }
             }, 300); // Wait 300ms after user stops typing
         }
 
-        function displayAutocompleteResults(type, results) {
+        function displayAutocompleteResults(type, results, source) {
             const dropdown = document.getElementById(`${type}AddressDropdown`);
 
-            dropdown.innerHTML = results.map((result, index) => `
+            // Add source indicator at top
+            const sourceIcon = source === 'google' ? '🔵' : '🟢';
+            const sourceName = source === 'google' ? 'Google Places' : 'OpenStreetMap';
+            const sourceNote = source === 'nominatim' ? '<small style="color: #718096; font-size: 10px; display: block; margin-top: 3px;">💡 Add Google API key for better cafe search</small>' : '';
+
+            const sourceHeader = `
+                <div style="padding: 8px 14px; background: #f7fafc; border-bottom: 1px solid #e2e8f0; font-size: 11px; color: #718096;">
+                    ${sourceIcon} Powered by ${sourceName}
+                    ${sourceNote}
+                </div>
+            `;
+
+            const resultsHtml = results.map((result, index) => `
                 <div class="autocomplete-item" onclick="selectAddress('${type}', ${index})">
-                    <div class="autocomplete-item-title">${escapeHtml(result.address || result.display_name)}</div>
+                    <div class="autocomplete-item-title">${escapeHtml(result.display_name || result.address)}</div>
                     <div class="autocomplete-item-subtitle">${escapeHtml(result.full_address)}</div>
                 </div>
             `).join('');
+
+            dropdown.innerHTML = sourceHeader + resultsHtml;
 
             // Store results for selection
             window[`${type}SearchResults`] = results;

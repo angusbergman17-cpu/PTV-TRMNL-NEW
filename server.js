@@ -1112,12 +1112,76 @@ app.get('/admin/address/search', async (req, res) => {
       });
     }
 
-    // Use Nominatim (OpenStreetMap) for address search
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}, Melbourne, Australia&limit=5&addressdetails=1`;
+    console.log(`🔍 Address search: "${query}"`);
+
+    // Try Google Places Autocomplete first (much better for cafes and addresses)
+    const googleApiKey = process.env.GOOGLE_PLACES_KEY || process.env.GOOGLE_API_KEY;
+
+    if (googleApiKey) {
+      try {
+        console.log('  Using Google Places Autocomplete API');
+
+        // Google Places Autocomplete API
+        const autocompleteUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&components=country:au&location=-37.8136,144.9631&radius=50000&key=${googleApiKey}`;
+
+        const autocompleteResponse = await fetch(autocompleteUrl);
+        const autocompleteData = await autocompleteResponse.json();
+
+        if (autocompleteData.status === 'OK' && autocompleteData.predictions) {
+          console.log(`  ✅ Found ${autocompleteData.predictions.length} Google Places results`);
+
+          // Get details for top 5 predictions
+          const detailsPromises = autocompleteData.predictions.slice(0, 5).map(async (prediction) => {
+            const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&fields=name,formatted_address,geometry,types&key=${googleApiKey}`;
+
+            const detailsResponse = await fetch(detailsUrl);
+            const detailsData = await detailsResponse.json();
+
+            if (detailsData.status === 'OK' && detailsData.result) {
+              const place = detailsData.result;
+              return {
+                display_name: place.name,
+                address: place.name,
+                full_address: place.formatted_address,
+                lat: place.geometry.location.lat,
+                lon: place.geometry.location.lng,
+                type: place.types?.[0] || 'place',
+                importance: 1.0,
+                source: 'google'
+              };
+            }
+            return null;
+          });
+
+          const results = (await Promise.all(detailsPromises)).filter(r => r !== null);
+
+          return res.json({
+            success: true,
+            results,
+            count: results.length,
+            source: 'google'
+          });
+        } else {
+          console.log(`  ⚠️ Google Places returned status: ${autocompleteData.status}`);
+        }
+      } catch (googleError) {
+        console.error('  ❌ Google Places error:', googleError.message);
+        // Fall through to Nominatim
+      }
+    } else {
+      console.log('  No Google API key, using Nominatim');
+    }
+
+    // Fallback to Nominatim (OpenStreetMap) for address search
+    console.log('  Using OpenStreetMap Nominatim API');
+
+    // Improve Nominatim query for better results
+    const nominatimQuery = encodeURIComponent(query + ', Melbourne, Victoria, Australia');
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${nominatimQuery}&limit=5&addressdetails=1&bounded=1&viewbox=144.5937,-38.4339,145.5126,-37.5113`;
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'PTV-TRMNL/1.0 (Educational Project)'
+        'User-Agent': 'PTV-TRMNL/2.0 (Educational Project)'
       }
     });
 
@@ -1126,6 +1190,7 @@ app.get('/admin/address/search', async (req, res) => {
     }
 
     const data = await response.json();
+    console.log(`  ✅ Found ${data.length} Nominatim results`);
 
     const results = data.map(place => ({
       display_name: place.display_name,
@@ -1134,17 +1199,19 @@ app.get('/admin/address/search', async (req, res) => {
       lat: parseFloat(place.lat),
       lon: parseFloat(place.lon),
       type: place.type,
-      importance: place.importance
+      importance: place.importance,
+      source: 'nominatim'
     }));
 
     res.json({
       success: true,
       results,
-      count: results.length
+      count: results.length,
+      source: 'nominatim'
     });
 
   } catch (error) {
-    console.error('Address search error:', error.message);
+    console.error('❌ Address search error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
