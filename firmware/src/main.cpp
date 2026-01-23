@@ -335,7 +335,7 @@ bool downloadBaseTemplate() {
     // Decode PNG into cached buffer
     showMessage("Decoding template...");
     drawCallCount = 0;
-    int rc = png.decode(NULL, 0);
+    rc = png.decode(NULL, 0);
     png.close();
 
     sprintf(msg, "Result: %d, lines: %d", rc, drawCallCount);
