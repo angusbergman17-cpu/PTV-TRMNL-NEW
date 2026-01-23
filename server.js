@@ -8,6 +8,9 @@ import CoffeeDecision from './coffee-decision.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware
+app.use(express.json());
+
 // Initialize renderer and coffee decision engine
 const renderer = new PidsRenderer();
 const coffeeEngine = new CoffeeDecision();
@@ -203,6 +206,100 @@ app.get('/api/live-image.png', async (req, res) => {
 // Legacy endpoint for compatibility
 app.get('/trmnl.png', async (req, res) => {
   res.redirect(301, '/api/live-image.png');
+});
+
+// ========== BYOS API ENDPOINTS ==========
+// These endpoints implement TRMNL BYOS protocol for custom firmware
+
+// Device database (in-memory for now - use real DB in production)
+const devices = new Map();
+
+// Device setup/registration endpoint
+app.get('/api/setup', (req, res) => {
+  const macAddress = req.headers.id || req.headers['ID'];
+
+  if (!macAddress) {
+    return res.status(400).json({
+      status: 404,
+      error: 'MAC address required in ID header'
+    });
+  }
+
+  // Check if device exists, create if not
+  let device = devices.get(macAddress);
+  if (!device) {
+    // Generate API key and friendly ID
+    const apiKey = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const friendlyID = macAddress.replace(/:/g, '').substring(0, 6).toUpperCase();
+
+    device = {
+      macAddress,
+      apiKey,
+      friendlyID,
+      registeredAt: new Date().toISOString()
+    };
+
+    devices.set(macAddress, device);
+    console.log(`📱 New device registered: ${friendlyID} (${macAddress})`);
+  }
+
+  res.json({
+    status: 200,
+    api_key: device.apiKey,
+    friendly_id: device.friendlyID,
+    image_url: `${req.protocol}://${req.get('host')}/api/live-image.png`,
+    filename: 'ptv_display'
+  });
+});
+
+// Display content endpoint
+app.get('/api/display', (req, res) => {
+  const friendlyID = req.headers.id || req.headers['ID'];
+  const accessToken = req.headers['access-token'] || req.headers['Access-Token'];
+  const refreshRate = req.headers['refresh-rate'] || req.headers['Refresh-Rate'] || '900';
+  const batteryVoltage = req.headers['battery-voltage'] || req.headers['Battery-Voltage'];
+  const fwVersion = req.headers['fw-version'] || req.headers['FW-Version'];
+  const rssi = req.headers.rssi || req.headers['RSSI'];
+
+  // Log device status
+  console.log(`📊 Device ${friendlyID}: Battery ${batteryVoltage}V, RSSI ${rssi}dBm, FW ${fwVersion}`);
+
+  // Verify device exists
+  let deviceFound = false;
+  for (const [mac, device] of devices.entries()) {
+    if (device.friendlyID === friendlyID && device.apiKey === accessToken) {
+      deviceFound = true;
+      device.lastSeen = new Date().toISOString();
+      device.batteryVoltage = batteryVoltage;
+      device.rssi = rssi;
+      break;
+    }
+  }
+
+  if (!deviceFound) {
+    return res.status(500).json({
+      status: 500,
+      error: 'Device not found'
+    });
+  }
+
+  // Return display content
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  res.json({
+    status: 0,
+    image_url: `${baseUrl}/api/live-image.png`,
+    filename: `ptv_${Date.now()}`,
+    update_firmware: false,
+    firmware_url: null,
+    refresh_rate: refreshRate,
+    reset_firmware: false
+  });
+});
+
+// Device logging endpoint
+app.post('/api/log', express.json(), (req, res) => {
+  console.log('📝 Device log:', req.body);
+  res.json({ status: 'ok' });
 });
 
 // ========== PARTIAL REFRESH ENDPOINTS ==========

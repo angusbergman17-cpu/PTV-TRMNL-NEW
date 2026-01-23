@@ -5,12 +5,11 @@
 // PTV-TRMNL Custom Firmware Configuration
 // ============================================
 
-// Server Configuration
-// Replace with your Render deployment URL
+// BYOS Server Configuration
 #define SERVER_URL "https://ptv-trmnl-new.onrender.com"
-#define API_PARTIAL "/api/partial"
-#define API_IMAGE "/api/live-image.png"
-#define API_CONFIG "/api/config"
+#define API_SETUP_ENDPOINT "/api/setup"
+#define API_DISPLAY_ENDPOINT "/api/display"
+#define API_LOG_ENDPOINT "/api/log"
 
 // WiFi Configuration (will use WiFiManager for setup)
 #define WIFI_AP_NAME "PTV-TRMNL-Setup"
@@ -25,13 +24,17 @@
 #define DISPLAY_WIDTH 800
 #define DISPLAY_HEIGHT 480
 
-// E-ink SPI Pins (TRMNL ESP32-C3)
-#define EPD_BUSY 4
-#define EPD_RST 2
-#define EPD_DC 3
-#define EPD_CS 7
-#define EPD_CLK 6
-#define EPD_DIN 5
+// E-ink SPI Pins (OG TRMNL ESP32-C3 - CORRECT PINS)
+#define EPD_SCK_PIN  7
+#define EPD_MOSI_PIN 8
+#define EPD_CS_PIN   6
+#define EPD_RST_PIN  10
+#define EPD_DC_PIN   5
+#define EPD_BUSY_PIN 4
+
+// Button and battery pins
+#define PIN_INTERRUPT 2
+#define PIN_BATTERY 3
 
 // Partial Refresh Regions (where dynamic content is)
 // Time display region

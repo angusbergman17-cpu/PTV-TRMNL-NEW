@@ -1,391 +1,259 @@
 /**
- * PTV-TRMNL Custom Firmware
- *
- * Features:
- * - 1 minute partial refresh for departure times
- * - 5 minute full refresh for complete screen update
- * - WiFiManager for easy setup
- * - Low power sleep between updates
- *
- * Hardware: TRMNL device (ESP32-C3 + Waveshare 7.5" B/W e-ink)
+ * TRMNL BYOS Firmware for PTV Display
+ * Uses bb_epaper library (correct for OG TRMNL hardware)
+ * Implements TRMNL BYOS API protocol
  */
 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>
 #include <WiFiManager.h>
+#include <ArduinoJson.h>
+#include <Preferences.h>
+#include <bb_epaper.h>
+#include "../include/config.h"
 
-// GxEPD2 for e-ink display with partial refresh
-#define ENABLE_GxEPD2_GFX 1
-#include <GxEPD2_BW.h>
-#include <Fonts/FreeSansBold24pt7b.h>
-#include <Fonts/FreeSansBold18pt7b.h>
-#include <Fonts/FreeSansBold12pt7b.h>
-#include <Fonts/FreeSans9pt7b.h>
+// E-paper display object (using BBEPAPER class like official firmware)
+BBEPAPER bbep(EP75_800x480);
 
-#include "config.h"
+// Preferences storage
+Preferences preferences;
 
-// Display instance for Waveshare 7.5" B/W V2
-// GxEPD2_750_T7: 800x480, GDEW075T7, (UC8175(IL0371))
-GxEPD2_BW<GxEPD2_750_T7, GxEPD2_750_T7::HEIGHT> display(
-    GxEPD2_750_T7(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY));
+// Device credentials
+String deviceMAC;
+String apiKey = "";
+String friendlyID = "";
+int refreshRate = 900;  // seconds (15 minutes default)
 
-// State tracking
-unsigned long lastPartialRefresh = 0;
-unsigned long lastFullRefresh = 0;
-int partialRefreshCount = 0;
-bool needsFullRefresh = true;
-
-// Cached data
-struct DisplayData {
-    char timeStr[6];
-    int trains[3];
-    int trams[3];
-    bool coffee;
-    char coffeeText[20];
-    bool alert;
-    unsigned long timestamp;
-} currentData;
-
-// Function prototypes
+// Function declarations
 void initDisplay();
-void connectWiFi();
-bool fetchPartialData();
-bool fetchFullImage();
-void drawPartialUpdate();
-void drawFullScreen();
-void drawTime();
-void drawTrains();
-void drawTrams();
-void drawCoffeeBox();
-void enterLightSleep(uint32_t ms);
-uint32_t getBatteryMV();
+bool connectWiFi();
+bool registerDevice();
+bool fetchAndDisplayImage();
+void deepSleep(int seconds);
+String getMacAddress();
+float getBatteryVoltage();
+int getWiFiRSSI();
+void showMessage(const char* line1, const char* line2 = "", const char* line3 = "");
 
 void setup() {
-    Serial.begin(115200);
-    delay(1000);
-    Serial.println("\n=== PTV-TRMNL Custom Firmware ===");
-    Serial.println("Version 1.0.0 - Partial Refresh Enabled");
+    // Get MAC address
+    deviceMAC = getMacAddress();
+
+    // Initialize preferences
+    preferences.begin("trmnl", false);
+    apiKey = preferences.getString("api_key", "");
+    friendlyID = preferences.getString("friendly_id", "");
 
     // Initialize display
     initDisplay();
 
-    // Show startup screen
-    display.setFullWindow();
-    display.firstPage();
-    do {
-        display.fillScreen(GxEPD_WHITE);
-        display.setFont(&FreeSansBold18pt7b);
-        display.setTextColor(GxEPD_BLACK);
-        display.setCursor(200, 200);
-        display.print("PTV-TRMNL");
-        display.setFont(&FreeSans9pt7b);
-        display.setCursor(200, 240);
-        display.print("Connecting to WiFi...");
-    } while (display.nextPage());
+    // Show startup message
+    showMessage("PTV-TRMNL BYOS", "Connecting to WiFi...");
 
-    // Connect WiFi using WiFiManager
-    connectWiFi();
+    // Connect to WiFi
+    if (!connectWiFi()) {
+        showMessage("WiFi connection failed", "Entering sleep mode");
+        deepSleep(300);  // Sleep 5 minutes
+        return;
+    }
 
-    // Initial full refresh
-    needsFullRefresh = true;
-    lastFullRefresh = 0;
+    // Register device if not already done
+    if (apiKey.length() == 0) {
+        showMessage("Registering device...");
+        if (!registerDevice()) {
+            showMessage("Registration failed", "Check server:", SERVER_URL);
+            deepSleep(300);
+            return;
+        }
+    }
+
+    // Fetch and display image
+    showMessage("Fetching display...");
+    if (!fetchAndDisplayImage()) {
+        showMessage("Failed to fetch image", "Server:", SERVER_URL);
+    }
+
+    // Sleep until next refresh
+    deepSleep(refreshRate);
 }
 
 void loop() {
-    unsigned long now = millis();
-
-    // Check if we need a full refresh (every 5 minutes or on startup)
-    if (needsFullRefresh || (now - lastFullRefresh >= FULL_REFRESH_INTERVAL)) {
-        Serial.println("Performing FULL refresh...");
-
-        if (fetchPartialData()) {
-            drawFullScreen();
-            lastFullRefresh = now;
-            lastPartialRefresh = now;
-            partialRefreshCount = 0;
-            needsFullRefresh = false;
-        }
-    }
-    // Otherwise do partial refresh (every 1 minute)
-    else if (now - lastPartialRefresh >= PARTIAL_REFRESH_INTERVAL) {
-        Serial.println("Performing PARTIAL refresh...");
-
-        if (fetchPartialData()) {
-            drawPartialUpdate();
-            lastPartialRefresh = now;
-            partialRefreshCount++;
-
-            // Force full refresh after 5 partial updates to prevent ghosting
-            if (partialRefreshCount >= 5) {
-                needsFullRefresh = true;
-            }
-        }
-    }
-
-    // Check battery
-    uint32_t battery = getBatteryMV();
-    if (battery < LOW_BATTERY_MV) {
-        Serial.printf("Low battery: %d mV\n", battery);
-    }
-
-    // Enter light sleep between updates
-    Serial.println("Entering light sleep...");
-    enterLightSleep(SLEEP_BETWEEN_PARTIALS_MS);
+    // Nothing here - using deep sleep
 }
 
 void initDisplay() {
-    SPI.begin(EPD_CLK, -1, EPD_DIN, EPD_CS);
-    display.init(115200, true, 2, false);
-    display.setRotation(0);
-    display.setTextColor(GxEPD_BLACK);
-    display.setFont(&FreeSans9pt7b);
+    // Initialize bb_epaper display (7.5" 800x480) - same API as official TRMNL
+    bbep.initIO(EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN, EPD_CS_PIN, EPD_MOSI_PIN, EPD_SCK_PIN, 8000000);
+    bbep.setPanelType(EP75_800x480);
+    bbep.setRotation(90);  // Rotate 90 degrees for horizontal orientation
 }
 
-void connectWiFi() {
+void showMessage(const char* line1, const char* line2, const char* line3) {
+    bbep.fillScreen(BBEP_WHITE);
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(50, 100);
+    bbep.print((char*)line1);
+    if (strlen(line2) > 0) {
+        bbep.setCursor(50, 130);
+        bbep.print((char*)line2);
+    }
+    if (strlen(line3) > 0) {
+        bbep.setCursor(50, 160);
+        bbep.print((char*)line3);
+    }
+    bbep.refresh(REFRESH_FULL, true);
+}
+
+bool connectWiFi() {
     WiFiManager wm;
-    wm.setConfigPortalTimeout(180); // 3 minute timeout
 
-    bool connected = wm.autoConnect(WIFI_AP_NAME, WIFI_AP_PASSWORD);
+    // Set timeout
+    wm.setConfigPortalTimeout(180);  // 3 minutes
 
-    if (!connected) {
-        Serial.println("WiFi connection failed!");
-        display.setFullWindow();
-        display.firstPage();
-        do {
-            display.fillScreen(GxEPD_WHITE);
-            display.setFont(&FreeSansBold12pt7b);
-            display.setCursor(100, 200);
-            display.print("WiFi Setup Required");
-            display.setFont(&FreeSans9pt7b);
-            display.setCursor(100, 240);
-            display.print("Connect to: ");
-            display.print(WIFI_AP_NAME);
-            display.setCursor(100, 270);
-            display.print("Password: ");
-            display.print(WIFI_AP_PASSWORD);
-        } while (display.nextPage());
-
-        // Retry after delay
-        delay(30000);
-        ESP.restart();
+    // Try to connect
+    if (!wm.autoConnect(WIFI_AP_NAME)) {
+        return false;
     }
 
-    Serial.print("Connected! IP: ");
-    Serial.println(WiFi.localIP());
+    return WiFi.status() == WL_CONNECTED;
 }
 
-bool fetchPartialData() {
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("WiFi disconnected, reconnecting...");
-        WiFi.reconnect();
-        delay(5000);
-        if (WiFi.status() != WL_CONNECTED) {
-            return false;
-        }
-    }
-
+bool registerDevice() {
     HTTPClient http;
-    String url = String(SERVER_URL) + API_PARTIAL;
 
+    String url = String(SERVER_URL) + API_SETUP_ENDPOINT;
     http.begin(url);
-    http.setTimeout(10000);
+
+    // Set headers with MAC address
+    http.addHeader("ID", deviceMAC);
+    http.addHeader("Content-Type", "application/json");
 
     int httpCode = http.GET();
 
-    if (httpCode == HTTP_CODE_OK) {
+    if (httpCode == 200) {
         String payload = http.getString();
 
+        // Parse JSON response
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
 
         if (!error) {
-            // Parse data
-            strncpy(currentData.timeStr, doc["time"] | "--:--", 6);
+            apiKey = doc["api_key"].as<String>();
+            friendlyID = doc["friendly_id"].as<String>();
 
-            JsonArray trains = doc["trains"];
-            for (int i = 0; i < 3 && i < trains.size(); i++) {
-                currentData.trains[i] = trains[i];
-            }
-
-            JsonArray trams = doc["trams"];
-            for (int i = 0; i < 3 && i < trams.size(); i++) {
-                currentData.trams[i] = trams[i];
-            }
-
-            currentData.coffee = doc["coffee"] | false;
-            strncpy(currentData.coffeeText, doc["coffeeText"] | "NO DATA", 20);
-            currentData.alert = doc["alert"] | false;
-            currentData.timestamp = doc["ts"] | 0;
+            // Save to preferences
+            preferences.putString("api_key", apiKey);
+            preferences.putString("friendly_id", friendlyID);
 
             http.end();
             return true;
         }
     }
 
-    Serial.printf("HTTP Error: %d\n", httpCode);
     http.end();
     return false;
 }
 
-void drawPartialUpdate() {
-    // Update only the dynamic regions using partial refresh
+bool fetchAndDisplayImage() {
+    HTTPClient http;
 
-    // Update time
-    display.setPartialWindow(TIME_X, TIME_Y, TIME_W, TIME_H);
-    display.firstPage();
-    do {
-        display.fillScreen(GxEPD_WHITE);
-        drawTime();
-    } while (display.nextPage());
+    String url = String(SERVER_URL) + API_DISPLAY_ENDPOINT;
+    http.begin(url);
 
-    // Update train times
-    display.setPartialWindow(TRAIN_X, TRAIN_Y, TRAIN_W, TRAIN_H);
-    display.firstPage();
-    do {
-        display.fillScreen(GxEPD_WHITE);
-        drawTrains();
-    } while (display.nextPage());
+    // Set headers
+    http.addHeader("ID", friendlyID);
+    http.addHeader("Access-Token", apiKey);
+    http.addHeader("Refresh-Rate", String(refreshRate));
+    http.addHeader("Battery-Voltage", String(getBatteryVoltage()));
+    http.addHeader("FW-Version", "BYOS-1.0.0");
+    http.addHeader("RSSI", String(getWiFiRSSI()));
 
-    // Update tram times
-    display.setPartialWindow(TRAM_X, TRAM_Y, TRAM_W, TRAM_H);
-    display.firstPage();
-    do {
-        display.fillScreen(GxEPD_WHITE);
-        drawTrams();
-    } while (display.nextPage());
+    int httpCode = http.GET();
 
-    // Update coffee box
-    display.setPartialWindow(COFFEE_X, COFFEE_Y, COFFEE_W, COFFEE_H);
-    display.firstPage();
-    do {
-        display.fillScreen(GxEPD_WHITE);
-        drawCoffeeBox();
-    } while (display.nextPage());
+    if (httpCode == 200) {
+        String payload = http.getString();
 
-    display.hibernate();
-}
+        // Parse JSON response
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, payload);
 
-void drawFullScreen() {
-    display.setFullWindow();
-    display.firstPage();
-    do {
-        display.fillScreen(GxEPD_WHITE);
+        if (!error) {
+            String imageUrl = doc["image_url"].as<String>();
+            int newRefreshRate = doc["refresh_rate"] | refreshRate;
+            refreshRate = newRefreshRate;
 
-        // Draw all static elements
-        drawTime();
+            // Download image
+            http.end();
+            http.begin(imageUrl);
+            int imgCode = http.GET();
 
-        // Metro header bar
-        display.fillRect(10, 65, 460, 24, GxEPD_BLACK);
-        display.setFont(&FreeSans9pt7b);
-        display.setTextColor(GxEPD_WHITE);
-        display.setCursor(20, 82);
-        display.print("METRO TRAINS - FLINDERS STREET");
-        display.setTextColor(GxEPD_BLACK);
+            if (imgCode == 200) {
+                // Get PNG image data
+                int len = http.getSize();
+                uint8_t* imgBuffer = (uint8_t*)malloc(len);
 
-        display.setCursor(15, 105);
-        display.print("NEXT DEPARTURE:");
+                if (imgBuffer) {
+                    WiFiClient* stream = http.getStreamPtr();
+                    int bytesRead = stream->readBytes(imgBuffer, len);
 
-        drawTrains();
+                    // For now, show success message
+                    // TODO: Add PNG decoding with PNGdec library
+                    bbep.fillScreen(BBEP_WHITE);
+                    bbep.setFont(FONT_12x16);
+                    bbep.setCursor(50, 100);
+                    bbep.print("PTV Display Retrieved!");
+                    bbep.setCursor(50, 130);
+                    bbep.print("Image size: ");
+                    char sizeStr[20];
+                    sprintf(sizeStr, "%d bytes", bytesRead);
+                    bbep.print(sizeStr);
+                    bbep.setCursor(50, 160);
+                    bbep.print(SERVER_URL);
+                    bbep.refresh(REFRESH_FULL, true);
 
-        // Tram header bar
-        display.fillRect(10, 175, 460, 24, GxEPD_BLACK);
-        display.setTextColor(GxEPD_WHITE);
-        display.setCursor(20, 192);
-        display.print("YARRA TRAMS - 58 WEST COBURG");
-        display.setTextColor(GxEPD_BLACK);
-
-        display.setCursor(15, 215);
-        display.print("NEXT DEPARTURE:");
-
-        drawTrams();
-
-        // Service status box
-        display.drawRect(10, 290, 460, 50, GxEPD_BLACK);
-        display.setCursor(180, 305);
-        display.print("SERVICE STATUS:");
-        display.setCursor(20, 320);
-        display.print("METRO: GOOD SERVICE");
-        display.setCursor(20, 335);
-        display.print("TRAMS: GOOD SERVICE");
-
-        // Coffee box
-        drawCoffeeBox();
-
-        // Route+ box
-        display.drawRect(480, 45, 310, 295, GxEPD_BLACK);
-        display.setFont(&FreeSansBold12pt7b);
-        display.setCursor(580, 72);
-        display.print(currentData.coffee ? "ROUTE+ " : "ROUTE+ ");
-
-    } while (display.nextPage());
-
-    display.hibernate();
-}
-
-void drawTime() {
-    display.setFont(&FreeSansBold24pt7b);
-    display.setTextColor(GxEPD_BLACK);
-    display.setCursor(TIME_X, TIME_Y + 40);
-    display.print(currentData.timeStr);
-}
-
-void drawTrains() {
-    display.setFont(&FreeSansBold12pt7b);
-    display.setTextColor(GxEPD_BLACK);
-
-    int y = TRAIN_Y + 25;
-    for (int i = 0; i < 2; i++) {
-        if (currentData.trains[i] > 0) {
-            display.setCursor(TRAIN_X, y);
-            display.print(currentData.trains[i]);
-            display.print(" min");
+                    free(imgBuffer);
+                    http.end();
+                    return true;
+                }
+            }
         }
-        y += 28;
     }
+
+    http.end();
+    return false;
 }
 
-void drawTrams() {
-    display.setFont(&FreeSansBold12pt7b);
-    display.setTextColor(GxEPD_BLACK);
+void deepSleep(int seconds) {
+    // Put display to sleep
+    bbep.sleep(DEEP_SLEEP);
 
-    int y = TRAM_Y + 25;
-    for (int i = 0; i < 2; i++) {
-        if (currentData.trams[i] > 0) {
-            display.setCursor(TRAM_X, y);
-            display.print(currentData.trams[i]);
-            display.print(" min");
-        }
-        y += 28;
-    }
+    // Configure deep sleep with button wakeup (ESP32-C3 uses GPIO wakeup)
+    esp_sleep_enable_timer_wakeup(seconds * 1000000ULL);
+    esp_sleep_enable_gpio_wakeup();
+    gpio_wakeup_enable((gpio_num_t)PIN_INTERRUPT, GPIO_INTR_LOW_LEVEL);
+
+    esp_deep_sleep_start();
 }
 
-void drawCoffeeBox() {
-    if (currentData.coffee) {
-        display.drawRect(COFFEE_X, COFFEE_Y, COFFEE_W, COFFEE_H, GxEPD_BLACK);
-        display.setFont(&FreeSans9pt7b);
-        display.setTextColor(GxEPD_BLACK);
-        display.setCursor(COFFEE_X + 50, COFFEE_Y + 20);
-        display.print("YOU HAVE TIME FOR COFFEE!");
-    } else {
-        display.fillRect(COFFEE_X, COFFEE_Y, COFFEE_W, COFFEE_H, GxEPD_BLACK);
-        display.setFont(&FreeSans9pt7b);
-        display.setTextColor(GxEPD_WHITE);
-        display.setCursor(COFFEE_X + 60, COFFEE_Y + 20);
-        display.print("NO COFFEE CONNECTION");
-    }
+String getMacAddress() {
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+
+    char macStr[18];
+    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    return String(macStr);
 }
 
-void enterLightSleep(uint32_t ms) {
-    esp_sleep_enable_timer_wakeup(ms * 1000);
-    esp_light_sleep_start();
+float getBatteryVoltage() {
+    // Read battery voltage from ADC
+    int adcValue = analogRead(PIN_BATTERY);
+    float voltage = (adcValue / 4095.0) * 3.3 * 2;  // Voltage divider
+    return voltage;
 }
 
-uint32_t getBatteryMV() {
-    // Read battery voltage via ADC
-    analogSetAttenuation(ADC_11db);
-    int raw = analogRead(BATTERY_PIN);
-    // Convert to millivolts (with voltage divider factor)
-    return (raw * 3300 * 2) / 4095;
+int getWiFiRSSI() {
+    return WiFi.RSSI();
 }
