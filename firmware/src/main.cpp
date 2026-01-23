@@ -31,12 +31,14 @@ const int FULL_REFRESH_CYCLES = 20;  // Full refresh every 20 cycles (10 minutes
 
 // Template storage
 bool hasTemplate = false;  // Track if we have the base template
+bool templateDisplayed = false;  // Track if template is currently on screen
 
 // Operation logging (circular buffer of recent operations)
 #define MAX_LOG_LINES 12
 static char logBuffer[MAX_LOG_LINES][60];
 static int logIndex = 0;
 static int logCount = 0;
+bool showingLog = true;  // Control when to show log vs template
 
 // Function declarations
 void initDisplay();
@@ -97,11 +99,11 @@ void setup() {
 
     // Download and apply region updates (dynamic data, fast)
     addLog("Fetching PTV data...");
-    showLog();
+    if (showingLog) showLog();
 
     if (!fetchAndDisplayRegionUpdates()) {
         addLog("Update FAILED");
-        showLog();
+        if (showingLog) showLog();
         delay(3000);
     } else {
         addLog("Update complete");
@@ -118,8 +120,14 @@ void setup() {
     char sleepMsg[60];
     sprintf(sleepMsg, "Sleep %ds (next: %d/20)", refreshRate, refreshCounter);
     addLog(sleepMsg);
-    showLog();
-    delay(2000);  // Show final log for 2s
+
+    // Don't show log if template is displayed - keep template visible
+    if (showingLog) {
+        showLog();
+        delay(2000);  // Show final log for 2s
+    } else {
+        delay(1000);  // Brief pause before sleep
+    }
 
     deepSleep(refreshRate);
 }
@@ -191,8 +199,10 @@ void showMessage(const char* line1, const char* line2, const char* line3) {
         addLog(line1);
     }
 
-    // Show log screen
-    showLog();
+    // Only show log screen if we're in logging mode (before template is displayed)
+    if (showingLog) {
+        showLog();
+    }
 }
 
 bool connectWiFi() {
@@ -463,8 +473,11 @@ bool downloadBaseTemplate() {
                 uint8_t color = bit ? BBEP_WHITE : BBEP_BLACK;
                 bbep.drawPixel(x, y, color);
             }
-            // Yield every 10 lines to prevent watchdog
-            if (y % 10 == 0) yield();
+            // Yield every line to prevent watchdog timeout
+            if (y % 1 == 0) {
+                yield();
+                delay(1);  // Give watchdog time
+            }
         }
     } else {
         for (int y = 0; y < imageHeight; y++) {
@@ -474,7 +487,10 @@ bool downloadBaseTemplate() {
                 uint8_t color = gray >> 4;
                 bbep.drawPixel(x, y, color);
             }
-            if (y % 10 == 0) yield();
+            if (y % 1 == 0) {
+                yield();
+                delay(1);  // Give watchdog time
+            }
         }
     }
 
@@ -485,7 +501,9 @@ bool downloadBaseTemplate() {
 
     bbep.refresh(REFRESH_FULL, true);
 
-    addLog("Template ready!");
+    addLog("Template displayed!");
+    templateDisplayed = true;
+    showingLog = false;  // Stop showing log, keep template visible
 
     free(imgBuffer);
     http.end();
@@ -511,7 +529,11 @@ void restoreCachedImage() {
                 uint8_t color = bit ? BBEP_WHITE : BBEP_BLACK;
                 bbep.drawPixel(x, y, color);
             }
-            if (y % 10 == 0) yield();
+            // Yield every line to prevent watchdog
+            if (y % 1 == 0) {
+                yield();
+                delay(1);
+            }
         }
     } else {
         for (int y = 0; y < imageHeight; y++) {
@@ -521,14 +543,23 @@ void restoreCachedImage() {
                 uint8_t color = gray >> 4;
                 bbep.drawPixel(x, y, color);
             }
-            if (y % 10 == 0) yield();
+            if (y % 1 == 0) {
+                yield();
+                delay(1);
+            }
         }
     }
 }
 
 bool fetchAndDisplayRegionUpdates() {
     // Step 1: Restore cached image instantly (if available)
-    if (cachedImageBuffer) {
+    if (cachedImageBuffer && templateDisplayed) {
+        // Template already displayed, just restore it silently
+        addLog("Restoring cache...");
+        restoreCachedImage();
+        addLog("Cache restored");
+    } else if (cachedImageBuffer) {
+        // First time showing cache
         addLog("Restoring cache...");
         showLog();
         restoreCachedImage();
@@ -677,22 +708,23 @@ bool fetchAndDisplayRegionUpdates() {
 
     // Step 5: Refresh display
     // Use partial refresh for speed (unless it's time for full refresh)
-    refreshCounter++;
     bool useFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
 
     if (useFullRefresh) {
         addLog("Full refresh");
-        showLog();
-        delay(500);
+        if (!templateDisplayed) showLog();
         bbep.refresh(REFRESH_FULL, true);
+        templateDisplayed = true;
+        showingLog = false;  // After first full refresh, stop showing log
         refreshCounter = 0;
     } else {
         // Only refresh if something changed
         if (hasChanges) {
             addLog("Partial refresh");
-            showLog();
-            delay(500);
+            if (!templateDisplayed) showLog();
             bbep.refresh(REFRESH_PARTIAL, false);
+            templateDisplayed = true;
+            showingLog = false;  // After any refresh, stop showing log
         } else {
             addLog("No changes - skip refresh");
         }
