@@ -63,7 +63,7 @@ void initDisplay() {
     // Initialize bb_epaper display (7.5" 800x480) - same API as official TRMNL
     bbep.initIO(EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN, EPD_CS_PIN, EPD_MOSI_PIN, EPD_SCK_PIN, 8000000);
     bbep.setPanelType(EP75_800x480);
-    // No rotation - image is pre-rotated on server
+    // No rotation - PNG is pre-rotated 270° on server to compensate for hardware orientation
 }
 
 void showMessage(const char* line1, const char* line2, const char* line3) {
@@ -97,12 +97,20 @@ bool connectWiFi() {
 }
 
 // PNG decoder callback - called for each line of pixels
+static int drawCallCount = 0;
+static bool bufferError = false;
+
 int PNGDraw(PNGDRAW *pDraw) {
+    drawCallCount++;
+
     uint8_t *s = (uint8_t *)pDraw->pPixels;
     uint8_t *d = (uint8_t *)bbep.getBuffer();
     int iPitch;
 
-    if (!d) return 0;  // Safety check
+    if (!d) {
+        bufferError = true;
+        return 0;  // Safety check - buffer not available
+    }
 
     // For 1-bit images (black and white)
     if (pDraw->iBpp == 1) {
@@ -298,12 +306,21 @@ bool fetchAndDisplayImage() {
             showMessage("Calling decode...");
             delay(500);
 
+            // Reset callback counters
+            drawCallCount = 0;
+            bufferError = false;
+
             rc = png.decode(NULL, 0);
             png.close();
 
-            sprintf(debugMsg, "decode returned: %d", rc);
+            sprintf(debugMsg, "decode: %d, calls: %d", rc, drawCallCount);
             showMessage("Decode result", debugMsg);
             delay(2000);
+
+            if (bufferError) {
+                showMessage("Buffer error!", "getBuffer() returned NULL");
+                delay(3000);
+            }
 
             if (rc == PNG_SUCCESS) {
                 // Refresh display
