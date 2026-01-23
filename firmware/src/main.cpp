@@ -684,12 +684,15 @@ bool connectWiFi() {
     return WiFi.status() == WL_CONNECTED;
 }
 
-// Unused legacy variables (kept for reference)
-// static uint8_t *cachedImageBuffer = NULL;
-// static int imageWidth = 0;
-// static int imageHeight = 0;
-// static int imageBpp = 0;
-// Previous values now declared near drawInitialDashboard()
+// Legacy PNG variables (still used by unused PNG functions - kept for compilation)
+static uint8_t *cachedImageBuffer = NULL;
+static int imageWidth = 0;
+static int imageHeight = 0;
+static int imageBpp = 0;
+static int drawCallCount = 0;
+static char prevCoffee[64] = "";
+static char prevWeather[32] = "";
+// Previous values for text rendering declared near drawInitialDashboard()
 
 // PNG decoder callback - called for each line of pixels
 int PNGDraw(PNGDRAW *pDraw) {
