@@ -1,3 +1,11 @@
+/**
+ * Configuration for PTV-TRMNL
+ * Station preferences, route definitions, and API settings
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
+ */
+
 export default {
   // South Yarra with Platform 5 preference
   stations: {

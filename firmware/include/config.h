@@ -3,6 +3,8 @@
 
 // ============================================
 // PTV-TRMNL Custom Firmware Configuration
+// Copyright (c) 2026 Angus Bergman
+// All rights reserved.
 // ============================================
 
 // BYOS Server Configuration

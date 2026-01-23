@@ -1,8 +1,12 @@
-
-// opendata.js
-// Minimal Open Data GTFS‑Realtime client for Metro Trains & Yarra Trams (VIC)
-// Uses a single ODATA_KEY and sends it using all header/query variants seen in docs.
-// Format: Protobuf (decoded via gtfs-realtime-bindings)
+/**
+ * opendata.js
+ * Minimal Open Data GTFS‑Realtime client for Metro Trains & Yarra Trams (VIC)
+ * Uses a single ODATA_KEY and sends it using all header/query variants seen in docs.
+ * Format: Protobuf (decoded via gtfs-realtime-bindings)
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
+ */
 
 import fetch from "node-fetch";
 import * as GtfsRealtimeBindings from "gtfs-realtime-bindings";

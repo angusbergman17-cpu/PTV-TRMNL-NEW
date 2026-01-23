@@ -1,9 +1,12 @@
 /**
  * COFFEE DECISION ENGINE
  * Calculates whether there's time to get coffee before work
- * 
+ *
  * Commute: South Yarra → Norman Cafe (optional) → Route 58 Tram → South Yarra Station → Parliament → 80 Collins St
  * Target arrival: 9:00 AM
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
  */
 
 class CoffeeDecision {

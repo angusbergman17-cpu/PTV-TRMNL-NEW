@@ -2,6 +2,9 @@
  * TRMNL BYOS Firmware for PTV Display
  * Uses bb_epaper library (correct for OG TRMNL hardware)
  * Implements TRMNL BYOS API protocol
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
  */
 
 #include <Arduino.h>
@@ -153,22 +156,24 @@ void setup() {
 
         addLog("Rendering dashboard...");
         showLog();
-        delay(500);
+
+        // Disable watchdog before long render operation
+        esp_task_wdt_reset();
+        esp_task_wdt_delete(NULL);
 
         // Render text-based dashboard
         renderTextBasedDashboard(doc);
 
-        addLog("Dashboard rendered!");
-        addLog("Showing confirmation...");
-        showLog();
-        delay(1000);
-
-        // Disable watchdog and refresh
-        esp_task_wdt_reset();
-        esp_task_wdt_delete(NULL);
+        // Full refresh to show dashboard
         bbep.refresh(REFRESH_FULL, true);
+
+        // Re-enable watchdog
         esp_task_wdt_init(30, true);
         esp_task_wdt_add(NULL);
+
+        addLog("Dashboard shown!");
+        showLog();
+        delay(1000);
 
         // Show confirmation prompt and wait for button press
         delay(2000);
@@ -298,16 +303,18 @@ void renderTextBasedDashboard(JsonDocument& doc) {
     static bool staticDrawn = false;
     if (!staticDrawn) {
         bbep.fillScreen(BBEP_WHITE);
+        yield(); // Let system breathe
 
         // Station header
         bbep.setFont(FONT_12x16);
         bbep.setCursor(10, 15);
-        bbep.print("FLINDERS STREET STATION");
+        bbep.print("FLINDERS ST");
+        yield();
 
         // Platform label
         bbep.setFont(FONT_8x8);
         bbep.setCursor(380, 15);
-        bbep.print("PLATFORM 3");
+        bbep.print("PLAT 3");
 
         // Divider line
         bbep.drawLine(0, 30, 480, 30, BBEP_BLACK);
@@ -316,10 +323,16 @@ void renderTextBasedDashboard(JsonDocument& doc) {
         bbep.setFont(FONT_12x16);
         bbep.setCursor(10, 55);
         bbep.print("TRAIN");
+        yield();
 
         // Tram section label
         bbep.setCursor(10, 245);
         bbep.print("TRAM");
+
+        // Copyright stamp (bottom right corner)
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(300, 470);
+        bbep.print("(c) 2026 A. Bergman");
 
         staticDrawn = true;
     }
@@ -348,23 +361,19 @@ void renderTextBasedDashboard(JsonDocument& doc) {
     // Find train times
     const char* train1 = nullptr;
     const char* train2 = nullptr;
-    const char* train3 = nullptr;
     for (JsonObject region : regions) {
         const char* id = region["id"] | "";
         if (strcmp(id, "train1") == 0) train1 = region["text"] | nullptr;
         else if (strcmp(id, "train2") == 0) train2 = region["text"] | nullptr;
-        else if (strcmp(id, "train3") == 0) train3 = region["text"] | nullptr;
     }
 
     // Find tram times
     const char* tram1 = nullptr;
     const char* tram2 = nullptr;
-    const char* tram3 = nullptr;
     for (JsonObject region : regions) {
         const char* id = region["id"] | "";
         if (strcmp(id, "tram1") == 0) tram1 = region["text"] | nullptr;
         else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | nullptr;
-        else if (strcmp(id, "tram3") == 0) tram3 = region["text"] | nullptr;
     }
 
     // ===== UPDATE DYNAMIC REGIONS ONLY =====
@@ -374,12 +383,14 @@ void renderTextBasedDashboard(JsonDocument& doc) {
     bbep.setFont(FONT_12x16);
     bbep.setCursor(360, 55);
     if (timeText) bbep.print(timeText);
+    yield();
 
     // COFFEE STATUS (below time)
     bbep.fillRect(300, 70, 170, 20, BBEP_WHITE);
     bbep.setFont(FONT_8x8);
     bbep.setCursor(305, 80);
     bbep.print(coffeeText);
+    yield();
 
     // TRAIN DEPARTURES (large times on left, destinations on right)
     int trainY = 90;
@@ -395,12 +406,13 @@ void renderTextBasedDashboard(JsonDocument& doc) {
         bbep.setCursor(120, trainY + 15);
         bbep.print("FLINDERS ST");
         bbep.setCursor(120, trainY + 30);
-        bbep.print("(CITY LOOP)");
+        bbep.print("(LOOP)");
     } else {
         bbep.setFont(FONT_8x8);
         bbep.setCursor(20, trainY + 20);
         bbep.print("No departures");
     }
+    yield();
 
     // Train 2
     trainY += trainLineHeight;
@@ -413,8 +425,9 @@ void renderTextBasedDashboard(JsonDocument& doc) {
         bbep.setCursor(120, trainY + 15);
         bbep.print("FLINDERS ST");
         bbep.setCursor(120, trainY + 30);
-        bbep.print("(CITY LOOP)");
+        bbep.print("(LOOP)");
     }
+    yield();
 
     // TRAM DEPARTURES
     int tramY = 280;
@@ -428,14 +441,13 @@ void renderTextBasedDashboard(JsonDocument& doc) {
         bbep.print(tram1);
         bbep.setFont(FONT_8x8);
         bbep.setCursor(120, tramY + 15);
-        bbep.print("WEST COBURG");
-        bbep.setCursor(120, tramY + 30);
-        bbep.print("(SCHED)");
+        bbep.print("TOORAK");
     } else {
         bbep.setFont(FONT_8x8);
         bbep.setCursor(20, tramY + 20);
         bbep.print("No departures");
     }
+    yield();
 
     // Tram 2
     tramY += tramLineHeight;
@@ -446,10 +458,9 @@ void renderTextBasedDashboard(JsonDocument& doc) {
         bbep.print(tram2);
         bbep.setFont(FONT_8x8);
         bbep.setCursor(120, tramY + 15);
-        bbep.print("WEST COBURG");
-        bbep.setCursor(120, tramY + 30);
-        bbep.print("(SCHED)");
+        bbep.print("TOORAK");
     }
+    yield();
 
     // SERVICE STATUS (bottom - larger text)
     bbep.fillRect(10, 420, 460, 50, BBEP_WHITE);
@@ -480,6 +491,9 @@ void showConfirmationPrompt() {
 
     bbep.setCursor(50, 455);
     bbep.print("(60 second timeout)");
+
+    bbep.setCursor(50, 470);
+    bbep.print("(c) 2026 Angus Bergman");
 
     // Feed watchdog before refresh
     esp_task_wdt_reset();

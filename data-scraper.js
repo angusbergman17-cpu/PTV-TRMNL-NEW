@@ -1,7 +1,11 @@
-
-// data-scraper.js
-// Combines Open Data GTFS‑R (trains + trams) with static GTFS (platforms),
-// includes ANY city‑bound train, prioritises South Yarra Platform 5, and returns a snapshot.
+/**
+ * data-scraper.js
+ * Combines Open Data GTFS‑R (trains + trams) with static GTFS (platforms),
+ * includes ANY city‑bound train, prioritises South Yarra Platform 5, and returns a snapshot.
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
+ */
 
 import dayjs from "dayjs";
 import config from "./config.js";

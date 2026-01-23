@@ -2,6 +2,9 @@
  * PIDS Renderer
  * Generates PNG images for TRMNL e-ink display (800x480px, 4-bit grayscale)
  * Design matches Melbourne Metro/TramTracker PIDS styling
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
  */
 
 import sharp from 'sharp';

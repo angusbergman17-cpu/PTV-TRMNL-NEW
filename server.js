@@ -1,3 +1,12 @@
+/**
+ * PTV-TRMNL Server
+ * BYOS (Bring Your Own Server) implementation for TRMNL e-ink display
+ * Serves Melbourne PTV transit data in PIDS format
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
+ */
+
 import 'dotenv/config';
 import express from 'express';
 import fs from 'fs/promises';
