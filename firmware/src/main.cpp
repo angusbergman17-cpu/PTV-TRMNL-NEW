@@ -153,6 +153,14 @@ void setup() {
             return;
         }
 
+        addLog("Step 1/3: Parse data");
+        showLog();
+        delay(500);
+
+        addLog("Step 2/3: Draw dashboard");
+        showLog();
+        delay(500);
+
         // Disable watchdog for setup
         esp_task_wdt_reset();
         esp_task_wdt_delete(NULL);
@@ -160,18 +168,19 @@ void setup() {
         // Draw initial dashboard (draws everything to buffer)
         drawInitialDashboard(doc);
 
-        // ONE full refresh to display it
-        addLog("Showing dashboard...");
+        addLog("Step 3/3: Refresh display");
         showLog();
+        delay(1000);
+
+        // Clear logs and show dashboard
         bbep.refresh(REFRESH_FULL, true);
 
         // Re-enable watchdog
         esp_task_wdt_init(30, true);
         esp_task_wdt_add(NULL);
 
-        addLog("Dashboard displayed!");
-        showLog();
-        delay(1000);
+        // Wait for user to see dashboard
+        delay(2000);
 
         // Show confirmation prompt
         showConfirmationPrompt();
@@ -315,11 +324,8 @@ static char prevTrain2[16] = "";
 static char prevTram1[16] = "";
 static char prevTram2[16] = "";
 
-// INITIAL SETUP: Draw complete dashboard ONCE
+// INITIAL SETUP: Draw complete dashboard ONCE (PIDS style)
 void drawInitialDashboard(JsonDocument& doc) {
-    addLog("Parsing data...");
-    showLog();
-
     // Extract data
     JsonArray regions = doc["regions"].as<JsonArray>();
     const char* timeText = "00:00";
@@ -344,65 +350,70 @@ void drawInitialDashboard(JsonDocument& doc) {
     strncpy(prevTram1, tram1, sizeof(prevTram1) - 1);
     strncpy(prevTram2, tram2, sizeof(prevTram2) - 1);
 
-    addLog("Drawing dashboard...");
-    showLog();
-
-    // Draw full dashboard to buffer
+    // Clear screen
     bbep.fillScreen(BBEP_WHITE);
 
-    // Header (static)
+    // ========== HEADER ==========
     bbep.setFont(FONT_12x16);
-    bbep.setCursor(10, 25);
-    bbep.print("PTV DISPLAY");
+    bbep.setCursor(10, 20);
+    bbep.print("SOUTH YARRA");
 
-    // Time (dynamic region)
-    bbep.setFont(FONT_8x8);
-    bbep.setCursor(350, 25);
+    // Time (top right corner)
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(360, 20);
     bbep.print(timeText);
 
-    // Trains label (static)
+    // ========== METRO TRAINS SECTION ==========
     bbep.setFont(FONT_12x16);
-    bbep.setCursor(10, 70);
-    bbep.print("TRAINS");
+    bbep.setCursor(10, 60);
+    bbep.print("METRO TRAINS");
 
-    // Train times (dynamic regions)
     bbep.setFont(FONT_8x8);
-    bbep.setCursor(10, 100);
+    bbep.setCursor(10, 80);
+    bbep.print("FLINDERS ST (LOOP)");
+
+    // Train departures (large text)
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 110);
     bbep.print(train1);
-    bbep.print(" min");
-
-    bbep.setCursor(10, 120);
-    bbep.print(train2);
-    bbep.print(" min");
-
-    // Trams label (static)
-    bbep.setFont(FONT_12x16);
-    bbep.setCursor(10, 180);
-    bbep.print("TRAMS");
-
-    // Tram times (dynamic regions)
     bbep.setFont(FONT_8x8);
-    bbep.setCursor(10, 210);
+    bbep.print(" min");
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 140);
+    bbep.print(train2);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    // ========== YARRA TRAMS SECTION ==========
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 200);
+    bbep.print("YARRA TRAMS");
+
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(10, 220);
+    bbep.print("58 TOORAK (DOMAIN)");
+
+    // Tram departures (large text)
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 250);
     bbep.print(tram1);
+    bbep.setFont(FONT_8x8);
     bbep.print(" min");
 
-    bbep.setCursor(10, 230);
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 280);
     bbep.print(tram2);
+    bbep.setFont(FONT_8x8);
     bbep.print(" min");
 
-    // Status (static)
-    bbep.setCursor(10, 300);
-    bbep.print("STATUS: GOOD SERVICE");
-
-    // Copyright (static)
-    bbep.setCursor(10, 470);
-    bbep.print("(c) 2026 A. Bergman");
-
-    addLog("Initial draw complete");
-    showLog();
+    // ========== STATUS BAR ==========
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(10, 350);
+    bbep.print("SERVICE STATUS: GOOD SERVICE");
 }
 
-// OPERATING MODE: Update only changed regions
+// OPERATING MODE: Update only changed regions (matches new PIDS layout)
 void updateDashboardRegions(JsonDocument& doc) {
     // Extract current data
     JsonArray regions = doc["regions"].as<JsonArray>();
@@ -423,65 +434,62 @@ void updateDashboardRegions(JsonDocument& doc) {
 
     bool hasChanges = false;
 
-    // Check and update TIME region
+    // Update TIME region (header)
     if (strcmp(prevTime, timeText) != 0) {
-        bbep.fillRect(350, 15, 120, 20, BBEP_WHITE);
-        bbep.setFont(FONT_8x8);
-        bbep.setCursor(350, 25);
+        bbep.fillRect(360, 10, 110, 25, BBEP_WHITE);
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(360, 20);
         bbep.print(timeText);
         strncpy(prevTime, timeText, sizeof(prevTime) - 1);
         hasChanges = true;
     }
 
-    // Check and update TRAIN1 region
+    // Update TRAIN1 region
     if (strcmp(prevTrain1, train1) != 0) {
-        bbep.fillRect(10, 90, 200, 20, BBEP_WHITE);
-        bbep.setFont(FONT_8x8);
-        bbep.setCursor(10, 100);
+        bbep.fillRect(10, 100, 200, 25, BBEP_WHITE);
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(10, 110);
         bbep.print(train1);
+        bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTrain1, train1, sizeof(prevTrain1) - 1);
         hasChanges = true;
     }
 
-    // Check and update TRAIN2 region
+    // Update TRAIN2 region
     if (strcmp(prevTrain2, train2) != 0) {
-        bbep.fillRect(10, 110, 200, 20, BBEP_WHITE);
-        bbep.setFont(FONT_8x8);
-        bbep.setCursor(10, 120);
+        bbep.fillRect(10, 130, 200, 25, BBEP_WHITE);
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(10, 140);
         bbep.print(train2);
+        bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTrain2, train2, sizeof(prevTrain2) - 1);
         hasChanges = true;
     }
 
-    // Check and update TRAM1 region
+    // Update TRAM1 region
     if (strcmp(prevTram1, tram1) != 0) {
-        bbep.fillRect(10, 200, 200, 20, BBEP_WHITE);
-        bbep.setFont(FONT_8x8);
-        bbep.setCursor(10, 210);
+        bbep.fillRect(10, 240, 200, 25, BBEP_WHITE);
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(10, 250);
         bbep.print(tram1);
+        bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTram1, tram1, sizeof(prevTram1) - 1);
         hasChanges = true;
     }
 
-    // Check and update TRAM2 region
+    // Update TRAM2 region
     if (strcmp(prevTram2, tram2) != 0) {
-        bbep.fillRect(10, 220, 200, 20, BBEP_WHITE);
-        bbep.setFont(FONT_8x8);
-        bbep.setCursor(10, 230);
+        bbep.fillRect(10, 270, 200, 25, BBEP_WHITE);
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(10, 280);
         bbep.print(tram2);
+        bbep.setFont(FONT_8x8);
         bbep.print(" min");
         strncpy(prevTram2, tram2, sizeof(prevTram2) - 1);
         hasChanges = true;
-    }
-
-    // Only refresh if something changed
-    if (!hasChanges) {
-        addLog("No changes - skip refresh");
-        showLog();
-        delay(500);
     }
 }
 
