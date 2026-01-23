@@ -376,26 +376,43 @@ GTFS_FEEDS = {
 **Purpose**: Web-based control panel for system configuration
 
 **Features**:
-1. **User Preferences Section**
-   - Address autocomplete with live search
-   - PTV API credential management
+1. **User Preferences Section** (Single-Entry Configuration)
+   - Address autocomplete with live search (Google Places + Nominatim)
+   - PTV API credential management (stored securely)
    - Journey settings (arrival time, transit modes)
    - Save/load/reset functionality
+   - All fields entered once, auto-populate everywhere
 
 2. **Smart Route Planner**
-   - Auto-populated from saved preferences
+   - Auto-populated from saved preferences (readonly fields)
    - Calculate route with coffee timing
    - Display journey segments with busy-ness
+   - Shows must-leave-home time
 
 3. **Multi-Modal Transit Display**
-   - Best 2 transit options across all modes
+   - Best 2 transit options across all modes (trains/trams/buses/V/Line)
    - Coffee feasibility per option
-   - Real-time departure information
+   - Real-time departure information from PTV API
+   - Time-matched to route requirements
 
-4. **System Status Dashboard**
+4. **Backend Data Operations Documentation** (NEW)
+   - Explains how each module processes data
+   - Algorithm breakdowns with examples
+   - Single-entry field architecture
+   - Calculation transparency
+   - Color-coded by function
+
+5. **System Status Dashboard**
    - Server health monitoring
-   - Weather display
+   - Weather display (BOM integration)
    - Device connection status
+   - Live data freshness indicators
+
+6. **Navigation & Footer**
+   - Back to Top buttons on all 11 sections
+   - Smooth scroll animation
+   - Professional footer with copyright
+   - Data source attributions
 
 **Address Autocomplete**:
 ```javascript
@@ -409,27 +426,79 @@ handleAddressInput(type, value) {
 
 **UI Structure**:
 ```html
-<User Preferences>
-  - Addresses (autocomplete)
-  - API Credentials
+<Header with Status Bar>
+  - Server online status
+  - Live data indicators
+  - Timestamp
+
+<User Preferences> (Single-Entry Configuration)
+  - Addresses (autocomplete with validation)
+  - API Credentials (secure password field)
   - Journey Settings
   - Transit Mode Checkboxes
   - [Save All Preferences]
+  - [⬆️ Back to Top]
+
+<API Configuration>
+  - Custom API management
+  - [⬆️ Back to Top]
+
+<Data Sources>
+  - Source status indicators
+  - [⬆️ Back to Top]
+
+<System Configuration>
+  - Refresh intervals
+  - Fallback settings
+  - [⬆️ Back to Top]
+
+<Connected Devices>
+  - Device list
+  - Connection status
+  - [⬆️ Back to Top]
+
+<Server Management>
+  - Clear caches
+  - Force refresh
+  - Restart server
+  - [⬆️ Back to Top]
+
+<Weather Status>
+  - Current conditions
+  - BOM data
+  - [⬆️ Back to Top]
 
 <Smart Route Planner>
-  - Home/Cafe/Work (readonly, auto-filled)
+  - Home/Cafe/Work (readonly, auto-filled from preferences)
   - Arrival Time (readonly, auto-filled)
   - [Calculate Route]
   - Journey Segments Display
   - Cafe Busy-ness Indicator
+  - Multi-Modal Transit Options
+  - [⬆️ Back to Top]
 
-<Multi-Modal Connections>
-  - Best Option 1: 🚆 Train in 5 min
-  - Best Option 2: 🚊 Tram in 8 min
-  - Coffee Feasibility Icons
+<Dashboard Preview>
+  - Link to live preview
+  - [⬆️ Back to Top]
+
+<Backend Data Operations> (NEW)
+  - Single-Entry Configuration explanation
+  - Route Planning algorithm details
+  - Multi-Modal Transit search process
+  - Cafe Busy-ness detection method
+  - Live Transit data processing
+  - Address geocoding hierarchy
+  - [⬆️ Back to Top]
+
+<Footer>
+  - Copyright © 2026 Angus Bergman
+  - Built with Claude Code
+  - Data source attributions
+  - Quick links
+  - Version number
 ```
 
-**Code Reference**: `/public/admin.html` lines 1-1800
+**Code Reference**: `/public/admin.html` lines 1-2000+
 
 ---
 
@@ -768,6 +837,107 @@ PORT=3000                                    # Server port (default: 3000)
 4. Check TRMNL device for live updates
 
 **No need to re-enter addresses!**
+
+### Admin Panel Features
+
+#### 🔧 Backend Data Operations Section
+
+The admin panel includes comprehensive documentation explaining how each module processes data:
+
+**What's Documented**:
+- **Single-Entry Configuration** - How fields entered once populate everywhere
+- **Route Planning Algorithm** - Haversine formula, backward time calculation
+- **Multi-Modal Transit Search** - PTV API integration, filtering process
+- **Cafe Busy-ness Detection** - Peak multipliers, time-based calculation
+- **Live Transit Data** - GTFS-Realtime processing, caching strategy
+- **Address Autocomplete** - Google Places vs Nominatim hierarchy
+
+**Each Module Shows**:
+- Module name and file reference (e.g., `route-planner.js`)
+- Step-by-step calculation process
+- Variables considered in calculations
+- Data freshness and caching details
+- Example calculations with real numbers
+
+**Why It's Useful**:
+- Understand how the system makes decisions
+- See what data influences routing
+- Troubleshoot calculation issues
+- Learn the algorithms behind the scenes
+- Transparency in AI-assisted routing
+
+**Access**: Scroll to bottom of admin panel to see "Backend Data Operations" section
+
+#### 📝 Single-Entry Field System
+
+**How It Works**:
+```
+1. Enter addresses in User Preferences (top section)
+   ↓
+2. System saves to user-preferences.json on server
+   ↓
+3. All modules automatically load from this file:
+   - Route Planner (auto-populates readonly fields)
+   - Multi-Modal Router (uses saved API credentials)
+   - Cafe Detector (uses saved cafe address)
+   - Weather (uses saved location context)
+   ↓
+4. All modules stay synchronized automatically
+```
+
+**Benefits**:
+- ✅ Enter addresses once, use everywhere
+- ✅ No duplicate configuration needed
+- ✅ Consistent data across all features
+- ✅ Easy to update (change once, reflects everywhere)
+- ✅ Persistent across browser sessions
+
+**Fields That Auto-Populate**:
+| Entered In | Used By | How |
+|-----------|---------|-----|
+| Home Address | Route Planner | Auto-fills readonly field |
+| Cafe Address | Route Planner, Cafe Detector | Auto-fills + busy-ness check |
+| Work Address | Route Planner | Auto-fills readonly field |
+| Arrival Time | Route Planner | Auto-fills readonly field |
+| PTV API Key | Multi-Modal Router | Auto-authenticates API calls |
+| PTV API Token | Multi-Modal Router | Auto-signs requests (HMAC-SHA1) |
+| Transit Modes | Multi-Modal Router | Auto-filters search results |
+
+**Storage Location**: `user-preferences.json` (created automatically on server)
+
+#### 🧭 Navigation
+
+**Back to Top Buttons**:
+- Every card section has a "⬆️ Back to Top" button
+- Positioned right-aligned at bottom of each card
+- Smooth scroll animation
+- Available in all 11 sections:
+  1. User Preferences
+  2. API Configuration
+  3. Data Sources
+  4. System Configuration
+  5. Connected Devices
+  6. Server Management
+  7. Weather Status
+  8. Smart Route Planner
+  9. Dashboard Preview
+  10. Backend Data Operations
+
+**Why Useful**: Long scrolling page, quick return to preferences at top
+
+#### 📄 Footer & Copyright
+
+**Located At**: Bottom of admin panel page
+
+**Contains**:
+- Copyright notice: © 2026 Angus Bergman
+- Built with: Claude Code (Anthropic)
+- Data sources: PTV Open Data, OpenStreetMap, BOM
+- Educational use disclaimer
+- Quick links: GitHub repo, Dashboard preview
+- Version number display
+
+**Purpose**: Professional appearance, proper attribution, legal disclaimer
 
 ---
 
@@ -1117,6 +1287,6 @@ MIT License - Customize for your own commute!
 ---
 
 **Last Updated**: January 23, 2026
-**Version**: 2.0.0
+**Version**: 2.1.0
 **Status**: ✅ Production Ready
-**Commit**: 663f0c2
+**Commit**: db2a6cc
