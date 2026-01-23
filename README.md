@@ -492,10 +492,10 @@ handleAddressInput(type, value) {
 
 <Footer>
   - Copyright © 2026 Angus Bergman
-  - Built with Claude Code
   - Data source attributions
   - Quick links
   - Version number
+  - Buy Me a Coffee widget
 ```
 
 **Code Reference**: `/public/admin.html` lines 1-2000+
@@ -931,13 +931,22 @@ The admin panel includes comprehensive documentation explaining how each module 
 
 **Contains**:
 - Copyright notice: © 2026 Angus Bergman
-- Built with: Claude Code (Anthropic)
 - Data sources: PTV Open Data, OpenStreetMap, BOM
 - Educational use disclaimer
 - Quick links: GitHub repo, Dashboard preview
 - Version number display
+- **Buy Me a Coffee widget** (bottom right corner)
 
-**Purpose**: Professional appearance, proper attribution, legal disclaimer
+**Buy Me a Coffee Widget**:
+- Floating button in bottom right corner
+- Green theme (#40DCA5)
+- Optional donation support
+- Non-intrusive design
+- Thanking message for supporters
+- Username: `angusbergman`
+- Helps fund continued development
+
+**Purpose**: Professional appearance, proper attribution, legal disclaimer, community support
 
 ---
 
@@ -1284,9 +1293,15 @@ MIT License - Customize for your own commute!
 
 **Admin Panel**: https://ptv-trmnl-new.onrender.com/admin
 
+**Support Development**: ☕ [Buy Me a Coffee](https://buymeacoffee.com/angusbergman)
+- Floating widget available in admin panel (bottom right)
+- Your support helps allocate time to this project
+- Funds continued development and improvements
+- 100% optional, system is free to use
+
 ---
 
 **Last Updated**: January 23, 2026
 **Version**: 2.1.0
 **Status**: ✅ Production Ready
-**Commit**: db2a6cc
+**Commit**: 6799b89
