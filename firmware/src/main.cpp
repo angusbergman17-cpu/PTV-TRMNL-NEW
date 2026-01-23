@@ -48,9 +48,8 @@ bool showingLog = true;  // Control when to show log vs template
 // Function declarations
 void initDisplay();
 bool connectWiFi();
-bool downloadBaseTemplate();
-bool fetchAndDisplayRegionUpdates();
-void renderTextBasedDashboard(JsonDocument& doc);
+void drawInitialDashboard(JsonDocument& doc);
+void updateDashboardRegions(JsonDocument& doc);
 void deepSleep(int seconds);
 float getBatteryVoltage();
 int getWiFiRSSI();
@@ -154,29 +153,27 @@ void setup() {
             return;
         }
 
-        // Disable watchdog for entire setup rendering
+        // Disable watchdog for setup
         esp_task_wdt_reset();
         esp_task_wdt_delete(NULL);
 
-        // Render dashboard to buffer (no refresh inside)
-        renderTextBasedDashboard(doc);
+        // Draw initial dashboard (draws everything to buffer)
+        drawInitialDashboard(doc);
 
-        // Now do ONE refresh to show it
-        addLog("Refreshing display...");
+        // ONE full refresh to display it
+        addLog("Showing dashboard...");
         showLog();
-        delay(500);
-
         bbep.refresh(REFRESH_FULL, true);
-
-        addLog("Display shown!");
-        showLog();
 
         // Re-enable watchdog
         esp_task_wdt_init(30, true);
         esp_task_wdt_add(NULL);
 
-        // Show confirmation prompt and wait for button press
-        delay(2000);
+        addLog("Dashboard displayed!");
+        showLog();
+        delay(1000);
+
+        // Show confirmation prompt
         showConfirmationPrompt();
 
         // Wait for confirmation (60 second timeout)
@@ -254,30 +251,44 @@ void setup() {
         return;
     }
 
-    // Render text-based dashboard (only updates changed regions)
-    renderTextBasedDashboard(doc);
-
-    // Always use partial refresh - just update the changed boxes
-    esp_task_wdt_reset();
-    esp_task_wdt_delete(NULL);
-
-    bbep.refresh(REFRESH_PARTIAL, false);
-
-    esp_task_wdt_init(30, true);
-    esp_task_wdt_add(NULL);
-
-    // Increment counter for periodic full refresh (every 10 minutes to clear ghosting)
+    // Check if it's time for full refresh (ghosting clear)
     refreshCounter++;
-    if (refreshCounter >= FULL_REFRESH_CYCLES) {
-        // Do a full refresh to clear ghosting
+    bool needsFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
+
+    if (needsFullRefresh) {
+        // Full refresh: redraw everything to preserve data
+        addLog("Full refresh cycle");
+        showLog();
+
         esp_task_wdt_reset();
         esp_task_wdt_delete(NULL);
+
+        // Redraw complete dashboard to buffer first (preserves data)
+        drawInitialDashboard(doc);
+
+        // Then do full refresh to clear ghosting
         bbep.refresh(REFRESH_FULL, true);
+
         esp_task_wdt_init(30, true);
         esp_task_wdt_add(NULL);
+
         refreshCounter = 0;
+        preferences.putInt("refresh_count", 0);
+    } else {
+        // Normal update: only update changed regions
+        updateDashboardRegions(doc);
+
+        // Only refresh if there were changes (check is inside updateDashboardRegions)
+        esp_task_wdt_reset();
+        esp_task_wdt_delete(NULL);
+
+        bbep.refresh(REFRESH_PARTIAL, false);
+
+        esp_task_wdt_init(30, true);
+        esp_task_wdt_add(NULL);
+
+        preferences.putInt("refresh_count", refreshCounter);
     }
-    preferences.putInt("refresh_count", refreshCounter);
 
     // Sleep until next refresh
     deepSleep(refreshRate);
@@ -297,96 +308,181 @@ void initDisplay() {
     pinMode(PIN_INTERRUPT, INPUT_PULLUP);
 }
 
-// Simplified dashboard rendering - draws to buffer only, NO refresh
-void renderTextBasedDashboard(JsonDocument& doc) {
+// Previous values for change detection
+static char prevTime[16] = "";
+static char prevTrain1[16] = "";
+static char prevTrain2[16] = "";
+static char prevTram1[16] = "";
+static char prevTram2[16] = "";
+
+// INITIAL SETUP: Draw complete dashboard ONCE
+void drawInitialDashboard(JsonDocument& doc) {
     addLog("Parsing data...");
     showLog();
 
-    // Extract data first
+    // Extract data
     JsonArray regions = doc["regions"].as<JsonArray>();
-
     const char* timeText = "00:00";
-    const char* train1 = nullptr;
-    const char* train2 = nullptr;
-    const char* tram1 = nullptr;
-    const char* tram2 = nullptr;
+    const char* train1 = "--";
+    const char* train2 = "--";
+    const char* tram1 = "--";
+    const char* tram2 = "--";
 
     for (JsonObject region : regions) {
         const char* id = region["id"] | "";
         if (strcmp(id, "time") == 0) timeText = region["text"] | "00:00";
-        else if (strcmp(id, "train1") == 0) train1 = region["text"] | nullptr;
-        else if (strcmp(id, "train2") == 0) train2 = region["text"] | nullptr;
-        else if (strcmp(id, "tram1") == 0) tram1 = region["text"] | nullptr;
-        else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | nullptr;
+        else if (strcmp(id, "train1") == 0) train1 = region["text"] | "--";
+        else if (strcmp(id, "train2") == 0) train2 = region["text"] | "--";
+        else if (strcmp(id, "tram1") == 0) tram1 = region["text"] | "--";
+        else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | "--";
     }
 
-    addLog("Drawing to buffer...");
+    // Save initial values
+    strncpy(prevTime, timeText, sizeof(prevTime) - 1);
+    strncpy(prevTrain1, train1, sizeof(prevTrain1) - 1);
+    strncpy(prevTrain2, train2, sizeof(prevTrain2) - 1);
+    strncpy(prevTram1, tram1, sizeof(prevTram1) - 1);
+    strncpy(prevTram2, tram2, sizeof(prevTram2) - 1);
+
+    addLog("Drawing dashboard...");
     showLog();
 
-    // Draw everything to buffer (NO refresh yet)
+    // Draw full dashboard to buffer
     bbep.fillScreen(BBEP_WHITE);
-    yield();
 
-    // Header
+    // Header (static)
     bbep.setFont(FONT_12x16);
     bbep.setCursor(10, 25);
     bbep.print("PTV DISPLAY");
-    yield();
 
-    // Time
+    // Time (dynamic region)
     bbep.setFont(FONT_8x8);
     bbep.setCursor(350, 25);
     bbep.print(timeText);
 
-    // Trains section
+    // Trains label (static)
     bbep.setFont(FONT_12x16);
     bbep.setCursor(10, 70);
     bbep.print("TRAINS");
-    yield();
 
+    // Train times (dynamic regions)
     bbep.setFont(FONT_8x8);
-    if (train1) {
-        bbep.setCursor(10, 100);
-        bbep.print(train1);
-        bbep.print(" min");
-    }
-    if (train2) {
-        bbep.setCursor(10, 120);
-        bbep.print(train2);
-        bbep.print(" min");
-    }
-    yield();
+    bbep.setCursor(10, 100);
+    bbep.print(train1);
+    bbep.print(" min");
 
-    // Trams section
+    bbep.setCursor(10, 120);
+    bbep.print(train2);
+    bbep.print(" min");
+
+    // Trams label (static)
     bbep.setFont(FONT_12x16);
     bbep.setCursor(10, 180);
     bbep.print("TRAMS");
-    yield();
 
+    // Tram times (dynamic regions)
     bbep.setFont(FONT_8x8);
-    if (tram1) {
-        bbep.setCursor(10, 210);
-        bbep.print(tram1);
-        bbep.print(" min");
-    }
-    if (tram2) {
-        bbep.setCursor(10, 230);
-        bbep.print(tram2);
-        bbep.print(" min");
-    }
-    yield();
+    bbep.setCursor(10, 210);
+    bbep.print(tram1);
+    bbep.print(" min");
 
-    // Status
+    bbep.setCursor(10, 230);
+    bbep.print(tram2);
+    bbep.print(" min");
+
+    // Status (static)
     bbep.setCursor(10, 300);
     bbep.print("STATUS: GOOD SERVICE");
 
-    // Copyright
+    // Copyright (static)
     bbep.setCursor(10, 470);
     bbep.print("(c) 2026 A. Bergman");
 
-    addLog("Buffer ready!");
+    addLog("Initial draw complete");
     showLog();
-    delay(500);
+}
+
+// OPERATING MODE: Update only changed regions
+void updateDashboardRegions(JsonDocument& doc) {
+    // Extract current data
+    JsonArray regions = doc["regions"].as<JsonArray>();
+    const char* timeText = "00:00";
+    const char* train1 = "--";
+    const char* train2 = "--";
+    const char* tram1 = "--";
+    const char* tram2 = "--";
+
+    for (JsonObject region : regions) {
+        const char* id = region["id"] | "";
+        if (strcmp(id, "time") == 0) timeText = region["text"] | "00:00";
+        else if (strcmp(id, "train1") == 0) train1 = region["text"] | "--";
+        else if (strcmp(id, "train2") == 0) train2 = region["text"] | "--";
+        else if (strcmp(id, "tram1") == 0) tram1 = region["text"] | "--";
+        else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | "--";
+    }
+
+    bool hasChanges = false;
+
+    // Check and update TIME region
+    if (strcmp(prevTime, timeText) != 0) {
+        bbep.fillRect(350, 15, 120, 20, BBEP_WHITE);
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(350, 25);
+        bbep.print(timeText);
+        strncpy(prevTime, timeText, sizeof(prevTime) - 1);
+        hasChanges = true;
+    }
+
+    // Check and update TRAIN1 region
+    if (strcmp(prevTrain1, train1) != 0) {
+        bbep.fillRect(10, 90, 200, 20, BBEP_WHITE);
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(10, 100);
+        bbep.print(train1);
+        bbep.print(" min");
+        strncpy(prevTrain1, train1, sizeof(prevTrain1) - 1);
+        hasChanges = true;
+    }
+
+    // Check and update TRAIN2 region
+    if (strcmp(prevTrain2, train2) != 0) {
+        bbep.fillRect(10, 110, 200, 20, BBEP_WHITE);
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(10, 120);
+        bbep.print(train2);
+        bbep.print(" min");
+        strncpy(prevTrain2, train2, sizeof(prevTrain2) - 1);
+        hasChanges = true;
+    }
+
+    // Check and update TRAM1 region
+    if (strcmp(prevTram1, tram1) != 0) {
+        bbep.fillRect(10, 200, 200, 20, BBEP_WHITE);
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(10, 210);
+        bbep.print(tram1);
+        bbep.print(" min");
+        strncpy(prevTram1, tram1, sizeof(prevTram1) - 1);
+        hasChanges = true;
+    }
+
+    // Check and update TRAM2 region
+    if (strcmp(prevTram2, tram2) != 0) {
+        bbep.fillRect(10, 220, 200, 20, BBEP_WHITE);
+        bbep.setFont(FONT_8x8);
+        bbep.setCursor(10, 230);
+        bbep.print(tram2);
+        bbep.print(" min");
+        strncpy(prevTram2, tram2, sizeof(prevTram2) - 1);
+        hasChanges = true;
+    }
+
+    // Only refresh if something changed
+    if (!hasChanges) {
+        addLog("No changes - skip refresh");
+        showLog();
+        delay(500);
+    }
 }
 
 // Show confirmation prompt OVERLAID on current screen (bottom section)
@@ -588,21 +684,12 @@ bool connectWiFi() {
     return WiFi.status() == WL_CONNECTED;
 }
 
-// Persistent image buffer for cached template (kept in memory between updates)
-static uint8_t *cachedImageBuffer = NULL;
-static int imageWidth = 0;
-static int imageHeight = 0;
-static int imageBpp = 0;
-static int drawCallCount = 0;
-
-// Previous region values for change detection
-static char prevTime[16] = "";
-static char prevTrain1[16] = "";
-static char prevTrain2[16] = "";
-static char prevTram1[16] = "";
-static char prevTram2[16] = "";
-static char prevCoffee[64] = "";
-static char prevWeather[32] = "";
+// Unused legacy variables (kept for reference)
+// static uint8_t *cachedImageBuffer = NULL;
+// static int imageWidth = 0;
+// static int imageHeight = 0;
+// static int imageBpp = 0;
+// Previous values now declared near drawInitialDashboard()
 
 // PNG decoder callback - called for each line of pixels
 int PNGDraw(PNGDRAW *pDraw) {
