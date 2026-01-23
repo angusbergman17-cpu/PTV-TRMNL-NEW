@@ -32,6 +32,12 @@ const int FULL_REFRESH_CYCLES = 20;  // Full refresh every 20 cycles (10 minutes
 // Template storage
 bool hasTemplate = false;  // Track if we have the base template
 
+// Operation logging (circular buffer of recent operations)
+#define MAX_LOG_LINES 12
+static char logBuffer[MAX_LOG_LINES][60];
+static int logIndex = 0;
+static int logCount = 0;
+
 // Function declarations
 void initDisplay();
 bool connectWiFi();
@@ -40,6 +46,8 @@ bool fetchAndDisplayRegionUpdates();
 void deepSleep(int seconds);
 float getBatteryVoltage();
 int getWiFiRSSI();
+void addLog(const char* message);
+void showLog();
 void showMessage(const char* line1, const char* line2 = "", const char* line3 = "");
 
 void setup() {
@@ -49,44 +57,54 @@ void setup() {
 
     // Initialize display
     initDisplay();
+    addLog("System boot");
+
+    char bootMsg[60];
+    sprintf(bootMsg, "Cycle %d/20", refreshCounter);
+    addLog(bootMsg);
 
     // Connect to WiFi
-    showMessage("PTV-TRMNL", "Connecting to WiFi...");
+    addLog("Connecting WiFi...");
+    showLog();
     if (!connectWiFi()) {
-        showMessage("WiFi connection failed", "Entering sleep mode");
+        addLog("WiFi FAILED");
+        showLog();
         deepSleep(300);  // Sleep 5 minutes
         return;
     }
+    addLog("WiFi connected");
 
     // Check if we need to download base template
     bool needsTemplate = (refreshCounter == 0) || (refreshCounter >= FULL_REFRESH_CYCLES);
 
     if (needsTemplate) {
         // Download and display base template (full image, slow)
-        char msg[50];
-        sprintf(msg, "Full refresh (%d/20)", refreshCounter + 1);
-        showMessage("Downloading template...", msg);
+        char msg[60];
+        sprintf(msg, "Template cycle %d/20", refreshCounter);
+        addLog(msg);
+        addLog("Downloading template...");
+        showLog();
 
         if (!downloadBaseTemplate()) {
-            showMessage("Template failed", "Trying update anyway");
+            addLog("Template FAILED");
         } else {
             hasTemplate = true;
             refreshCounter = 0;  // Reset counter after full refresh
             preferences.putInt("refresh_count", refreshCounter);
+            addLog("Template cached");
         }
     }
 
     // Download and apply region updates (dynamic data, fast)
-    char msg[50];
-    if (hasTemplate) {
-        sprintf(msg, "Partial update (%d/20)", refreshCounter + 1);
-        showMessage("Fetching PTV data...", msg);
-    } else {
-        showMessage("Fetching PTV data...", "(no template yet)");
-    }
+    addLog("Fetching PTV data...");
+    showLog();
 
     if (!fetchAndDisplayRegionUpdates()) {
-        showMessage("Update failed", "Will retry in 30s");
+        addLog("Update FAILED");
+        showLog();
+        delay(3000);
+    } else {
+        addLog("Update complete");
     }
 
     // Increment counter and save
@@ -97,6 +115,12 @@ void setup() {
     preferences.putInt("refresh_count", refreshCounter);
 
     // Sleep until next refresh
+    char sleepMsg[60];
+    sprintf(sleepMsg, "Sleep %ds (next: %d/20)", refreshRate, refreshCounter);
+    addLog(sleepMsg);
+    showLog();
+    delay(2000);  // Show final log for 2s
+
     deepSleep(refreshRate);
 }
 
@@ -111,20 +135,64 @@ void initDisplay() {
     // No rotation - PNG is pre-rotated 270° on server to compensate for hardware orientation
 }
 
-void showMessage(const char* line1, const char* line2, const char* line3) {
+// Add a log entry to the circular buffer
+void addLog(const char* message) {
+    // Add timestamp
+    unsigned long seconds = millis() / 1000;
+    unsigned long minutes = seconds / 60;
+    seconds = seconds % 60;
+
+    snprintf(logBuffer[logIndex], 60, "[%02lu:%02lu] %s", minutes, seconds, message);
+
+    logIndex = (logIndex + 1) % MAX_LOG_LINES;
+    if (logCount < MAX_LOG_LINES) logCount++;
+}
+
+// Display the operation log on screen
+void showLog() {
     bbep.fillScreen(BBEP_WHITE);
-    bbep.setFont(FONT_12x16);
-    bbep.setCursor(50, 100);
-    bbep.print((char*)line1);
-    if (strlen(line2) > 0) {
-        bbep.setCursor(50, 130);
-        bbep.print((char*)line2);
+    bbep.setFont(FONT_8x8);
+
+    // Header
+    bbep.setCursor(10, 10);
+    bbep.print("PTV-TRMNL OPERATION LOG");
+    bbep.setCursor(10, 25);
+    bbep.print("========================");
+
+    // Display log entries (oldest to newest)
+    int y = 45;
+    int displayCount = min(logCount, MAX_LOG_LINES);
+    int startIdx = (logIndex - displayCount + MAX_LOG_LINES) % MAX_LOG_LINES;
+
+    for (int i = 0; i < displayCount; i++) {
+        int idx = (startIdx + i) % MAX_LOG_LINES;
+        bbep.setCursor(10, y);
+        bbep.print(logBuffer[idx]);
+        y += 15;
+        if (y > 460) break;
     }
-    if (strlen(line3) > 0) {
-        bbep.setCursor(50, 160);
-        bbep.print((char*)line3);
-    }
+
+    // Footer with cycle info
+    char footer[60];
+    sprintf(footer, "Cycle: %d/20 | Refresh: %ds", refreshCounter, refreshRate);
+    bbep.setCursor(10, 465);
+    bbep.print(footer);
+
     bbep.refresh(REFRESH_FULL, true);
+}
+
+void showMessage(const char* line1, const char* line2, const char* line3) {
+    // Add to log
+    if (strlen(line2) > 0) {
+        char fullMsg[100];
+        snprintf(fullMsg, 100, "%s %s", line1, line2);
+        addLog(fullMsg);
+    } else {
+        addLog(line1);
+    }
+
+    // Show log screen
+    showLog();
 }
 
 bool connectWiFi() {
@@ -190,9 +258,12 @@ int PNGDraw(PNGDRAW *pDraw) {
 
 bool downloadBaseTemplate() {
     // Download full base template PNG (done every 10 minutes)
+    addLog("SSL client init");
     WiFiClientSecure *client = new WiFiClientSecure();
     if (!client) {
-        showMessage("Memory error", "Cannot allocate SSL client");
+        addLog("SSL alloc FAILED");
+        showLog();
+        delete client;
         return false;
     }
 
@@ -200,14 +271,15 @@ bool downloadBaseTemplate() {
     HTTPClient http;
     String url = String(SERVER_URL) + "/api/base-template.png";
 
-    showMessage("Downloading template...", "This takes time");
-    delay(1000);
+    addLog("HTTP GET template");
+    showLog();
 
     http.setTimeout(60000);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     if (!http.begin(*client, url)) {
-        showMessage("HTTP begin failed", "Cannot connect");
+        addLog("HTTP begin FAILED");
+        showLog();
         delete client;
         return false;
     }
@@ -215,21 +287,26 @@ bool downloadBaseTemplate() {
     int httpCode = http.GET();
 
     if (httpCode != 200) {
-        char errMsg[80];
-        sprintf(errMsg, "HTTP error: %d", httpCode);
-        showMessage("Download failed", errMsg);
+        char errMsg[60];
+        sprintf(errMsg, "HTTP %d", httpCode);
+        addLog(errMsg);
+        showLog();
         http.end();
         client->stop();
         delete client;
         return false;
     }
 
+    addLog("HTTP 200 OK");
     int len = http.getSize();
 
+    char sizeMsg[60];
+    sprintf(sizeMsg, "PNG size: %d bytes", len);
+    addLog(sizeMsg);
+
     if (len > MAX_PNG_SIZE || len <= 0) {
-        char errMsg[80];
-        sprintf(errMsg, "Invalid size: %d", len);
-        showMessage("Size error", errMsg);
+        addLog("Size check FAILED");
+        showLog();
         http.end();
         client->stop();
         delete client;
@@ -237,10 +314,12 @@ bool downloadBaseTemplate() {
     }
 
     size_t freeHeap = ESP.getFreeHeap();
+    sprintf(sizeMsg, "Free heap: %d bytes", freeHeap);
+    addLog(sizeMsg);
+
     if (freeHeap < MIN_FREE_HEAP) {
-        char errMsg[80];
-        sprintf(errMsg, "Low memory: %d bytes", freeHeap);
-        showMessage("Memory error!", errMsg);
+        addLog("Heap check FAILED");
+        showLog();
         http.end();
         client->stop();
         delete client;
@@ -248,14 +327,19 @@ bool downloadBaseTemplate() {
     }
 
     // Download PNG
+    addLog("Allocating buffer...");
     uint8_t* imgBuffer = (uint8_t*)malloc(len);
     if (!imgBuffer) {
-        showMessage("malloc failed");
+        addLog("malloc FAILED");
+        showLog();
         http.end();
         client->stop();
         delete client;
         return false;
     }
+    addLog("Buffer allocated");
+    addLog("Downloading...");
+    showLog();
 
     WiFiClient* stream = http.getStreamPtr();
     int totalRead = 0;
@@ -272,7 +356,11 @@ bool downloadBaseTemplate() {
     }
 
     if (totalRead != len) {
-        showMessage("Download incomplete");
+        char dlMsg[60];
+        sprintf(dlMsg, "Download: %d/%d", totalRead, len);
+        addLog(dlMsg);
+        addLog("Download incomplete");
+        showLog();
         free(imgBuffer);
         http.end();
         client->stop();
@@ -280,15 +368,18 @@ bool downloadBaseTemplate() {
         return false;
     }
 
-    showMessage("Decoding template...");
+    addLog("Download complete");
+    addLog("Opening PNG...");
+    showLog();
 
     // Decode PNG (don't render, just verify)
     int rc = png.openRAM(imgBuffer, totalRead, PNGDraw);
 
     if (rc != PNG_SUCCESS) {
-        char errMsg[80];
-        sprintf(errMsg, "PNG open failed: %d", rc);
-        showMessage("Decode error", errMsg);
+        char errMsg[60];
+        sprintf(errMsg, "PNG open error: %d", rc);
+        addLog(errMsg);
+        showLog();
         free(imgBuffer);
         http.end();
         client->stop();
@@ -300,10 +391,9 @@ bool downloadBaseTemplate() {
     imageHeight = png.getHeight();
     imageBpp = png.getBpp();
 
-    char msg[80];
-    sprintf(msg, "%dx%d, %dbpp", imageWidth, imageHeight, imageBpp);
-    showMessage("Template info", msg);
-    delay(1000);
+    char msg[60];
+    sprintf(msg, "%dx%d @ %dbpp", imageWidth, imageHeight, imageBpp);
+    addLog(msg);
 
     // Calculate buffer size for decoded image
     int bufferSize;
@@ -315,11 +405,14 @@ bool downloadBaseTemplate() {
 
     // Allocate persistent cache buffer (only once)
     if (!cachedImageBuffer) {
+        sprintf(msg, "Alloc cache: %d bytes", bufferSize);
+        addLog(msg);
+        showLog();
+
         cachedImageBuffer = (uint8_t*)malloc(bufferSize);
         if (!cachedImageBuffer) {
-            char errMsg[80];
-            sprintf(errMsg, "Cache alloc failed: %d", bufferSize);
-            showMessage("Memory error!", errMsg);
+            addLog("Cache alloc FAILED");
+            showLog();
             png.close();
             free(imgBuffer);
             http.end();
@@ -327,25 +420,24 @@ bool downloadBaseTemplate() {
             delete client;
             return false;
         }
-        sprintf(msg, "Cache: %d bytes", bufferSize);
-        showMessage("Cache allocated", msg);
-        delay(500);
+        addLog("Cache allocated");
     }
 
     // Decode PNG into cached buffer
-    showMessage("Decoding template...");
+    addLog("Decoding PNG...");
+    showLog();
     drawCallCount = 0;
     rc = png.decode(NULL, 0);
     png.close();
 
-    sprintf(msg, "Result: %d, lines: %d", rc, drawCallCount);
-    showMessage("Decode complete", msg);
-    delay(1000);
+    sprintf(msg, "Decode: %d calls", drawCallCount);
+    addLog(msg);
 
     if (rc != PNG_SUCCESS) {
-        char errMsg[80];
-        sprintf(errMsg, "Decode failed: %d", rc);
-        showMessage("Decode error", errMsg);
+        char errMsg[60];
+        sprintf(errMsg, "Decode error: %d", rc);
+        addLog(errMsg);
+        showLog();
         free(imgBuffer);
         http.end();
         client->stop();
@@ -354,8 +446,8 @@ bool downloadBaseTemplate() {
     }
 
     // Draw cached image to display
-    showMessage("Drawing template...");
-    delay(500);
+    addLog("Drawing to display...");
+    showLog();
 
     bbep.fillScreen(BBEP_WHITE);
 
@@ -387,11 +479,13 @@ bool downloadBaseTemplate() {
     }
 
     // Full refresh to show template
-    showMessage("Refreshing display...");
+    addLog("Full refresh...");
+    showLog();
+    delay(500);
+
     bbep.refresh(REFRESH_FULL, true);
 
-    showMessage("Template cached!", "Ready for updates");
-    delay(2000);
+    addLog("Template ready!");
 
     free(imgBuffer);
     http.end();
@@ -435,16 +529,20 @@ void restoreCachedImage() {
 bool fetchAndDisplayRegionUpdates() {
     // Step 1: Restore cached image instantly (if available)
     if (cachedImageBuffer) {
-        showMessage("Loading cached image...");
+        addLog("Restoring cache...");
+        showLog();
         restoreCachedImage();
+        addLog("Cache restored");
     } else {
-        // No cache yet, just clear screen
+        addLog("No cache - clear screen");
         bbep.fillScreen(BBEP_WHITE);
     }
 
     // Step 2: Download JSON region updates
+    addLog("HTTP GET regions");
     WiFiClientSecure *client = new WiFiClientSecure();
     if (!client) {
+        addLog("SSL alloc FAILED");
         return false;
     }
 
@@ -455,6 +553,7 @@ bool fetchAndDisplayRegionUpdates() {
     http.setTimeout(30000);
 
     if (!http.begin(*client, url)) {
+        addLog("HTTP begin FAILED");
         delete client;
         return false;
     }
@@ -462,29 +561,45 @@ bool fetchAndDisplayRegionUpdates() {
     int httpCode = http.GET();
 
     if (httpCode != 200) {
+        char errMsg[60];
+        sprintf(errMsg, "HTTP %d", httpCode);
+        addLog(errMsg);
         http.end();
         client->stop();
         delete client;
         return false;
     }
 
+    addLog("HTTP 200 OK");
     String payload = http.getString();
     http.end();
     client->stop();
     delete client;
+
+    char jsonMsg[60];
+    sprintf(jsonMsg, "JSON: %d bytes", payload.length());
+    addLog(jsonMsg);
 
     // Step 3: Parse JSON
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, payload);
 
     if (error) {
-        showMessage("JSON parse error");
+        addLog("JSON parse FAILED");
+        showLog();
         return false;
     }
+
+    addLog("JSON parsed");
 
     // Step 4: Process region updates and draw only changed regions
     JsonArray regions = doc["regions"].as<JsonArray>();
     bool hasChanges = false;
+    int changedCount = 0;
+
+    char regMsg[60];
+    sprintf(regMsg, "Regions: %d", regions.size());
+    addLog(regMsg);
 
     bbep.setFont(FONT_12x16);
 
@@ -543,6 +658,7 @@ bool fetchAndDisplayRegionUpdates() {
         // Only redraw if changed
         if (changed) {
             hasChanges = true;
+            changedCount++;
 
             // Clear region if requested
             if (clear) {
@@ -555,18 +671,30 @@ bool fetchAndDisplayRegionUpdates() {
         }
     }
 
+    char changeMsg[60];
+    sprintf(changeMsg, "Changed: %d regions", changedCount);
+    addLog(changeMsg);
+
     // Step 5: Refresh display
     // Use partial refresh for speed (unless it's time for full refresh)
     refreshCounter++;
     bool useFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
 
     if (useFullRefresh) {
+        addLog("Full refresh");
+        showLog();
+        delay(500);
         bbep.refresh(REFRESH_FULL, true);
         refreshCounter = 0;
     } else {
         // Only refresh if something changed
         if (hasChanges) {
+            addLog("Partial refresh");
+            showLog();
+            delay(500);
             bbep.refresh(REFRESH_PARTIAL, false);
+        } else {
+            addLog("No changes - skip refresh");
         }
     }
 

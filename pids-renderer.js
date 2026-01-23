@@ -8,11 +8,10 @@ import sharp from 'sharp';
 
 class PidsRenderer {
   constructor() {
-    // Reduced resolution for faster pixel-by-pixel drawing
-    // 400x240 rotated = 240x400 on device (96,000 pixels vs 384,000)
-    // 4x faster to draw, still readable
-    this.width = 400;
-    this.height = 240;
+    // Full resolution for e-ink display (with cached image, drawing is fast)
+    // 800x480 rotated = 480x800 on device (384,000 pixels)
+    this.width = 800;
+    this.height = 480;
   }
 
   /**
