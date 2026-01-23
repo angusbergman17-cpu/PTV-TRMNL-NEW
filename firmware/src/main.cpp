@@ -68,43 +68,74 @@ void setup() {
 
     // Initialize display
     initDisplay();
+
+    // Clear screen and show setup header
+    bbep.fillScreen(BBEP_WHITE);
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(10, 20);
+    bbep.print("PTV-TRMNL");
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(10, 40);
+
+    if (setupComplete) {
+        bbep.print("OPERATING MODE");
+    } else {
+        bbep.print("SETUP IN PROGRESS");
+    }
+
+    bbep.drawLine(0, 50, 480, 50, BBEP_BLACK);
+    bbep.refresh(REFRESH_FULL, true);
+    delay(500);
+
+    // Boot sequence with progressive logs
     addLog("System boot");
+    showLog();
+    delay(300);
 
     char bootMsg[60];
     if (setupComplete) {
-        sprintf(bootMsg, "Operating: Cycle %d/20", refreshCounter);
+        sprintf(bootMsg, "Operating mode - update %d", refreshCounter);
     } else {
-        sprintf(bootMsg, "Setup Phase");
+        sprintf(bootMsg, "First boot - initializing");
     }
     addLog(bootMsg);
+    showLog();
+    delay(300);
 
     // Connect to WiFi
-    addLog("Connecting WiFi...");
+    addLog("Connecting to WiFi...");
     showLog();
+    delay(300);
+
     if (!connectWiFi()) {
-        addLog("WiFi FAILED");
+        addLog("WiFi connection FAILED");
         showLog();
+        delay(3000);
         deepSleep(300);  // Sleep 5 minutes
         return;
     }
+
     addLog("WiFi connected");
+    showLog();
+    delay(300);
 
     // Check for long press reset at boot
     checkLongPressReset();
 
     // SETUP PHASE: Render text-based dashboard and wait for confirmation
     if (!setupComplete) {
-        addLog("SETUP: Text dashboard");
+        addLog("Starting setup sequence");
         showLog();
-        delay(1000);
+        delay(300);
 
         // Fetch initial data
-        addLog("Fetching PTV data...");
+        addLog("Contacting server...");
         showLog();
+        delay(300);
 
         WiFiClientSecure *client = new WiFiClientSecure();
         if (!client) {
-            addLog("SSL alloc FAILED");
+            addLog("ERROR: SSL allocation failed");
             showLog();
             delay(3000);
             deepSleep(300);
@@ -116,16 +147,30 @@ void setup() {
         String url = String(SERVER_URL) + "/api/region-updates";
         http.setTimeout(30000);
 
+        addLog("Connecting to server...");
+        showLog();
+        delay(300);
+
         if (!http.begin(*client, url)) {
-            addLog("HTTP begin FAILED");
+            addLog("ERROR: HTTP begin failed");
+            showLog();
+            delay(3000);
             delete client;
             deepSleep(300);
             return;
         }
 
+        addLog("Requesting data...");
+        showLog();
+        delay(300);
+
         int httpCode = http.GET();
         if (httpCode != 200) {
-            addLog("HTTP failed");
+            char errMsg[50];
+            sprintf(errMsg, "ERROR: HTTP %d", httpCode);
+            addLog(errMsg);
+            showLog();
+            delay(3000);
             http.end();
             client->stop();
             delete client;
@@ -133,31 +178,39 @@ void setup() {
             return;
         }
 
+        addLog("Receiving data...");
+        showLog();
+        delay(300);
+
         String payload = http.getString();
         http.end();
         client->stop();
         delete client;
 
-        addLog("Data received");
+        addLog("Data received successfully");
         showLog();
-        delay(500);
+        delay(300);
 
         // Parse JSON
+        addLog("Parsing transport data...");
+        showLog();
+        delay(300);
+
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
         if (error) {
-            addLog("JSON parse FAILED");
+            addLog("ERROR: JSON parse failed");
             showLog();
             delay(3000);
             deepSleep(300);
             return;
         }
 
-        addLog("Step 1/3: Parse data");
+        addLog("Data parsed OK");
         showLog();
-        delay(500);
+        delay(300);
 
-        addLog("Step 2/3: Draw dashboard");
+        addLog("Building dashboard...");
         showLog();
         delay(500);
 
@@ -165,14 +218,28 @@ void setup() {
         esp_task_wdt_reset();
         esp_task_wdt_delete(NULL);
 
-        // Draw initial dashboard (draws everything to buffer)
+        // Draw initial dashboard to buffer (DOESN'T refresh yet)
         drawInitialDashboard(doc);
 
-        addLog("Step 3/3: Refresh display");
+        addLog("Dashboard ready");
         showLog();
-        delay(1000);
+        delay(500);
 
-        // Clear logs and show dashboard
+        addLog("Clearing screen...");
+        showLog();
+        delay(500);
+
+        // Proper screen clean to avoid ghosting: BLACK -> WHITE -> DASHBOARD
+        bbep.fillScreen(BBEP_BLACK);
+        bbep.refresh(REFRESH_FULL, true);
+        delay(100);
+
+        bbep.fillScreen(BBEP_WHITE);
+        bbep.refresh(REFRESH_FULL, true);
+        delay(100);
+
+        // Now draw and show the dashboard
+        drawInitialDashboard(doc);
         bbep.refresh(REFRESH_FULL, true);
 
         // Re-enable watchdog
@@ -260,22 +327,29 @@ void setup() {
         return;
     }
 
-    // Check if it's time for full refresh (ghosting clear)
+    // Check if it's time for full refresh (ghosting clear every 10 minutes)
     refreshCounter++;
     bool needsFullRefresh = (refreshCounter >= FULL_REFRESH_CYCLES);
 
     if (needsFullRefresh) {
-        // Full refresh: redraw everything to preserve data
-        addLog("Full refresh cycle");
-        showLog();
-
+        // PERIODIC FULL REFRESH: Clear ghosting while preserving all data
         esp_task_wdt_reset();
         esp_task_wdt_delete(NULL);
 
-        // Redraw complete dashboard to buffer first (preserves data)
+        // Redraw complete dashboard to buffer first (preserves current data)
         drawInitialDashboard(doc);
 
-        // Then do full refresh to clear ghosting
+        // Black/white clean to remove ghosting
+        bbep.fillScreen(BBEP_BLACK);
+        bbep.refresh(REFRESH_FULL, true);
+        delay(50);
+
+        bbep.fillScreen(BBEP_WHITE);
+        bbep.refresh(REFRESH_FULL, true);
+        delay(50);
+
+        // Redraw dashboard with current data
+        drawInitialDashboard(doc);
         bbep.refresh(REFRESH_FULL, true);
 
         esp_task_wdt_init(30, true);
@@ -284,10 +358,10 @@ void setup() {
         refreshCounter = 0;
         preferences.putInt("refresh_count", 0);
     } else {
-        // Normal update: only update changed regions
+        // NORMAL UPDATE: Only update changed regions (efficient)
         updateDashboardRegions(doc);
 
-        // Only refresh if there were changes (check is inside updateDashboardRegions)
+        // Partial refresh only
         esp_task_wdt_reset();
         esp_task_wdt_delete(NULL);
 
