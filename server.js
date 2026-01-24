@@ -20,6 +20,7 @@ import RoutePlanner from './route-planner.js';
 import CafeBusyDetector from './cafe-busy-detector.js';
 import PreferencesManager from './preferences-manager.js';
 import MultiModalRouter from './multi-modal-router.js';
+import SmartJourneyPlanner from './smart-journey-planner.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,7 @@ const routePlanner = new RoutePlanner();
 const busyDetector = new CafeBusyDetector();
 const preferences = new PreferencesManager();
 const multiModalRouter = new MultiModalRouter();
+const smartPlanner = new SmartJourneyPlanner();
 
 // Load preferences on startup
 preferences.load().then(() => {
@@ -1342,6 +1344,180 @@ app.post('/admin/route/calculate', async (req, res) => {
     res.status(500).json({
       error: error.message,
       message: 'Failed to calculate route'
+    });
+  }
+});
+
+// ========== SMART AUTOMATIC JOURNEY PLANNER ==========
+// One-click journey planning - just provide addresses, everything else is automatic
+
+/**
+ * Automatic Journey Planner
+ * POST /admin/route/auto-plan
+ *
+ * This is the "one click" endpoint that does everything:
+ * - Geocodes your addresses automatically
+ * - Finds nearby transit stops
+ * - Determines the best route and transport mode
+ * - Optimally places your cafe stop
+ * - Calculates all timing
+ * - Gets real-time departures
+ *
+ * Request body:
+ * {
+ *   homeAddress: "123 Smith St, Richmond" (required)
+ *   workAddress: "456 Collins St, Melbourne" (required)
+ *   cafeAddress: "Some Cafe, Suburb" (optional - auto-finds if not provided)
+ *   arrivalTime: "09:00" (required)
+ *   includeCoffee: true (optional, default true)
+ * }
+ */
+app.post('/admin/route/auto-plan', async (req, res) => {
+  try {
+    // Get saved preferences for defaults and API credentials
+    const prefs = preferences.get();
+    const savedAddresses = prefs.addresses || {};
+    const savedJourney = prefs.journey || {};
+    const savedApi = prefs.api || {};
+
+    // Use provided values or fall back to saved preferences
+    const homeAddress = req.body.homeAddress || savedAddresses.home;
+    const workAddress = req.body.workAddress || savedAddresses.work;
+    const cafeAddress = req.body.cafeAddress || savedAddresses.cafe || null;
+    const arrivalTime = req.body.arrivalTime || savedJourney.arrivalTime || '09:00';
+    const includeCoffee = req.body.includeCoffee !== undefined
+      ? req.body.includeCoffee
+      : (savedJourney.coffeeEnabled !== false);
+
+    // Validate required fields
+    if (!homeAddress || !workAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required addresses',
+        required: ['homeAddress', 'workAddress'],
+        message: 'Please provide your home and work addresses. You can save them in preferences or include them in the request.',
+        tip: 'Example: { "homeAddress": "123 Smith St, Richmond VIC", "workAddress": "456 Collins St, Melbourne VIC", "arrivalTime": "09:00" }'
+      });
+    }
+
+    console.log('\n=== AUTO JOURNEY PLANNING ===');
+    console.log('Request:', { homeAddress, workAddress, cafeAddress, arrivalTime, includeCoffee });
+
+    // Plan the journey automatically
+    const plan = await smartPlanner.planJourney({
+      homeAddress,
+      workAddress,
+      cafeAddress,
+      arrivalTime,
+      includeCoffee,
+      api: {
+        key: savedApi.key,
+        token: savedApi.token
+      }
+    });
+
+    if (!plan.success) {
+      return res.status(400).json(plan);
+    }
+
+    // Save successful addresses to preferences for future use
+    await preferences.updateAddresses({
+      home: homeAddress,
+      work: workAddress,
+      cafe: cafeAddress || savedAddresses.cafe
+    });
+
+    // Also update arrival time if provided
+    if (req.body.arrivalTime) {
+      await preferences.updateJourneyPreferences({
+        arrivalTime: req.body.arrivalTime
+      });
+    }
+
+    res.json(plan);
+
+  } catch (error) {
+    console.error('Auto journey planning error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Failed to plan journey automatically',
+      suggestion: 'Check that your addresses are valid Melbourne locations'
+    });
+  }
+});
+
+/**
+ * Quick Plan - even simpler, uses all saved preferences
+ * GET /admin/route/quick-plan
+ *
+ * Just calculates a journey using all saved preferences.
+ * No body needed - just call it and get your route.
+ */
+app.get('/admin/route/quick-plan', async (req, res) => {
+  try {
+    const prefs = preferences.get();
+    const savedAddresses = prefs.addresses || {};
+    const savedJourney = prefs.journey || {};
+    const savedApi = prefs.api || {};
+
+    // Check if we have enough info
+    if (!savedAddresses.home || !savedAddresses.work) {
+      return res.status(400).json({
+        success: false,
+        error: 'No addresses configured',
+        message: 'Please configure your home and work addresses first via POST /admin/route/auto-plan or the admin panel'
+      });
+    }
+
+    // Use query param for arrival time if provided
+    const arrivalTime = req.query.arrivalTime || savedJourney.arrivalTime || '09:00';
+
+    const plan = await smartPlanner.planJourney({
+      homeAddress: savedAddresses.home,
+      workAddress: savedAddresses.work,
+      cafeAddress: savedAddresses.cafe || null,
+      arrivalTime,
+      includeCoffee: savedJourney.coffeeEnabled !== false,
+      api: {
+        key: savedApi.key,
+        token: savedApi.token
+      }
+    });
+
+    res.json(plan);
+
+  } catch (error) {
+    console.error('Quick plan error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get the cached automatic journey plan
+ * GET /admin/route/auto
+ */
+app.get('/admin/route/auto', (req, res) => {
+  try {
+    const cached = smartPlanner.getCachedJourney();
+
+    if (!cached) {
+      return res.status(404).json({
+        success: false,
+        error: 'No journey planned',
+        message: 'Plan a journey first using POST /admin/route/auto-plan or GET /admin/route/quick-plan'
+      });
+    }
+
+    res.json(cached);
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
