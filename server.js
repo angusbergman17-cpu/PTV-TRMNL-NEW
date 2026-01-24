@@ -247,10 +247,12 @@ async function getData() {
 }
 
 /**
- * Get region updates (dynamic data with coordinates)
+ * Get region updates (dynamic data for firmware)
+ * Server does ALL calculation - firmware just displays these values
  */
 async function getRegionUpdates() {
   const data = await getData();
+  const prefs = preferences.get();
   const now = new Date();
   const timeFormatter = new Intl.DateTimeFormat('en-AU', {
     timeZone: 'Australia/Melbourne',
@@ -263,19 +265,40 @@ async function getRegionUpdates() {
     weatherData = await weather.getCurrentWeather();
   } catch (error) {
     console.error('Weather fetch failed:', error.message);
-    // Continue without weather data
+  }
+
+  // Get station names from preferences
+  const stationName = prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'STATION';
+  const destName = prefs?.journey?.transitRoute?.mode1?.destinationStation?.name || 'CITY';
+
+  // Calculate "leave by" time (server does the math!)
+  const nextTrain = data.trains[0];
+  const walkBuffer = 5; // 5 min walk to station
+  let leaveTime = '--:--';
+  if (nextTrain) {
+    const leaveInMins = Math.max(0, nextTrain.minutes - walkBuffer);
+    leaveTime = new Date(now.getTime() + leaveInMins * 60000).toLocaleTimeString('en-AU', {
+      timeZone: 'Australia/Melbourne',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
   }
 
   // Define regions for firmware (simple format: id + text only)
   const regions = [];
 
-  // Time region (HH:MM format)
-  regions.push({
-    id: 'time',
-    text: timeFormatter.format(now)
-  });
+  // Station name
+  regions.push({ id: 'station', text: stationName.toUpperCase() });
 
-  // Train times (always send 2 departures, use "--" if not available)
+  // Current time
+  regions.push({ id: 'time', text: timeFormatter.format(now) });
+
+  // LEAVE BY time (most important - server calculates this!)
+  regions.push({ id: 'leaveTime', text: leaveTime });
+
+  // Coffee decision (server decides!)
+  regions.push({ id: 'coffee', text: data.coffee.canGet ? 'YES' : 'NO' });
+
+  // Train times (2 departures)
   for (let i = 0; i < 2; i++) {
     regions.push({
       id: `train${i + 1}`,
@@ -283,7 +306,7 @@ async function getRegionUpdates() {
     });
   }
 
-  // Tram times (always send 2 departures, use "--" if not available)
+  // Tram times (2 departures)
   for (let i = 0; i < 2; i++) {
     regions.push({
       id: `tram${i + 1}`,
@@ -425,29 +448,35 @@ app.get('/api/region-updates', async (req, res) => {
 });
 
 // Live PNG image endpoint (legacy - for compatibility)
-// HTML Dashboard endpoint (for TRMNL and web preview)
+// HTML Dashboard endpoint (for TRMNL device - 800x480)
+// Server does ALL the thinking - display just shows simple info
 app.get('/api/dashboard', async (req, res) => {
   try {
     const data = await getData();
     const prefs = preferences.get();
-    const stationName = prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'Station';
+    const stationName = prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'YOUR STATION';
+    const destName = prefs?.journey?.transitRoute?.mode1?.destinationStation?.name || 'CITY';
 
-    // Fetch weather
-    let weatherData = null;
-    try {
-      weatherData = await weather.getCurrentWeather();
-    } catch (err) {
-      // Continue without weather
-    }
-
-    const currentTime = new Date().toLocaleTimeString('en-AU', {
+    // Get current time
+    const now = new Date();
+    const currentTime = now.toLocaleTimeString('en-AU', {
       timeZone: 'Australia/Melbourne',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
     });
 
-    // Simple, clean HTML dashboard for e-ink
+    // Calculate "leave by" time based on next good train
+    const nextTrain = data.trains[0];
+    const leaveInMins = nextTrain ? Math.max(0, nextTrain.minutes - 5) : '--'; // 5 min walk buffer
+    const leaveTime = nextTrain ? new Date(now.getTime() + leaveInMins * 60000).toLocaleTimeString('en-AU', {
+      timeZone: 'Australia/Melbourne',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }) : '--:--';
+
+    // Simple, clean HTML dashboard optimized for e-ink (800x480)
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -456,102 +485,107 @@ app.get('/api/dashboard', async (req, res) => {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Arial Black', Arial, sans-serif;
       background: white;
       color: black;
       width: 800px;
       height: 480px;
-      padding: 20px;
+      overflow: hidden;
     }
-    .header {
+    .top-bar {
+      background: black;
+      color: white;
+      padding: 12px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 3px solid black;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
+      font-size: 24px;
     }
-    .station { font-size: 32px; font-weight: bold; }
-    .time { font-size: 28px; }
-    .content { display: flex; gap: 40px; }
-    .column { flex: 1; }
-    .section-title {
-      font-size: 20px;
-      font-weight: bold;
+    .main {
+      padding: 15px 20px;
+      display: flex;
+      gap: 20px;
+      height: 320px;
+    }
+    .left { flex: 1; }
+    .right { flex: 1; }
+    .leave-box {
       background: black;
       color: white;
-      padding: 8px 12px;
+      padding: 20px;
+      text-align: center;
       margin-bottom: 15px;
+    }
+    .leave-label { font-size: 18px; margin-bottom: 5px; }
+    .leave-time { font-size: 64px; font-weight: bold; letter-spacing: 2px; }
+    .section-header {
+      font-size: 16px;
+      font-weight: bold;
+      border-bottom: 2px solid black;
+      padding-bottom: 5px;
+      margin-bottom: 10px;
     }
     .departure {
       display: flex;
       justify-content: space-between;
-      font-size: 24px;
-      padding: 10px 0;
-      border-bottom: 1px solid #ccc;
-    }
-    .minutes { font-weight: bold; font-size: 28px; }
-    .coffee-box {
-      margin-top: 20px;
-      padding: 15px;
-      border: 3px solid black;
-      text-align: center;
-      font-size: 24px;
-      font-weight: bold;
-    }
-    .coffee-yes { background: #e8f5e9; }
-    .coffee-no { background: #fff3e0; }
-    .weather {
-      position: absolute;
-      top: 20px;
-      right: 120px;
+      align-items: center;
+      padding: 8px 0;
       font-size: 20px;
     }
-    .footer {
-      position: absolute;
-      bottom: 15px;
-      left: 20px;
-      right: 20px;
-      font-size: 14px;
-      color: #666;
-      text-align: center;
+    .mins {
+      font-size: 28px;
+      font-weight: bold;
     }
+    .coffee-strip {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 15px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      border-top: 3px solid black;
+    }
+    .coffee-yes { background: #ddd; }
+    .coffee-no { background: white; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="station">${stationName.toUpperCase()}</div>
-    <div class="weather">${weatherData ? weatherData.temperature + '°C' : '--'}</div>
-    <div class="time">${currentTime}</div>
+  <div class="top-bar">
+    <span>${stationName.toUpperCase()}</span>
+    <span>${currentTime}</span>
   </div>
 
-  <div class="content">
-    <div class="column">
-      <div class="section-title">TRAINS</div>
-      ${data.trains.slice(0, 3).map(t => `
+  <div class="main">
+    <div class="left">
+      <div class="leave-box">
+        <div class="leave-label">LEAVE HOME BY</div>
+        <div class="leave-time">${leaveTime}</div>
+      </div>
+      <div class="section-header">NEXT TRAINS → ${destName.toUpperCase()}</div>
+      ${data.trains.slice(0, 2).map(t => `
         <div class="departure">
-          <span>${t.destination}</span>
-          <span class="minutes">${t.minutes} min</span>
+          <span>${t.destination || destName}</span>
+          <span class="mins">${t.minutes} min</span>
         </div>
-      `).join('') || '<div class="departure">No departures</div>'}
+      `).join('') || '<div class="departure"><span>No trains</span><span>--</span></div>'}
     </div>
 
-    <div class="column">
-      <div class="section-title">TRAMS</div>
+    <div class="right">
+      <div class="section-header">NEXT TRAMS</div>
       ${data.trams.slice(0, 3).map(t => `
         <div class="departure">
-          <span>${t.destination}</span>
-          <span class="minutes">${t.minutes} min</span>
+          <span>${t.destination || 'City'}</span>
+          <span class="mins">${t.minutes} min</span>
         </div>
-      `).join('') || '<div class="departure">No departures</div>'}
+      `).join('') || '<div class="departure"><span>No trams</span><span>--</span></div>'}
     </div>
   </div>
 
-  <div class="coffee-box ${data.coffee.canGet ? 'coffee-yes' : 'coffee-no'}">
-    ${data.coffee.canGet ? '☕ TIME FOR COFFEE!' : '⚡ GO DIRECT - NO COFFEE'}
+  <div class="coffee-strip ${data.coffee.canGet ? 'coffee-yes' : 'coffee-no'}">
+    ${data.coffee.canGet ? '☕ YOU HAVE TIME FOR COFFEE' : '⚡ NO COFFEE TODAY - GO DIRECT'}
   </div>
-
-  <div class="footer">Updated: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' })}</div>
 </body>
 </html>`;
 

@@ -534,25 +534,32 @@ void restoreDashboardFromCache() {
 }
 
 // COMBINED: Draw complete dashboard from live data
+// Server does ALL the calculation - we just display what it tells us
 void drawCompleteDashboard(JsonDocument& doc) {
     Serial.println("Drawing complete dashboard from live data...");
 
-    // Extract data from JSON
+    // Extract data from JSON (server calculates everything!)
     JsonArray regions = doc["regions"].as<JsonArray>();
+    const char* station = "STATION";
     const char* timeText = "00:00";
-    const char* tram1 = "--";
-    const char* tram2 = "--";
+    const char* leaveTime = "--:--";
+    const char* coffee = "NO";
     const char* train1 = "--";
     const char* train2 = "--";
+    const char* tram1 = "--";
+    const char* tram2 = "--";
 
     if (!regions.isNull()) {
         for (JsonObject region : regions) {
             const char* id = region["id"] | "";
-            if (strcmp(id, "time") == 0) timeText = region["text"] | "00:00";
-            else if (strcmp(id, "tram1") == 0) tram1 = region["text"] | "--";
-            else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | "--";
+            if (strcmp(id, "station") == 0) station = region["text"] | "STATION";
+            else if (strcmp(id, "time") == 0) timeText = region["text"] | "00:00";
+            else if (strcmp(id, "leaveTime") == 0) leaveTime = region["text"] | "--:--";
+            else if (strcmp(id, "coffee") == 0) coffee = region["text"] | "NO";
             else if (strcmp(id, "train1") == 0) train1 = region["text"] | "--";
             else if (strcmp(id, "train2") == 0) train2 = region["text"] | "--";
+            else if (strcmp(id, "tram1") == 0) tram1 = region["text"] | "--";
+            else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | "--";
         }
     }
 
@@ -563,11 +570,95 @@ void drawCompleteDashboard(JsonDocument& doc) {
     strncpy(prevTrain1, train1, sizeof(prevTrain1) - 1);
     strncpy(prevTrain2, train2, sizeof(prevTrain2) - 1);
 
-    // Draw shell
-    drawDashboardShell();
+    // Clear screen
+    bbep.fillScreen(BBEP_WHITE);
 
-    // Draw dynamic data
-    drawDynamicData(timeText, tram1, tram2, train1, train2);
+    // =====================================================
+    // SIMPLE DASHBOARD LAYOUT (800x480)
+    // Server is the BRAIN - we just display!
+    // =====================================================
+
+    // TOP BAR: Station name + Current time (black background)
+    bbep.fillRect(0, 0, 800, 50, BBEP_BLACK);
+    bbep.setFont(FONT_12x16);
+    bbep.setTextColor(BBEP_WHITE);
+    bbep.setCursor(20, 18);
+    bbep.print(station);
+    bbep.setCursor(680, 18);
+    bbep.print(timeText);
+
+    // Reset text color to black
+    bbep.setTextColor(BBEP_BLACK);
+
+    // MAIN SECTION: LEAVE BY TIME (BIG AND PROMINENT)
+    bbep.fillRect(20, 70, 360, 120, BBEP_BLACK);
+    bbep.setTextColor(BBEP_WHITE);
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(30, 80);
+    bbep.print("LEAVE HOME BY");
+    bbep.setFont(FONT_12x16);
+    // Draw leave time HUGE (double print for bold)
+    bbep.setCursor(60, 120);
+    bbep.print(leaveTime);
+    bbep.setCursor(61, 120);
+    bbep.print(leaveTime);
+    bbep.setCursor(60, 121);
+    bbep.print(leaveTime);
+
+    // Reset text color
+    bbep.setTextColor(BBEP_BLACK);
+
+    // TRAINS SECTION (right side)
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(420, 70);
+    bbep.print("NEXT TRAINS");
+    bbep.drawLine(420, 85, 780, 85, BBEP_BLACK);
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(420, 100);
+    bbep.print(train1);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(420, 140);
+    bbep.print(train2);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    // TRAMS SECTION (below trains)
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(420, 200);
+    bbep.print("NEXT TRAMS");
+    bbep.drawLine(420, 215, 780, 215, BBEP_BLACK);
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(420, 230);
+    bbep.print(tram1);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(420, 270);
+    bbep.print(tram2);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    // COFFEE SECTION (bottom)
+    int coffeeY = 380;
+    if (strcmp(coffee, "YES") == 0) {
+        bbep.fillRect(0, coffeeY, 800, 100, BBEP_BLACK);
+        bbep.setTextColor(BBEP_WHITE);
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(200, coffeeY + 40);
+        bbep.print("TIME FOR COFFEE!");
+    } else {
+        bbep.drawRect(0, coffeeY, 800, 100, BBEP_BLACK);
+        bbep.setTextColor(BBEP_BLACK);
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(180, coffeeY + 40);
+        bbep.print("NO COFFEE - GO DIRECT");
+    }
 
     // Cache the data for recovery
     cacheDynamicData(timeText, tram1, tram2, train1, train2);
