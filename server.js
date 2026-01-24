@@ -13,7 +13,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import config from './config.js';
 import { getSnapshot } from './data-scraper.js';
-import PidsRenderer from './pids-renderer.js';
 import CoffeeDecision from './coffee-decision.js';
 import WeatherBOM from './weather-bom.js';
 import RoutePlanner from './route-planner.js';
@@ -29,7 +28,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // Initialize all modules
-const renderer = new PidsRenderer();
 const coffeeEngine = new CoffeeDecision();
 const weather = new WeatherBOM();
 const routePlanner = new RoutePlanner();
@@ -94,8 +92,7 @@ function getFallbackTimetable() {
   return { trains: nextTrains, trams: nextTrams };
 }
 
-// Cache for image and data
-let cachedImage = null;
+// Cache for data
 let cachedData = null;
 let lastUpdate = 0;
 const CACHE_MS = 25 * 1000; // 25 seconds (device refreshes every 30s)
@@ -127,9 +124,6 @@ setInterval(() => {
 
 // Persistent storage paths
 const DEVICES_FILE = path.join(process.cwd(), 'devices.json');
-const CACHE_DIR = path.join(process.cwd(), 'cache');
-const PNG_CACHE_FILE = path.join(CACHE_DIR, 'display.png');
-const TEMPLATE_FILE = path.join(CACHE_DIR, 'base-template.png');
 
 /**
  * Load devices from persistent storage
@@ -156,17 +150,6 @@ async function saveDevices() {
     await fs.writeFile(DEVICES_FILE, JSON.stringify(devicesArray, null, 2));
   } catch (err) {
     console.error('⚠️  Error saving devices:', err.message);
-  }
-}
-
-/**
- * Ensure cache directory exists
- */
-async function ensureCacheDir() {
-  try {
-    await fs.mkdir(CACHE_DIR, { recursive: true });
-  } catch (err) {
-    console.error('⚠️  Error creating cache directory:', err.message);
   }
 }
 
@@ -264,48 +247,6 @@ async function getData() {
 }
 
 /**
- * Generate base template (static layout) - called once
- */
-async function getBaseTemplate() {
-  try {
-    // Check if template exists
-    const stats = await fs.stat(TEMPLATE_FILE);
-    const template = await fs.readFile(TEMPLATE_FILE);
-    console.log(`✅ Loaded cached template: ${template.length} bytes`);
-    return template;
-  } catch (err) {
-    // Generate new template
-    console.log('📝 Generating base template...');
-
-    // Create static data with placeholders (generic destinations)
-    const templateData = {
-      trains: [
-        { minutes: 0, destination: 'Loading...', isScheduled: false },
-        { minutes: 0, destination: 'Loading...', isScheduled: false },
-        { minutes: 0, destination: 'Loading...', isScheduled: false }
-      ],
-      trams: [
-        { minutes: 0, destination: 'Loading...', isScheduled: false },
-        { minutes: 0, destination: 'Loading...', isScheduled: false },
-        { minutes: 0, destination: 'Loading...', isScheduled: false }
-      ],
-      weather: { temp: '--', condition: 'Loading...', icon: '☁️' },
-      news: null,
-      coffee: { canGet: false, decision: 'LOADING', subtext: 'Please wait', urgent: false },
-      meta: { generatedAt: new Date().toISOString() }
-    };
-
-    const template = await renderer.render(templateData, templateData.coffee);
-
-    // Save template
-    await fs.writeFile(TEMPLATE_FILE, template);
-    console.log(`✅ Template saved: ${template.length} bytes`);
-
-    return template;
-  }
-}
-
-/**
  * Get region updates (dynamic data with coordinates)
  */
 async function getRegionUpdates() {
@@ -379,44 +320,6 @@ async function getRegionUpdates() {
     regions,
     weather: weatherData // Include full weather data for admin/debugging
   };
-}
-
-/**
- * Get cached or fresh image
- */
-async function getImage() {
-  const now = Date.now();
-
-  // Check in-memory cache first
-  if (cachedImage && (now - lastUpdate) < CACHE_MS) {
-    return cachedImage;
-  }
-
-  // Try to load from file cache if within cache window
-  try {
-    const stats = await fs.stat(PNG_CACHE_FILE);
-    const fileAge = Date.now() - stats.mtimeMs;
-
-    if (fileAge < CACHE_MS) {
-      cachedImage = await fs.readFile(PNG_CACHE_FILE);
-      lastUpdate = stats.mtimeMs;
-      return cachedImage;
-    }
-  } catch (err) {
-    // File doesn't exist or error reading - will regenerate
-  }
-
-  // Generate fresh image
-  const data = await getData();
-  cachedImage = await renderer.render(data, data.coffee);
-  lastUpdate = now;
-
-  // Save to file cache (async, don't wait)
-  fs.writeFile(PNG_CACHE_FILE, cachedImage).catch(err =>
-    console.error('Error caching PNG:', err.message)
-  );
-
-  return cachedImage;
 }
 
 /* =========================================================
@@ -503,22 +406,6 @@ app.get('/api/screen', async (req, res) => {
   }
 });
 
-// Base template endpoint - static layout (downloaded once every 10 min)
-app.get('/api/base-template.png', async (req, res) => {
-  try {
-    const template = await getBaseTemplate();
-
-    res.set('Content-Type', 'image/png');
-    res.set('Content-Length', template.length);
-    res.set('Cache-Control', 'public, max-age=600'); // Cache for 10 minutes
-    res.set('X-Template-Size', template.length);
-    res.send(template);
-  } catch (error) {
-    console.error('Error generating template:', error);
-    res.status(500).send('Error generating template');
-  }
-});
-
 // Region updates endpoint - dynamic data (downloaded every 30 seconds)
 app.get('/api/region-updates', async (req, res) => {
   try {
@@ -538,31 +425,142 @@ app.get('/api/region-updates', async (req, res) => {
 });
 
 // Live PNG image endpoint (legacy - for compatibility)
-app.get('/api/live-image.png', async (req, res) => {
+// HTML Dashboard endpoint (for TRMNL and web preview)
+app.get('/api/dashboard', async (req, res) => {
   try {
-    const image = await getImage();
+    const data = await getData();
+    const prefs = preferences.get();
+    const stationName = prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'Station';
 
-    // Safety check: Verify image size
-    const MAX_SIZE = 80 * 1024; // 80KB
-    if (image.length > MAX_SIZE) {
-      console.error(`❌ PNG too large: ${image.length} bytes (max ${MAX_SIZE})`);
-      return res.status(500).send('Image too large for device');
+    // Fetch weather
+    let weatherData = null;
+    try {
+      weatherData = await weather.getCurrentWeather();
+    } catch (err) {
+      // Continue without weather
     }
 
-    res.set('Content-Type', 'image/png');
-    res.set('Content-Length', image.length);
-    res.set('Cache-Control', `public, max-age=${Math.round(CACHE_MS / 1000)}`);
-    res.set('X-Image-Size', image.length); // Debug header
-    res.send(image);
-  } catch (error) {
-    console.error('Error generating image:', error);
-    res.status(500).send('Error generating image');
-  }
-});
+    const currentTime = new Date().toLocaleTimeString('en-AU', {
+      timeZone: 'Australia/Melbourne',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
 
-// Legacy endpoint for compatibility
-app.get('/trmnl.png', async (req, res) => {
-  res.redirect(301, '/api/live-image.png');
+    // Simple, clean HTML dashboard for e-ink
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=800, height=480">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: white;
+      color: black;
+      width: 800px;
+      height: 480px;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid black;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .station { font-size: 32px; font-weight: bold; }
+    .time { font-size: 28px; }
+    .content { display: flex; gap: 40px; }
+    .column { flex: 1; }
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      background: black;
+      color: white;
+      padding: 8px 12px;
+      margin-bottom: 15px;
+    }
+    .departure {
+      display: flex;
+      justify-content: space-between;
+      font-size: 24px;
+      padding: 10px 0;
+      border-bottom: 1px solid #ccc;
+    }
+    .minutes { font-weight: bold; font-size: 28px; }
+    .coffee-box {
+      margin-top: 20px;
+      padding: 15px;
+      border: 3px solid black;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .coffee-yes { background: #e8f5e9; }
+    .coffee-no { background: #fff3e0; }
+    .weather {
+      position: absolute;
+      top: 20px;
+      right: 120px;
+      font-size: 20px;
+    }
+    .footer {
+      position: absolute;
+      bottom: 15px;
+      left: 20px;
+      right: 20px;
+      font-size: 14px;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="station">${stationName.toUpperCase()}</div>
+    <div class="weather">${weatherData ? weatherData.temperature + '°C' : '--'}</div>
+    <div class="time">${currentTime}</div>
+  </div>
+
+  <div class="content">
+    <div class="column">
+      <div class="section-title">TRAINS</div>
+      ${data.trains.slice(0, 3).map(t => `
+        <div class="departure">
+          <span>${t.destination}</span>
+          <span class="minutes">${t.minutes} min</span>
+        </div>
+      `).join('') || '<div class="departure">No departures</div>'}
+    </div>
+
+    <div class="column">
+      <div class="section-title">TRAMS</div>
+      ${data.trams.slice(0, 3).map(t => `
+        <div class="departure">
+          <span>${t.destination}</span>
+          <span class="minutes">${t.minutes} min</span>
+        </div>
+      `).join('') || '<div class="departure">No departures</div>'}
+    </div>
+  </div>
+
+  <div class="coffee-box ${data.coffee.canGet ? 'coffee-yes' : 'coffee-no'}">
+    ${data.coffee.canGet ? '☕ TIME FOR COFFEE!' : '⚡ GO DIRECT - NO COFFEE'}
+  </div>
+
+  <div class="footer">Updated: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' })}</div>
+</body>
+</html>`;
+
+    res.set('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    console.error('Error generating dashboard:', error);
+    res.status(500).send('Error generating dashboard');
+  }
 });
 
 // ========== BYOS API ENDPOINTS ==========
@@ -607,8 +605,8 @@ app.get('/api/setup', async (req, res) => {
     status: 200,
     api_key: device.apiKey,
     friendly_id: device.friendlyID,
-    image_url: `https://${req.get('host')}/api/live-image.png`,
-    filename: 'ptv_display'
+    screen_url: `https://${req.get('host')}/api/screen`,
+    dashboard_url: `https://${req.get('host')}/api/dashboard`
   });
 });
 
@@ -651,14 +649,14 @@ app.get('/api/display', (req, res) => {
     });
   }
 
-  // Return display content
+  // Return display content (TRMNL uses screen_url for markup-based displays)
   res.json({
     status: 0,
-    image_url: `https://${req.get('host')}/api/live-image.png`,
-    filename: `ptv_${Date.now()}`,
+    screen_url: `https://${req.get('host')}/api/screen`,
+    dashboard_url: `https://${req.get('host')}/api/dashboard`,
+    refresh_rate: refreshRate,
     update_firmware: false,
     firmware_url: null,
-    refresh_rate: refreshRate,
     reset_firmware: false
   });
 });
@@ -2621,25 +2619,10 @@ app.get('/admin/live-display', async (req, res) => {
 app.post('/admin/cache/clear', async (req, res) => {
   try {
     // Clear in-memory caches
-    cachedImage = null;
     cachedData = null;
     lastUpdate = 0;
 
-    // Clear cached files
-    try {
-      await fs.unlink(PNG_CACHE_FILE);
-      console.log('🗑️  Cleared PNG cache');
-    } catch (err) {
-      // File might not exist
-    }
-
-    try {
-      await fs.unlink(TEMPLATE_FILE);
-      console.log('🗑️  Cleared template cache');
-    } catch (err) {
-      // File might not exist
-    }
-
+    console.log('🗑️  Cleared data cache');
     res.json({ success: true, message: 'Caches cleared successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2688,11 +2671,11 @@ app.get('/preview', (req, res) => {
         .endpoints li { margin: 10px 0; }
         .endpoints a { color: #0066cc; text-decoration: none; }
         .endpoints a:hover { text-decoration: underline; }
-        img { max-width: 100%; border: 1px solid #ddd; margin-top: 20px; }
+        iframe { width: 820px; height: 500px; border: 2px solid #333; margin-top: 20px; }
       </style>
       <script>
         setInterval(() => {
-          document.getElementById('live-image').src = '/api/live-image.png?t=' + Date.now();
+          document.getElementById('live-dashboard').src = '/api/dashboard?t=' + Date.now();
         }, 30000);
       </script>
     </head>
@@ -2703,13 +2686,14 @@ app.get('/preview', (req, res) => {
         <ul class="endpoints">
           <li><a href="/admin">/admin</a> - <strong>Admin Panel</strong> (Manage APIs & Configuration)</li>
           <li><a href="/api/status">/api/status</a> - Server status and data summary</li>
-          <li><a href="/api/screen">/api/screen</a> - TRMNL JSON markup</li>
-          <li><a href="/api/live-image.png">/api/live-image.png</a> - Live PNG image</li>
+          <li><a href="/api/screen">/api/screen</a> - TRMNL JSON markup (for TRMNL devices)</li>
+          <li><a href="/api/dashboard">/api/dashboard</a> - HTML Dashboard (800x480)</li>
+          <li><a href="/api/region-updates">/api/region-updates</a> - JSON data updates</li>
         </ul>
       </div>
-      <h2>Live Display:</h2>
-      <img id="live-image" src="/api/live-image.png" alt="Live TRMNL Display">
-      <p style="color: #666; font-size: 14px;">Image refreshes every 30 seconds</p>
+      <h2>Live Dashboard Preview:</h2>
+      <iframe id="live-dashboard" src="/api/dashboard" title="Live Dashboard"></iframe>
+      <p style="color: #666; font-size: 14px;">Dashboard refreshes every 30 seconds</p>
     </body>
     </html>
   `);
@@ -2727,7 +2711,6 @@ app.listen(PORT, async () => {
   console.log(`🔧 Admin Panel: https://ptv-trmnl-new.onrender.com/admin`);
 
   // Initialize persistent storage
-  await ensureCacheDir();
   await loadDevices();
 
   // Pre-warm cache
