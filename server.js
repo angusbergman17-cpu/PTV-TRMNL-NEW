@@ -892,6 +892,18 @@ app.get('/preview', (req, res) => {
       <style>
         body { font-family: Arial, sans-serif; max-width: 1200px; margin: 50px auto; padding: 20px; }
         h1 { color: #333; }
+        .nav-bar { margin-bottom: 20px; }
+        .btn-admin {
+          display: inline-block;
+          background: #667eea;
+          color: white;
+          padding: 10px 20px;
+          border-radius: 6px;
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 14px;
+        }
+        .btn-admin:hover { background: #5a67d8; }
         .info { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
         .endpoints { list-style: none; padding: 0; }
         .endpoints li { margin: 10px 0; }
@@ -906,6 +918,9 @@ app.get('/preview', (req, res) => {
       </script>
     </head>
     <body>
+      <div class="nav-bar">
+        <a href="/admin" class="btn-admin">&larr; Back to Admin</a>
+      </div>
       <h1>🚊 PTV-TRMNL Preview</h1>
       <div class="info">
         <h2>Available Endpoints:</h2>
