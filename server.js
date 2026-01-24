@@ -42,7 +42,7 @@ preferences.load().then(() => {
   const status = preferences.getStatus();
   if (!status.configured) {
     console.log('⚠️  User preferences not fully configured');
-    console.log('   Please configure via admin panel: https://ptv-trmnl-new.onrender.com/admin');
+    console.log('   Please configure via admin panel: /admin');
   }
 });
 
@@ -2737,12 +2737,14 @@ app.get('/preview', (req, res) => {
    START SERVER
    ========================================================= */
 
+const HOST = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+
 app.listen(PORT, async () => {
   console.log(`🚀 PTV-TRMNL server listening on port ${PORT}`);
-  console.log(`📍 Preview: https://ptv-trmnl-new.onrender.com/preview`);
-  console.log(`🔗 TRMNL endpoint: https://ptv-trmnl-new.onrender.com/api/screen`);
-  console.log(`💚 Keep-alive: https://ptv-trmnl-new.onrender.com/api/keepalive`);
-  console.log(`🔧 Admin Panel: https://ptv-trmnl-new.onrender.com/admin`);
+  console.log(`📍 Preview: ${HOST}/preview`);
+  console.log(`🔗 TRMNL endpoint: ${HOST}/api/screen`);
+  console.log(`💚 Keep-alive: ${HOST}/api/keepalive`);
+  console.log(`🔧 Admin Panel: ${HOST}/admin`);
 
   // Initialize persistent storage
   await loadDevices();

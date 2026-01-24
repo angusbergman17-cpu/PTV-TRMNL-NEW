@@ -375,8 +375,8 @@ void drawDashboardShell() {
 
     bbep.setFont(FONT_8x8);
     bbep.setCursor(15, 30);
-    // Station name from API response (configured in admin panel)
-    bbep.print(stationName ? stationName : "STATION");
+    // Station name placeholder (actual name comes from API in drawCompleteDashboard)
+    bbep.print("STATION");
 
     // ========================================================================
     // 2. TRAM SECTION (Left Column)
@@ -384,10 +384,10 @@ void drawDashboardShell() {
     // Header strip (black background)
     bbep.fillRect(10, 120, 370, 25, BBEP_BLACK);
 
-    // Header text (from API response)
+    // Header text
     bbep.setFont(FONT_8x8);
     bbep.setCursor(15, 110);
-    bbep.print(tramHeader ? tramHeader : "TRAMS");
+    bbep.print("TRAMS");
 
     // Departure labels (static)
     bbep.setFont(FONT_8x8);
