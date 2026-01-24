@@ -1,77 +1,74 @@
-# PTV-TRMNL - Smart Transit Display System
+# PTV-TRMNL - Smart Transit Dashboard for TRMNL E-ink Display
 
-**Version**: 2.3.0
-**Last Updated**: January 24, 2026
-**Status**: ✅ Production Ready
-**Live Server**: https://ptv-trmnl-new.onrender.com
+**Never miss your train again.** A personalized transit dashboard that tells you exactly when to leave home, whether you have time for coffee, and which train or tram to catch.
+
+Built for the [TRMNL](https://usetrmnl.com) e-ink display (800x480).
+
+## What You Get
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SOUTH YARRA                                     14:32      │
+├─────────────────────────────────────────────────────────────┤
+│   ┌─────────────────────┐    ┌─────────────────────────┐   │
+│   │  LEAVE HOME BY      │    │  NEXT TRAINS            │   │
+│   │      14:45          │    │  Flinders St    8 min   │   │
+│   │                     │    │  City Loop     12 min   │   │
+│   └─────────────────────┘    └─────────────────────────┘   │
+│                                                             │
+│   ┌─────────────────────┐    ┌─────────────────────────┐   │
+│   │  NEXT TRAMS         │    │        COFFEE?          │   │
+│   │  Route 78    5 min  │    │                         │   │
+│   │  Route 78   11 min  │    │          YES            │   │
+│   └─────────────────────┘    └─────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The **server is the brain** - it calculates your leave time, checks coffee feasibility, and fetches live transit data. The **device just displays** simple, glanceable information.
 
 ---
 
-## 🎯 System Overview
+## Quick Start (15 minutes)
 
-A configurable smart transit system that combines:
-- **Live multi-modal transit data** (trains, trams, buses, regional services)
-- **Intelligent route planning** with coffee stop optimization
-- **E-ink display integration** via TRMNL device
-- **User preference management** with address autocomplete
-- **Real-time cafe busy-ness detection**
-- **Weather integration** (configurable by region)
+### Step 1: Deploy Your Server (Free)
 
-### What This System Does
+1. Fork this repository to your GitHub
+2. Go to [render.com](https://render.com) and sign up (free)
+3. Click **New** → **Web Service** → Connect your fork
+4. Set **Build Command**: `npm install`
+5. Set **Start Command**: `npm start`
+6. Click **Deploy** and wait ~90 seconds
+7. Note your URL: `https://your-app-name.onrender.com`
 
-1. **Learns your routine**: Home → Coffee → Work
-2. **Plans optimal routes**: Across all transit modes (trains, trams, buses, V/Line)
-3. **Calculates coffee timing**: Based on real-time cafe busy-ness
-4. **Shows live departures**: On e-ink display or web dashboard
-5. **Adapts in real-time**: Updates every 30 seconds with PTV live data
+### Step 2: Get PTV API Credentials (Free)
 
----
+1. Go to [PTV Timetable API](https://www.ptv.vic.gov.au/footer/data-and-reporting/datasets/ptv-timetable-api/)
+2. Register for free developer access
+3. You'll receive a **Developer ID** and **API Key** via email
 
-## ⚡ Quick Start (5 Minutes)
+### Step 3: Configure Your Dashboard
 
-Get the system running in minutes:
+1. Open `https://your-app-name.onrender.com/admin`
+2. Go to the **Configuration** tab
+3. Enter your PTV Developer ID and API Key
+4. Go to the **Journey Planner** tab
+5. Enter your home address, work address, and favorite cafe
+6. Set your work arrival time (e.g., 09:00)
+7. Click **Plan My Journey**
 
-### 1. Get PTV API Credentials (Free)
-Visit [PTV Open Data Portal](https://opendata.transport.vic.gov.au/) and sign up for free API access. You'll receive:
-- **Developer ID** (your API key)
-- **Security Token** (JWT format)
+### Step 4: Flash Your TRMNL Device
 
-### 2. Clone and Install
-```bash
-git clone https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW.git
-cd PTV-TRMNL-NEW
-npm install
-```
+1. Install [PlatformIO](https://platformio.org/install)
+2. Edit `firmware/include/config.h`:
+   ```cpp
+   #define SERVER_URL "https://your-app-name.onrender.com"
+   ```
+3. Connect TRMNL via USB-C, put in bootloader mode (hold BOOT, press RESET)
+4. Run: `cd firmware && pio run --target upload`
+5. On first boot, connect to WiFi hotspot **PTV-TRMNL-Setup** (password: `transport123`)
+6. Configure your home WiFi in the captive portal
 
-### 3. Configure Environment
-```bash
-# Copy example environment file
-cp .env.example .env
-
-# Edit .env and add your PTV credentials:
-# ODATA_API_KEY=your-developer-id-here
-# ODATA_TOKEN=your-security-token-here
-```
-
-### 4. Start Server
-```bash
-npm start
-
-# Server starts and connects to production
-# Admin Panel: https://ptv-trmnl-new.onrender.com/admin
-```
-
-### 5. Configure Preferences (First Time Only)
-1. Open `https://ptv-trmnl-new.onrender.com/admin` in browser
-2. Enter your addresses (autocomplete enabled)
-3. Set arrival time (e.g., 09:00)
-4. Click "Save All Preferences"
-5. Route auto-calculates - Done! ✅
-
-**Optional**: Add Google Places API key to `.env` for better cafe search:
-```bash
-GOOGLE_PLACES_KEY=your-google-api-key
-```
+**Done!** Your dashboard will now update automatically.
 
 ---
 
@@ -1382,26 +1379,11 @@ Production: https://ptv-trmnl-new.onrender.com
 
 ## 📚 Additional Documentation
 
-### Essential Guides
-
-| Document | Purpose | Location |
-|----------|---------|----------|
-| **🚀 Deployment Guide** | **Deploy to Render.com (10 min)** | **[DEPLOYMENT-RENDER.md](./DEPLOYMENT-RENDER.md)** |
-| **⚡ Quick Start** | Get running locally in 5 minutes | *(See top of this README)* |
-| **🔧 Troubleshooting** | Common issues and solutions | *(See Troubleshooting section)* |
-| **❓ FAQ** | 20+ frequently asked questions | *(See FAQ section)* |
-
-### Feature Documentation
-
-| Document | Purpose | Location |
-|----------|---------|----------|
-| **Complete Setup Guide** | Initial setup and configuration | `COMPLETE-SETUP-GUIDE.md` |
-| **User Preferences Guide** | Managing user settings | `USER-PREFERENCES-AND-MULTIMODAL.md` |
-| **Route Planner Guide** | Route calculation details | `SMART-ROUTE-PLANNER-COMPLETE.md` |
-| **Cafe Busy-ness Guide** | Busy-ness detection | `CAFE-BUSYNESS-FEATURE.md` |
-| **Address Autocomplete** | Autocomplete feature | `ADDRESS-AUTOCOMPLETE-GUIDE.md` |
-| **Deployment & Firmware** | Firmware flash & device setup | `DEPLOYMENT-AND-FIRMWARE-FLASH.md` |
-| **Master Documentation** | Complete system reference | `PTV-TRMNL-MASTER-DOCUMENTATION.md` |
+| Document | Purpose |
+|----------|---------|
+| **[DEPLOYMENT-RENDER.md](./DEPLOYMENT-RENDER.md)** | Step-by-step Render.com deployment |
+| **[docs/](./docs/)** | Additional reference documentation |
+| **[firmware/README.md](./firmware/README.md)** | Firmware flashing guide |
 
 ---
 
@@ -1504,20 +1486,6 @@ console.error('❌ Error:', error);
    - Device will re-register automatically
    - Check admin panel for "Last Seen" timestamp
 
-### "Image Too Large" Error
-
-**Problem**: Generated PNG exceeds 80KB limit
-
-**Solutions**:
-1. **Reduce Content**
-   - Disable some transit modes
-   - Simplify display layout
-   - Contact support if issue persists
-
-2. **Check Sharp.js Configuration**
-   - Verify compression settings in `server.js`
-   - PNG quality should be optimized for e-ink
-
 ### Route Calculation is Slow
 
 **Problem**: Takes >5 seconds to calculate route
@@ -1619,8 +1587,8 @@ A:
 **Q: Can I view the display without a device?**
 A: Yes! Open `/admin/dashboard-preview` in your browser to see exactly what would appear on the device. It auto-refreshes with live data.
 
-**Q: What size is the display image?**
-A: 800×480 pixels, optimized for e-ink. PNG format, compressed to <80KB for fast device loading.
+**Q: What size is the display?**
+A: 800×480 pixels, optimized for e-ink. The server delivers HTML which the firmware renders.
 
 ### Technical Questions
 
@@ -1633,7 +1601,7 @@ A: The system has fallback mechanisms:
 
 **Q: How long is data cached?**
 A:
-- Display image: 25 seconds (in-memory)
+- Transit data: 25 seconds (in-memory)
 - Route calculations: 5 minutes
 - Weather data: 15 minutes
 - Geocoding: Permanent (in-memory)
@@ -1664,7 +1632,7 @@ A: Free tier options:
 ### Customization
 
 **Q: Can I change the display layout?**
-A: Yes, edit `dashboard-template.js` and `pids-renderer.js`. The template defines the layout, renderer draws the content. Requires knowledge of HTML/CSS and Sharp.js image processing.
+A: Yes, edit the `/api/dashboard` endpoint in `server.js` and update `drawCompleteDashboard()` in `firmware/src/main.cpp`. The server generates HTML and the firmware handles rendering.
 
 **Q: Can I add more transit modes?**
 A: The system supports PTV route types:
