@@ -535,6 +535,7 @@ void restoreDashboardFromCache() {
 
 // COMBINED: Draw complete dashboard from live data
 // Server does ALL the calculation - we just display what it tells us
+// Layout matches user's dashboard template design
 void drawCompleteDashboard(JsonDocument& doc) {
     Serial.println("Drawing complete dashboard from live data...");
 
@@ -548,6 +549,8 @@ void drawCompleteDashboard(JsonDocument& doc) {
     const char* train2 = "--";
     const char* tram1 = "--";
     const char* tram2 = "--";
+    const char* weather = "N/A";
+    const char* temperature = "--";
 
     if (!regions.isNull()) {
         for (JsonObject region : regions) {
@@ -560,6 +563,8 @@ void drawCompleteDashboard(JsonDocument& doc) {
             else if (strcmp(id, "train2") == 0) train2 = region["text"] | "--";
             else if (strcmp(id, "tram1") == 0) tram1 = region["text"] | "--";
             else if (strcmp(id, "tram2") == 0) tram2 = region["text"] | "--";
+            else if (strcmp(id, "weather") == 0) weather = region["text"] | "N/A";
+            else if (strcmp(id, "temperature") == 0) temperature = region["text"] | "--";
         }
     }
 
@@ -574,90 +579,117 @@ void drawCompleteDashboard(JsonDocument& doc) {
     bbep.fillScreen(BBEP_WHITE);
 
     // =====================================================
-    // SIMPLE DASHBOARD LAYOUT (800x480)
+    // DASHBOARD LAYOUT MATCHING USER'S TEMPLATE (800x480)
     // Server is the BRAIN - we just display!
     // =====================================================
 
-    // TOP BAR: Station name + Current time (black background)
-    bbep.fillRect(0, 0, 800, 50, BBEP_BLACK);
-    bbep.setFont(FONT_12x16);
-    bbep.setTextColor(BBEP_WHITE);
-    bbep.setCursor(20, 18);
+    // 1. STATION BOX (Top Left - bordered box)
+    bbep.drawRect(10, 10, 90, 50, BBEP_BLACK);
+    bbep.drawRect(11, 11, 88, 48, BBEP_BLACK); // Double border
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(15, 30);
     bbep.print(station);
-    bbep.setCursor(680, 18);
+
+    // 2. LARGE TIME (Top Center)
+    bbep.setFont(FONT_12x16);
+    // Bold effect by drawing multiple times
+    bbep.setCursor(140, 25);
+    bbep.print(timeText);
+    bbep.setCursor(141, 25);
     bbep.print(timeText);
 
-    // Reset text color to black
-    bbep.setTextColor(BBEP_BLACK);
-
-    // MAIN SECTION: LEAVE BY TIME (BIG AND PROMINENT)
-    bbep.fillRect(20, 70, 360, 120, BBEP_BLACK);
+    // 3. LEAVE BY BOX (Top Right - inverted/black background)
+    bbep.fillRect(590, 10, 200, 50, BBEP_BLACK);
     bbep.setTextColor(BBEP_WHITE);
     bbep.setFont(FONT_8x8);
-    bbep.setCursor(30, 80);
-    bbep.print("LEAVE HOME BY");
+    bbep.setCursor(650, 18);
+    bbep.print("LEAVE BY");
     bbep.setFont(FONT_12x16);
-    // Draw leave time HUGE (double print for bold)
-    bbep.setCursor(60, 120);
+    bbep.setCursor(640, 38);
     bbep.print(leaveTime);
-    bbep.setCursor(61, 120);
-    bbep.print(leaveTime);
-    bbep.setCursor(60, 121);
-    bbep.print(leaveTime);
-
-    // Reset text color
     bbep.setTextColor(BBEP_BLACK);
 
-    // TRAINS SECTION (right side)
+    // 4. TRAM SECTION (Left side)
+    // Black header strip
+    bbep.fillRect(10, 80, 370, 25, BBEP_BLACK);
+    bbep.setTextColor(BBEP_WHITE);
     bbep.setFont(FONT_8x8);
-    bbep.setCursor(420, 70);
-    bbep.print("NEXT TRAINS");
-    bbep.drawLine(420, 85, 780, 85, BBEP_BLACK);
+    bbep.setCursor(15, 88);
+    bbep.print("TRAMS");
+    bbep.setTextColor(BBEP_BLACK);
 
+    // Tram departures
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(20, 115);
+    bbep.print("Next:");
     bbep.setFont(FONT_12x16);
-    bbep.setCursor(420, 100);
-    bbep.print(train1);
-    bbep.setFont(FONT_8x8);
-    bbep.print(" min");
-
-    bbep.setFont(FONT_12x16);
-    bbep.setCursor(420, 140);
-    bbep.print(train2);
-    bbep.setFont(FONT_8x8);
-    bbep.print(" min");
-
-    // TRAMS SECTION (below trains)
-    bbep.setFont(FONT_8x8);
-    bbep.setCursor(420, 200);
-    bbep.print("NEXT TRAMS");
-    bbep.drawLine(420, 215, 780, 215, BBEP_BLACK);
-
-    bbep.setFont(FONT_12x16);
-    bbep.setCursor(420, 230);
+    bbep.setCursor(20, 135);
     bbep.print(tram1);
     bbep.setFont(FONT_8x8);
     bbep.print(" min");
 
+    bbep.setCursor(20, 175);
+    bbep.print("Then:");
     bbep.setFont(FONT_12x16);
-    bbep.setCursor(420, 270);
+    bbep.setCursor(20, 195);
     bbep.print(tram2);
     bbep.setFont(FONT_8x8);
     bbep.print(" min");
 
-    // COFFEE SECTION (bottom)
+    // 5. TRAIN SECTION (Right side)
+    // Black header strip
+    bbep.fillRect(400, 80, 360, 25, BBEP_BLACK);
+    bbep.setTextColor(BBEP_WHITE);
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(405, 88);
+    bbep.print("TRAINS");
+    bbep.setTextColor(BBEP_BLACK);
+
+    // Train departures
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(410, 115);
+    bbep.print("Next:");
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(410, 135);
+    bbep.print(train1);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    bbep.setCursor(410, 175);
+    bbep.print("Then:");
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(410, 195);
+    bbep.print(train2);
+    bbep.setFont(FONT_8x8);
+    bbep.print(" min");
+
+    // 6. WEATHER (Right sidebar)
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(720, 280);
+    bbep.print(weather);
+    bbep.setFont(FONT_12x16);
+    bbep.setCursor(720, 300);
+    bbep.print(temperature);
+
+    // 7. STATUS BAR
+    bbep.setFont(FONT_8x8);
+    bbep.setCursor(340, 350);
+    bbep.print("GOOD SERVICE");
+
+    // 8. COFFEE STRIP (Bottom)
     int coffeeY = 380;
     if (strcmp(coffee, "YES") == 0) {
         bbep.fillRect(0, coffeeY, 800, 100, BBEP_BLACK);
         bbep.setTextColor(BBEP_WHITE);
         bbep.setFont(FONT_12x16);
-        bbep.setCursor(200, coffeeY + 40);
+        bbep.setCursor(280, coffeeY + 40);
         bbep.print("TIME FOR COFFEE!");
     } else {
         bbep.drawRect(0, coffeeY, 800, 100, BBEP_BLACK);
         bbep.setTextColor(BBEP_BLACK);
         bbep.setFont(FONT_12x16);
-        bbep.setCursor(180, coffeeY + 40);
-        bbep.print("NO COFFEE - GO DIRECT");
+        bbep.setCursor(240, coffeeY + 40);
+        bbep.print("GO DIRECT - NO COFFEE");
     }
 
     // Cache the data for recovery

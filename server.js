@@ -450,11 +450,12 @@ app.get('/api/region-updates', async (req, res) => {
 // Live PNG image endpoint (legacy - for compatibility)
 // HTML Dashboard endpoint (for TRMNL device - 800x480)
 // Server does ALL the thinking - display just shows simple info
+// Design based on user's template
 app.get('/api/dashboard', async (req, res) => {
   try {
     const data = await getData();
     const prefs = preferences.get();
-    const stationName = prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'YOUR STATION';
+    const stationName = prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'STATION';
     const destName = prefs?.journey?.transitRoute?.mode1?.destinationStation?.name || 'CITY';
 
     // Get current time
@@ -468,15 +469,35 @@ app.get('/api/dashboard', async (req, res) => {
 
     // Calculate "leave by" time based on next good train
     const nextTrain = data.trains[0];
-    const leaveInMins = nextTrain ? Math.max(0, nextTrain.minutes - 5) : '--'; // 5 min walk buffer
-    const leaveTime = nextTrain ? new Date(now.getTime() + leaveInMins * 60000).toLocaleTimeString('en-AU', {
+    const walkBuffer = prefs?.manualWalkingTimes?.homeToStation || 5; // Use configured walk time or 5 min default
+    const leaveInMins = nextTrain ? Math.max(0, nextTrain.minutes - walkBuffer) : null;
+    const leaveTime = leaveInMins !== null ? new Date(now.getTime() + leaveInMins * 60000).toLocaleTimeString('en-AU', {
       timeZone: 'Australia/Melbourne',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
     }) : '--:--';
 
-    // Simple, clean HTML dashboard optimized for e-ink (800x480)
+    // Get weather data
+    let weatherText = 'N/A';
+    let tempText = '--';
+    try {
+      const weatherData = await weather.getCurrentWeather();
+      if (weatherData) {
+        weatherText = weatherData.condition?.short || 'N/A';
+        tempText = weatherData.temperature !== null ? weatherData.temperature + '°' : '--';
+      }
+    } catch (e) {
+      // Weather unavailable
+    }
+
+    // Train/tram times with fallback
+    const train1 = data.trains[0] ? data.trains[0].minutes + ' min' : '-- min';
+    const train2 = data.trains[1] ? data.trains[1].minutes + ' min' : '-- min';
+    const tram1 = data.trams[0] ? data.trams[0].minutes + ' min' : '-- min';
+    const tram2 = data.trams[1] ? data.trams[1].minutes + ' min' : '-- min';
+
+    // Dashboard HTML matching user's template design (800x480)
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -485,106 +506,166 @@ app.get('/api/dashboard', async (req, res) => {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Arial Black', Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       background: white;
       color: black;
       width: 800px;
       height: 480px;
       overflow: hidden;
+      position: relative;
     }
-    .top-bar {
-      background: black;
-      color: white;
-      padding: 12px 20px;
+    /* Station Name Box (Top Left) - matches template */
+    .station-box {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 90px;
+      height: 50px;
+      border: 2px solid black;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      font-size: 24px;
-    }
-    .main {
-      padding: 15px 20px;
-      display: flex;
-      gap: 20px;
-      height: 320px;
-    }
-    .left { flex: 1; }
-    .right { flex: 1; }
-    .leave-box {
-      background: black;
-      color: white;
-      padding: 20px;
-      text-align: center;
-      margin-bottom: 15px;
-    }
-    .leave-label { font-size: 18px; margin-bottom: 5px; }
-    .leave-time { font-size: 64px; font-weight: bold; letter-spacing: 2px; }
-    .section-header {
-      font-size: 16px;
+      justify-content: center;
+      font-size: 10px;
       font-weight: bold;
-      border-bottom: 2px solid black;
-      padding-bottom: 5px;
-      margin-bottom: 10px;
+      text-align: center;
+      padding: 5px;
     }
-    .departure {
+    /* Large Time Display (Top Center) */
+    .time {
+      position: absolute;
+      top: 15px;
+      left: 140px;
+      font-size: 36px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    /* LEAVE BY Box (Top Right) - KEY FEATURE */
+    .leave-box {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 200px;
+      height: 50px;
+      background: black;
+      color: white;
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
-      padding: 8px 0;
-      font-size: 20px;
+      justify-content: center;
+      font-weight: bold;
     }
-    .mins {
+    .leave-label { font-size: 10px; }
+    .leave-time { font-size: 24px; letter-spacing: 1px; }
+    /* Section Headers (Black Strips) - matches template */
+    .section-header {
+      position: absolute;
+      height: 25px;
+      background: black;
+      color: white;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .tram-header { top: 80px; left: 10px; width: 370px; }
+    .train-header { top: 80px; left: 400px; width: 360px; }
+    /* Departure Labels */
+    .departure-label {
+      position: absolute;
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+    /* Departure Times (Large Numbers) */
+    .departure {
+      position: absolute;
       font-size: 28px;
       font-weight: bold;
     }
+    /* Weather (Right Sidebar) */
+    .weather {
+      position: absolute;
+      right: 15px;
+      top: 280px;
+      font-size: 11px;
+      text-align: right;
+    }
+    .temperature {
+      position: absolute;
+      right: 15px;
+      top: 300px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: right;
+    }
+    /* Coffee Strip (Bottom) */
     .coffee-strip {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
-      padding: 15px;
-      text-align: center;
-      font-size: 28px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
       font-weight: bold;
       border-top: 3px solid black;
     }
-    .coffee-yes { background: #ddd; }
-    .coffee-no { background: white; }
+    .coffee-yes { background: black; color: white; }
+    .coffee-no { background: white; color: black; }
+    /* Status indicator */
+    .status {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #666;
+    }
   </style>
 </head>
 <body>
-  <div class="top-bar">
-    <span>${stationName.toUpperCase()}</span>
-    <span>${currentTime}</span>
+  <!-- Station Name Box -->
+  <div class="station-box">${stationName.toUpperCase()}</div>
+
+  <!-- Large Time -->
+  <div class="time">${currentTime}</div>
+
+  <!-- LEAVE BY Box (Key Feature!) -->
+  <div class="leave-box">
+    <div class="leave-label">LEAVE BY</div>
+    <div class="leave-time">${leaveTime}</div>
   </div>
 
-  <div class="main">
-    <div class="left">
-      <div class="leave-box">
-        <div class="leave-label">LEAVE HOME BY</div>
-        <div class="leave-time">${leaveTime}</div>
-      </div>
-      <div class="section-header">NEXT TRAINS → ${destName.toUpperCase()}</div>
-      ${data.trains.slice(0, 2).map(t => `
-        <div class="departure">
-          <span>${t.destination || destName}</span>
-          <span class="mins">${t.minutes} min</span>
-        </div>
-      `).join('') || '<div class="departure"><span>No trains</span><span>--</span></div>'}
-    </div>
+  <!-- Tram Section -->
+  <div class="section-header tram-header">TRAMS</div>
+  <div class="departure-label" style="top: 112px; left: 20px;">Next:</div>
+  <div class="departure" style="top: 130px; left: 20px;">${tram1}</div>
+  <div class="departure-label" style="top: 182px; left: 20px;">Then:</div>
+  <div class="departure" style="top: 200px; left: 20px;">${tram2}</div>
 
-    <div class="right">
-      <div class="section-header">NEXT TRAMS</div>
-      ${data.trams.slice(0, 3).map(t => `
-        <div class="departure">
-          <span>${t.destination || 'City'}</span>
-          <span class="mins">${t.minutes} min</span>
-        </div>
-      `).join('') || '<div class="departure"><span>No trams</span><span>--</span></div>'}
-    </div>
-  </div>
+  <!-- Train Section -->
+  <div class="section-header train-header">TRAINS → ${destName.toUpperCase()}</div>
+  <div class="departure-label" style="top: 112px; left: 410px;">Next:</div>
+  <div class="departure" style="top: 130px; left: 410px;">${train1}</div>
+  <div class="departure-label" style="top: 182px; left: 410px;">Then:</div>
+  <div class="departure" style="top: 200px; left: 410px;">${train2}</div>
 
+  <!-- Weather -->
+  <div class="weather">${weatherText}</div>
+  <div class="temperature">${tempText}</div>
+
+  <!-- Status -->
+  <div class="status">GOOD SERVICE</div>
+
+  <!-- Coffee Strip -->
   <div class="coffee-strip ${data.coffee.canGet ? 'coffee-yes' : 'coffee-no'}">
-    ${data.coffee.canGet ? '☕ YOU HAVE TIME FOR COFFEE' : '⚡ NO COFFEE TODAY - GO DIRECT'}
+    ${data.coffee.canGet ? '☕ TIME FOR COFFEE' : '⚡ GO DIRECT - NO COFFEE'}
   </div>
 </body>
 </html>`;
