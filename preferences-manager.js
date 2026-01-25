@@ -87,11 +87,11 @@ class PreferencesManager {
         }
       },
 
-      // Transport Victoria API credentials
+      // Transit Authority API credentials (configured per state)
       api: {
         key: process.env.ODATA_API_KEY || '',
         token: process.env.ODATA_TOKEN || '',
-        baseUrl: 'https://opendata.transport.vic.gov.au'
+        baseUrl: ''  // Set based on selected transit authority, NO DEFAULT
       },
 
       // Display preferences
