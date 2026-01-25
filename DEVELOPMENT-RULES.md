@@ -1,13 +1,36 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-25
-**Version**: 1.0.0
+**Version**: 1.0.1
 
 ---
 
 ## 🚨 CRITICAL: First Instance Rules
 
 **These rules MUST be followed at first instance during ALL code development, documentation writing, and system modifications.**
+
+### ⚠️ FIRST ACTION REQUIREMENT
+
+**Before ANY code changes, documentation updates, or new features:**
+
+1. **READ this entire document** (DEVELOPMENT-RULES.md)
+2. **CHECK Section 1** (Absolute Prohibitions) - ensure no forbidden terms
+3. **CHECK Section 2** (Required Data Sources) - use only approved APIs
+4. **CHECK Section 4** (Design Principles) - align with mandatory principles
+5. **VERIFY compliance** using Section 15 self-check before committing
+
+### 📝 SELF-AMENDING REQUIREMENT
+
+**If new restrictions or guidance are imposed:**
+
+1. **STOP current work immediately**
+2. **UPDATE this document** with new rules
+3. **INCREMENT version number** (e.g., 1.0.1 → 1.0.2)
+4. **UPDATE "Last Updated" date**
+5. **COMMIT with message**: "docs: Update development rules - [description of new restriction]"
+6. **RESUME work** only after rules are updated
+
+**This document is self-amending and must reflect ALL current restrictions at all times.**
 
 ---
 
