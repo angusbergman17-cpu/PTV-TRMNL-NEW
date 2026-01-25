@@ -28,7 +28,33 @@ The **server is the brain** - it calculates your leave time, checks coffee feasi
 
 ---
 
-## 🆕 What's New in v2.0
+## 🆕 What's New in v2.5.0
+
+### Integrated Setup Wizard
+- **4-Step Wizard**: Complete setup directly in admin panel (no separate page)
+- **Visual Progress**: Step-by-step guidance with visual progress indicator
+- **Autocomplete Everywhere**: Live address search in all input fields
+- **Smart Configuration**: Auto-detects state and transit authority
+
+### Address Autocomplete
+- **Live Search**: Real-time address suggestions as you type
+- **Dropdown Results**: Formatted results with full addresses
+- **Works Everywhere**: Setup wizard, Journey Planner, and all address fields
+- **Fast & Responsive**: 300ms debounce for smooth experience
+
+### Architecture Transparency
+- **See the Full System**: Architecture map now shows complete system BEFORE configuration
+- **Dynamic Updates**: Map updates with your actual data after setup
+- **9-Layer View**: Complete visibility into data flow and integrations
+- **Educational**: Understand exactly how PTV-TRMNL works
+
+### OpenData Victoria API Guide
+- **Exact Instructions**: Step-by-step guide for 2026 API portal registration
+- **No Confusion**: Clear explanation of "API Key" vs "API Token" terminology
+- **HMAC Explained**: Understanding the signature requirements
+- **Migration Help**: Guide for users with legacy DEP keys
+
+### Previous Features (v2.0-v2.4)
 
 ### Auto-Save Everything
 - **No More Save Buttons**: Every field auto-saves 1.5 seconds after you stop typing
@@ -1841,7 +1867,7 @@ MIT License - Customize for your own commute!
 ---
 
 **Last Updated**: January 25, 2026
-**Version**: 2.4.0
+**Version**: 2.5.0
 **Status**: ✅ Production Ready - All States Supported
 
 ### Recent Updates
