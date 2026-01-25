@@ -25,6 +25,8 @@ import GeocodingService from './geocoding-service.js';
 import DecisionLogger from './decision-logger.js';
 import { getPrimaryCityForState } from './australian-cities.js';
 import fallbackTimetables from './fallback-timetables.js';
+import JourneyProfiles from './journey-profiles.js';
+import HealthMonitor from './health-monitor.js';
 import { readFileSync } from 'fs';
 import nodemailer from 'nodemailer';
 
@@ -79,6 +81,17 @@ console.log('   Available services:', global.geocodingService.getAvailableServic
 // Initialize decision logger (global for transparency and troubleshooting)
 global.decisionLogger = new DecisionLogger();
 console.log('✅ Decision logger initialized for full transparency');
+
+// Initialize journey profiles (Principle E: Customization)
+const journeyProfiles = new JourneyProfiles();
+journeyProfiles.init().then(() => {
+  console.log('✅ Journey profiles initialized');
+}).catch(err => console.error('⚠️ Journey profiles init error:', err));
+
+// Initialize health monitor (Principle C: Accuracy, D: Redundancy)
+const healthMonitor = new HealthMonitor();
+healthMonitor.startMonitoring();
+console.log('✅ Health monitor started - tracking 5 data sources');
 
 // Test the decision logger immediately
 if (global.decisionLogger) {
@@ -1825,6 +1838,187 @@ app.put('/admin/preferences/journey', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// ============= JOURNEY PROFILES API (Principle E: Customization) =============
+
+// Get all profiles
+app.get('/admin/profiles', (req, res) => {
+  try {
+    const profiles = journeyProfiles.getAll();
+    const activeId = journeyProfiles.activeProfileId;
+    res.json({
+      success: true,
+      profiles,
+      activeProfileId: activeId,
+      summary: journeyProfiles.getSummary()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get active profile
+app.get('/admin/profiles/active', (req, res) => {
+  try {
+    const profile = journeyProfiles.getActive();
+    res.json({ success: true, profile });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get profile for current time/day
+app.get('/admin/profiles/current', (req, res) => {
+  try {
+    const profile = journeyProfiles.getProfileForNow();
+    res.json({ success: true, profile });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get profile by ID
+app.get('/admin/profiles/:id', (req, res) => {
+  try {
+    const profile = journeyProfiles.getById(req.params.id);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+    res.json({ success: true, profile });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create new profile
+app.post('/admin/profiles', async (req, res) => {
+  try {
+    const profile = await journeyProfiles.create(req.body);
+    res.json({ success: true, profile, message: 'Profile created successfully' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Update profile
+app.put('/admin/profiles/:id', async (req, res) => {
+  try {
+    const profile = await journeyProfiles.update(req.params.id, req.body);
+    res.json({ success: true, profile, message: 'Profile updated successfully' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Set active profile
+app.post('/admin/profiles/:id/activate', async (req, res) => {
+  try {
+    const profile = await journeyProfiles.setActive(req.params.id);
+    res.json({ success: true, profile, message: 'Profile activated' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Duplicate profile
+app.post('/admin/profiles/:id/duplicate', async (req, res) => {
+  try {
+    const profile = await journeyProfiles.duplicate(req.params.id);
+    res.json({ success: true, profile, message: 'Profile duplicated successfully' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Delete profile
+app.delete('/admin/profiles/:id', async (req, res) => {
+  try {
+    await journeyProfiles.delete(req.params.id);
+    res.json({ success: true, message: 'Profile deleted successfully' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Export single profile
+app.get('/admin/profiles/:id/export', (req, res) => {
+  try {
+    const json = journeyProfiles.export(req.params.id);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="profile-${req.params.id}.json"`);
+    res.send(json);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Export all profiles
+app.get('/admin/profiles-export', (req, res) => {
+  try {
+    const json = journeyProfiles.exportAll();
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="all-profiles.json"');
+    res.send(json);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Import profile(s)
+app.post('/admin/profiles-import', async (req, res) => {
+  try {
+    const result = await journeyProfiles.import(JSON.stringify(req.body));
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ============= HEALTH MONITOR API (Principle C: Accuracy) =============
+
+// Get health status of all data sources
+app.get('/api/health', (req, res) => {
+  try {
+    const health = healthMonitor.getStatus();
+    res.json({ success: true, ...health });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get health history for a specific source
+app.get('/api/health/:source', (req, res) => {
+  try {
+    const history = healthMonitor.getHistory(req.params.source);
+    res.json({ success: true, source: req.params.source, history });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Force health check
+app.post('/api/health/check', async (req, res) => {
+  try {
+    await healthMonitor.checkAllSources();
+    const health = healthMonitor.getStatus();
+    res.json({ success: true, message: 'Health check completed', ...health });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= PERFORMANCE API (Principle K: Performance) =============
+
+// Get performance metrics
+app.get('/api/performance', (req, res) => {
+  const metrics = {
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage(),
+    cpuUsage: process.cpuUsage(),
+    timestamp: new Date().toISOString()
+  };
+  res.json({ success: true, metrics });
 });
 
 // GTFS Realtime API configuration (Victorian users)
