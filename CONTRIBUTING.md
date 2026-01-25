@@ -69,7 +69,7 @@ cat DEVELOPMENT-RULES.md
 
 **Self-check questions**:
 - ❓ Am I using "Transport for Victoria" (not "PTV")?
-- ❓ Am I using TRANSPORT_VICTORIA_GTFS_KEY environment variable?
+- ❓ Am I using ODATA_API_KEY and ODATA_TOKEN environment variables?
 - ❓ Am I referencing opendata.transport.vic.gov.au (not legacy APIs)?
 - ❓ Do my changes align with the 8 design principles?
 
@@ -187,7 +187,7 @@ Before submitting, ensure:
 - [ ] Read DEVELOPMENT-RULES.md completely
 - [ ] No legacy PTV API references
 - [ ] Only "Transport for Victoria" terminology
-- [ ] TRANSPORT_VICTORIA_GTFS_KEY variable used (not PTV_*)
+- [ ] ODATA_API_KEY and ODATA_TOKEN variables used (not PTV_*)
 - [ ] All links point to opendata.transport.vic.gov.au
 - [ ] Forbidden term search returns NO results
 

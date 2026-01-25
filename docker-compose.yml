@@ -24,9 +24,10 @@ services:
       # Get from: https://usetrmnl.com/plugins/developer
       - TRMNL_API_KEY=${TRMNL_API_KEY}
 
-      # Transport Victoria GTFS Realtime (Optional - Victorian users only)
+      # Transport Victoria OpenData API (Optional - Victorian users only)
       # Get from: https://opendata.transport.vic.gov.au/
-      - TRANSPORT_VICTORIA_GTFS_KEY=${TRANSPORT_VICTORIA_GTFS_KEY:-}
+      - ODATA_API_KEY=${ODATA_API_KEY:-}
+      - ODATA_TOKEN=${ODATA_TOKEN:-}
 
       # Enhanced Geocoding (Optional)
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-}

@@ -14,7 +14,7 @@ const FALLBACK_STOPS = {
   // ========== VICTORIA (VIC) ==========
   VIC: {
     name: 'Victoria',
-    authority: 'Public Transport Victoria (PTV)',
+    authority: 'Transport for Victoria',
     modes: {
       train: [
         { id: '1071', name: 'Flinders Street Station', lat: -37.8183, lon: 144.9671 },

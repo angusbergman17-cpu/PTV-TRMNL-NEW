@@ -115,7 +115,7 @@ Expected: System automatically detects Victoria
 
 **Result**: ✅ PASS
 - State detection automatic (no user action needed)
-- Transit authority auto-detected as "Public Transport Victoria"
+- Transit authority auto-detected as "Transport for Victoria"
 - Cascades to API configuration step
 
 ### Test 5: Multi-State Support

@@ -1649,7 +1649,7 @@ A: No! The system works standalone with the web dashboard at `/admin`. The dashb
 A: Yes, completely free. The PTV API is free for non-commercial use. Google Places API is optional (has free tier). Hosting on Render free tier is possible.
 
 **Q: Does this work in other regions?**
-A: The default configuration uses PTV (Public Transport Victoria) API for metro, regional, and V/Line services. The system architecture is designed to be region-agnostic - with environment variable configuration, you can adapt it for other transit APIs. The address geocoding, route planning, and display components are fully generic.
+A: The default configuration uses PTV (Transport for Victoria) API for metro, regional, and V/Line services. The system architecture is designed to be region-agnostic - with environment variable configuration, you can adapt it for other transit APIs. The address geocoding, route planning, and display components are fully generic.
 
 **Q: How accurate are the route times?**
 A: Very accurate (95%+) when using real PTV live data. Walking times use standard 80m/min (4.8km/h) pace or your manual custom times. Cafe busy-ness detection adjusts coffee time based on actual peak periods.
@@ -1777,7 +1777,7 @@ The system includes comprehensive fallback timetable data for **all 8 Australian
 
 | State | Authority | Modes | Stops |
 |-------|-----------|-------|-------|
-| **VIC** | Public Transport Victoria | Train, Tram, Bus | 22 |
+| **VIC** | Transport for Victoria | Train, Tram, Bus | 22 |
 | **NSW** | Transport for NSW | Train, Light Rail, Bus | 13 |
 | **QLD** | TransLink | Train, Bus, Ferry | 10 |
 | **SA** | Adelaide Metro | Train, Tram, Bus | 9 |
@@ -1824,7 +1824,7 @@ GET /api/fallback-stops
   "success": true,
   "stateCode": "VIC",
   "name": "Victoria",
-  "authority": "Public Transport Victoria (PTV)",
+  "authority": "Transport for Victoria",
   "modes": {
     "train": [
       {

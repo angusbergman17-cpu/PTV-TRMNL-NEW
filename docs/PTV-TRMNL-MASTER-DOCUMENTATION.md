@@ -30,7 +30,7 @@
 
 ## 1.1 Project Description
 
-PTV-TRMNL is a custom e-ink display dashboard that shows real-time public transport information (trains and trams) along with weather data. The system fetches live departure times from PTV (Public Transport Victoria) Open Data API and weather from Bureau of Meteorology (BOM).
+PTV-TRMNL is a custom e-ink display dashboard that shows real-time public transport information (trains and trams) along with weather data. The system fetches live departure times from PTV (Transport for Victoria) Open Data API and weather from Bureau of Meteorology (BOM).
 
 ## 1.2 Key Features
 

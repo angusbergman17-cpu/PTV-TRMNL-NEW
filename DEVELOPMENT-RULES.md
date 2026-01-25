@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-25
-**Version**: 2.1.0
+**Version**: 2.2.0
 
 ---
 
@@ -308,6 +308,171 @@ app.get('/service-worker.js', (req, res) => {
 
 **Why**: Service workers can only control pages within their scope. A SW at `/admin/service-worker.js` can only cache `/admin/*` URLs, not the entire app.
 
+### Error Message Standards
+
+**MANDATORY**: All user-facing error messages must be actionable.
+
+```javascript
+// ❌ WRONG - Vague, unhelpful errors:
+alert('Setup failed');
+alert('Please enter both home and work addresses');
+showMessage('Calculation failed. Check your configuration.');
+
+// ✅ CORRECT - Specific, actionable errors:
+showMessage('error',
+  'Home address not found: "123 Fake St". ' +
+  'Check spelling or try including suburb name (e.g., "123 Main St, Melbourne").'
+);
+
+showMessage('error',
+  'API credentials required. Get them from opendata.transport.vic.gov.au ' +
+  '(takes 5-10 minutes). See INSTALL.md for step-by-step guide.'
+);
+```
+
+**Error Message Requirements**:
+1. ✅ State WHAT went wrong specifically
+2. ✅ Explain HOW to fix it
+3. ✅ Link to documentation if applicable
+4. ✅ Use inline display (not `alert()`)
+5. ❌ NEVER show raw JavaScript error messages to users
+6. ❌ NEVER use generic "Something went wrong" messages
+
+### Timeout Handling Requirements
+
+**MANDATORY**: All external API calls must have timeout handling.
+
+```javascript
+// ✅ REQUIRED PATTERN for all fetch() calls to external APIs:
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
+// ❌ WRONG - No timeout, can hang indefinitely:
+const response = await fetch('https://api.example.com/data');
+```
+
+**Timeout Guidelines**:
+| API Type | Recommended Timeout |
+|----------|---------------------|
+| Geocoding | 5 seconds |
+| Transit data | 10 seconds |
+| Weather | 10 seconds |
+| Health checks | 3 seconds |
+
+### Transparency Integration Requirements
+
+**MANDATORY**: All critical calculations must log decisions for transparency.
+
+```javascript
+// ✅ REQUIRED - Log all critical decisions:
+if (global.decisionLogger) {
+  global.decisionLogger.logGeocoding({
+    address: query,
+    service: 'nominatim',
+    result: { lat, lon },
+    confidence: 0.95,
+    attempts: 1
+  });
+}
+
+// Decision logger methods that MUST be called:
+// - logGeocoding() - After every geocode attempt
+// - logRouteCalculation() - After route calculations
+// - logCoffeeDecision() - After coffee time decisions
+// - logTransitModeSelection() - When selecting transport mode
+// - logDelayDetection() - When detecting service delays
+// - logApiFallback() - When falling back to alternate API
+```
+
+**Files requiring decision logging**:
+- `geocoding-service.js` - All geocoding results
+- `coffee-decision.js` - Coffee time calculations
+- `route-planner.js` - Route selections
+- `smart-journey-planner.js` - Journey calculations
+- `multi-modal-router.js` - Mode selection
+
+### Accessibility Requirements
+
+**MANDATORY**: WCAG 2.1 AA compliance for all user interfaces.
+
+```html
+<!-- ✅ CORRECT - Labels properly associated -->
+<label for="home-address">Home Address</label>
+<input type="text" id="home-address" name="home-address"
+       aria-describedby="home-address-help">
+<span id="home-address-help">Enter your street address</span>
+
+<!-- ❌ WRONG - Label not associated -->
+<label>Home Address</label>
+<input type="text" id="home-address">
+
+<!-- ❌ WRONG - No label at all -->
+<input type="text" placeholder="Home Address">
+```
+
+**Accessibility Checklist**:
+- [ ] All form inputs have associated `<label for="id">`
+- [ ] Color contrast minimum 4.5:1 for normal text
+- [ ] Color contrast minimum 3:1 for large text (18px+)
+- [ ] No information conveyed by color alone
+- [ ] All interactive elements keyboard accessible
+- [ ] Focus indicators visible (3px solid outline)
+- [ ] ARIA landmarks: `role="main"`, `role="navigation"`, `role="banner"`
+- [ ] Skip navigation link at top of page
+- [ ] Form errors announced to screen readers (`aria-live="polite"`)
+
+**Common Violations to Avoid**:
+```css
+/* ❌ WRONG - Insufficient contrast */
+.placeholder { color: rgba(255,255,255,0.4); }  /* ~1.8:1 ratio */
+
+/* ✅ CORRECT - Sufficient contrast */
+.placeholder { color: #A8A8A8; }  /* 5.2:1 ratio */
+```
+
+### API Credential Security
+
+**MANDATORY**: Protect API credentials appropriately.
+
+```javascript
+// ✅ CORRECT - Use environment variables only, never persist
+const apiKey = process.env.ODATA_API_KEY;
+const apiToken = process.env.ODATA_TOKEN;
+
+// ❌ WRONG - Persisting credentials to plain-text JSON
+await fs.writeFile('preferences.json', JSON.stringify({
+  apiCredentials: {
+    key: process.env.ODATA_API_KEY,  // DON'T SAVE THIS
+    token: process.env.ODATA_TOKEN   // DON'T SAVE THIS
+  }
+}));
+```
+
+**Security Requirements**:
+1. ✅ API keys read from environment variables only
+2. ✅ Never persist API keys to JSON/config files
+3. ✅ Never log API keys (even partially)
+4. ✅ Never expose API keys in client-side code
+5. ✅ Use `.env` file (gitignored) for local development
+6. ✅ Document required env vars in `.env.example` (without real values)
+
 ---
 
 ## 6️⃣ ENVIRONMENT VARIABLES
@@ -317,8 +482,9 @@ app.get('/service-worker.js', (req, res) => {
 ```bash
 # ✅ CORRECT .env structure:
 
-# Victorian Transit Data (Optional)
-TRANSPORT_VICTORIA_GTFS_KEY=your_subscription_key_here
+# Victorian Transit Data (Optional - from opendata.transport.vic.gov.au)
+ODATA_API_KEY=your_api_key_here          # 36-character UUID
+ODATA_TOKEN=your_jwt_token_here          # JWT format
 
 # Enhanced Geocoding (Optional)
 GOOGLE_PLACES_API_KEY=
@@ -326,11 +492,12 @@ MAPBOX_ACCESS_TOKEN=
 ```
 
 ```bash
-# ❌ WRONG - DO NOT USE:
+# ❌ WRONG - DO NOT USE (legacy names):
 PTV_USER_ID=
 PTV_API_KEY=
 PTV_DEV_ID=
-ODATA_KEY=
+ODATA_KEY=                               # Missing underscore - use ODATA_API_KEY
+TRANSPORT_VICTORIA_GTFS_KEY=             # Old name - use ODATA_API_KEY + ODATA_TOKEN
 ```
 
 ---
@@ -587,17 +754,29 @@ Files in `/docs/archive/` may contain legacy references for historical purposes.
 Before committing, verify:
 
 ```
-□ Read DEVELOPMENT-RULES.md sections 1-3
+TERMINOLOGY & VARIABLES (Section 1-3):
 □ No "PTV Timetable API" references
 □ No "PTV_USER_ID" or "PTV_API_KEY" variables
-□ Only "Transport for Victoria" in documentation
+□ No "Public Transport Victoria" - use "Transport for Victoria"
 □ Only "opendata.transport.vic.gov.au" for Victorian APIs
-□ TRANSPORT_VICTORIA_GTFS_KEY environment variable used
-□ Attribution requirements met (ATTRIBUTION.md)
-□ License notice included where appropriate
-□ Code comments reference correct sources
+□ ODATA_API_KEY and ODATA_TOKEN environment variables used
 
-DESIGN PRINCIPLES COMPLIANCE (Section 4):
+CODE STANDARDS (Section 5):
+□ Module imports match export type (singleton vs class)
+□ Service worker served at root path
+□ All external API calls have timeout handling (5-10s)
+□ Error messages are specific and actionable (no alert())
+□ Decision logger called for all critical calculations
+□ No API credentials persisted to JSON files
+
+ACCESSIBILITY (Section 5):
+□ All form inputs have associated <label for="id">
+□ Color contrast minimum 4.5:1 for text
+□ ARIA landmarks present (main, navigation, banner)
+□ Skip navigation link at top of page
+□ Keyboard navigation works for all interactive elements
+
+DESIGN PRINCIPLES (Section 4):
 □ A. Ease of Use - One-step setup, auto-detection, smart defaults
 □ B. Visual Simplicity - Clean UI, tooltips, visual feedback
 □ C. Accuracy - Multi-source validation, confidence scores
@@ -611,6 +790,11 @@ DESIGN PRINCIPLES COMPLIANCE (Section 4):
 □ K. Performance - <500ms APIs, <2s render, efficient caching
 □ L. Accessibility - WCAG 2.1 AA, high contrast, keyboard nav
 □ M. Transparency - Show sources, explain calculations, decision logs
+
+DOCUMENTATION (Section 7):
+□ Attribution requirements met (ATTRIBUTION.md)
+□ License notice included where appropriate
+□ Code comments reference correct sources
 ```
 
 ---
@@ -622,7 +806,7 @@ DESIGN PRINCIPLES COMPLIANCE (Section 4):
 
 ---
 
-**Version**: 2.1.0
+**Version**: 2.2.0
 **Last Updated**: 2026-01-25
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
@@ -630,6 +814,14 @@ DESIGN PRINCIPLES COMPLIANCE (Section 4):
 ---
 
 ## 📋 CHANGELOG
+
+### v2.2.0 (2026-01-25)
+- **NEW**: Error Message Standards rule (actionable, specific messages)
+- **NEW**: Timeout Handling Requirements (mandatory for all external APIs)
+- **NEW**: Transparency Integration Requirements (decision logger usage)
+- **NEW**: Accessibility Requirements (WCAG 2.1 AA checklist)
+- **NEW**: API Credential Security rule (never persist to JSON)
+- Rules added based on comprehensive system audit findings
 
 ### v2.1.0 (2026-01-25)
 - Added Module Export Patterns rule (prevents singleton/class confusion)

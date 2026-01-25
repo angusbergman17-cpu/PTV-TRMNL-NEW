@@ -135,10 +135,11 @@ TRMNL_API_KEY=your_trmnl_api_key_here
 # REQUIRED - Server port (3000 is default)
 PORT=3000
 
-# OPTIONAL - Transport Victoria GTFS Realtime (Victorian users only)
+# OPTIONAL - Transport Victoria OpenData API (Victorian users only)
 # Real-time metro train trip updates from OpenData Transport Victoria
-# Get subscription key from: https://opendata.transport.vic.gov.au/
-TRANSPORT_VICTORIA_GTFS_KEY=
+# Get credentials from: https://opendata.transport.vic.gov.au/
+ODATA_API_KEY=
+ODATA_TOKEN=
 
 # OPTIONAL - Enhanced geocoding
 GOOGLE_PLACES_API_KEY=

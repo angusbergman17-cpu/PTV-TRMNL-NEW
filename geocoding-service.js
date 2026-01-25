@@ -9,6 +9,34 @@
 import fetch from 'node-fetch';
 
 /**
+ * Fetch with timeout - aborts request if it takes too long
+ * Required by DEVELOPMENT-RULES.md Section 6: Timeout Handling
+ * @param {string} url - URL to fetch
+ * @param {object} options - Fetch options
+ * @param {number} timeoutMs - Timeout in milliseconds (default 5000)
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
+/**
  * Geocoding Service with sequential fallback priority
  *
  * Priority Order:
@@ -140,7 +168,7 @@ class GeocodingService {
     const searchType = type === 'business' ? 'textquery' : 'findplacefromtext';
     const url = `https://maps.googleapis.com/maps/api/place/${searchType}/json?input=${encodeURIComponent(query)}&inputtype=textquery&fields=formatted_address,geometry,name&key=${this.googlePlacesKey}&region=${country.toLowerCase()}`;
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url, {}, 5000);
     const data = await response.json();
 
     if (data.status === 'OK' && data.candidates && data.candidates.length > 0) {
@@ -170,7 +198,7 @@ class GeocodingService {
       url += `&proximity=${bias.lon},${bias.lat}`;
     }
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url, {}, 5000);
     const data = await response.json();
 
     if (data.features && data.features.length > 0) {
@@ -195,7 +223,7 @@ class GeocodingService {
 
     const url = `https://geocode.search.hereapi.com/v1/geocode?q=${encodeURIComponent(query)}&in=countryCode:${country}&apiKey=${this.hereApiKey}`;
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url, {}, 5000);
     const data = await response.json();
 
     if (data.items && data.items.length > 0) {
@@ -224,12 +252,12 @@ class GeocodingService {
       url += `&ll=${bias.lat},${bias.lon}`;
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'Authorization': this.foursquareApiKey,
         'Accept': 'application/json'
       }
-    });
+    }, 5000);
 
     const data = await response.json();
 
@@ -256,7 +284,7 @@ class GeocodingService {
 
     const url = `https://us1.locationiq.com/v1/search.php?key=${this.locationIqKey}&q=${encodeURIComponent(query)}&countrycodes=${country.toLowerCase()}&format=json&limit=1`;
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url, {}, 5000);
     const data = await response.json();
 
     if (data && data.length > 0) {
@@ -277,11 +305,11 @@ class GeocodingService {
   async geocodeNominatim(query, country) {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}, ${country}&limit=1&addressdetails=1`;
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'User-Agent': 'PTV-TRMNL/1.0 (Educational; Contact: github.com/angusbergman17-cpu)'
       }
-    });
+    }, 5000);
 
     const data = await response.json();
 

@@ -135,7 +135,7 @@ Show "✓ Saved" indicator
   "location": {
     "city": "Melbourne",
     "state": "VIC",
-    "transitAuthority": "Public Transport Victoria",
+    "transitAuthority": "Transport for Victoria",
     "timezone": "Australia/Melbourne"
   },
   "apis": {

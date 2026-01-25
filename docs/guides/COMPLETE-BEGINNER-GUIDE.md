@@ -58,7 +58,7 @@ Don't worry - we'll do these one at a time, and you can take breaks!
 
 **⏱️ Time: 5-10 minutes**
 
-**What is PTV?** Public Transport Victoria - they provide all the train/tram/bus data!
+**What is PTV?** Transport for Victoria - they provide all the train/tram/bus data!
 
 1. **Open your browser** and go to: https://www.ptv.vic.gov.au/footer/data-and-reporting/datasets/ptv-timetable-api/
 
