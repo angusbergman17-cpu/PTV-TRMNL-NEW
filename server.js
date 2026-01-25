@@ -26,7 +26,7 @@ import DecisionLogger from './decision-logger.js';
 import { getPrimaryCityForState } from './australian-cities.js';
 import fallbackTimetables from './fallback-timetables.js';
 import JourneyProfiles from './journey-profiles.js';
-import HealthMonitor from './health-monitor.js';
+import healthMonitor from './health-monitor.js';  // Pre-instantiated singleton
 import { readFileSync } from 'fs';
 import nodemailer from 'nodemailer';
 
@@ -88,10 +88,11 @@ journeyProfiles.init().then(() => {
   console.log('✅ Journey profiles initialized');
 }).catch(err => console.error('⚠️ Journey profiles init error:', err));
 
-// Initialize health monitor (Principle C: Accuracy, D: Redundancy)
-const healthMonitor = new HealthMonitor();
-healthMonitor.startMonitoring();
-console.log('✅ Health monitor started - tracking 5 data sources');
+// Start health monitor (Principle C: Accuracy, D: Redundancy)
+// healthMonitor is a pre-instantiated singleton from health-monitor.js
+healthMonitor.start().then(() => {
+  console.log('✅ Health monitor started - tracking 5 data sources');
+}).catch(err => console.error('⚠️ Health monitor start error:', err));
 
 // Test the decision logger immediately
 if (global.decisionLogger) {
@@ -1530,6 +1531,11 @@ async function saveApiConfig(config) {
 // Serve admin panel static files
 app.use('/admin', express.static(path.join(process.cwd(), 'public')));
 
+// Service worker must be at root scope for proper caching
+app.get('/service-worker.js', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'service-worker.js'));
+});
+
 // Admin panel home
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'admin.html'));
@@ -1980,18 +1986,18 @@ app.post('/admin/profiles-import', async (req, res) => {
 // Get health status of all data sources
 app.get('/api/health', (req, res) => {
   try {
-    const health = healthMonitor.getStatus();
+    const health = healthMonitor.getHealthStatus();
     res.json({ success: true, ...health });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get health history for a specific source
-app.get('/api/health/:source', (req, res) => {
+// Get health summary
+app.get('/api/health/summary', (req, res) => {
   try {
-    const history = healthMonitor.getHistory(req.params.source);
-    res.json({ success: true, source: req.params.source, history });
+    const summary = healthMonitor.getSummary();
+    res.json({ success: true, ...summary });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -2000,8 +2006,8 @@ app.get('/api/health/:source', (req, res) => {
 // Force health check
 app.post('/api/health/check', async (req, res) => {
   try {
-    await healthMonitor.checkAllSources();
-    const health = healthMonitor.getStatus();
+    await healthMonitor.checkAll();
+    const health = healthMonitor.getHealthStatus();
     res.json({ success: true, message: 'Health check completed', ...health });
   } catch (error) {
     res.status(500).json({ error: error.message });

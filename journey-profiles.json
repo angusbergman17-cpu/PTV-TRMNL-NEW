@@ -1,0 +1,47 @@
+{
+  "profiles": [
+    {
+      "id": "profile_mkths9qkd5rfni2ci",
+      "name": "Default Commute",
+      "isDefault": true,
+      "createdAt": "2026-01-25T08:44:08.397Z",
+      "updatedAt": "2026-01-25T08:44:08.397Z",
+      "addresses": {
+        "home": "",
+        "work": "",
+        "cafe": ""
+      },
+      "schedule": {
+        "arrivalTime": "09:00",
+        "daysActive": [
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday"
+        ],
+        "coffeeEnabled": true,
+        "coffeeTime": 5
+      },
+      "transit": {
+        "preferredModes": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "maxWalkingDistance": 1000,
+        "avoidStops": [],
+        "preferredStops": []
+      },
+      "display": {
+        "showWeather": true,
+        "showCoffeeDecision": true,
+        "use24HourTime": true
+      }
+    }
+  ],
+  "activeProfileId": "profile_mkths9qkd5rfni2ci",
+  "version": "1.0.0",
+  "lastModified": "2026-01-25T08:44:08.397Z"
+}
