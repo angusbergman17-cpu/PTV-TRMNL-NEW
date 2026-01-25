@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+    PTV-TRMNL Setup Wizard - Intelligent Configuration
+    Copyright (c) 2026 Angus Bergman
+    All rights reserved.
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Wizard - PTV-TRMNL</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .wizard-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 16px;
+            padding: 40px;
+            margin: 20px 0;
+            color: #2d3748;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .wizard-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .wizard-header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .wizard-header p {
+            font-size: 16px;
+            color: #718096;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .step.active {
+            background: #667eea;
+            color: white;
+            transform: scale(1.2);
+        }
+
+        .step.completed {
+            background: #48bb78;
+            color: white;
+        }
+
+        .step-content {
+            display: none;
+        }
+
+        .step-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #718096;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .info-box {
+            background: #e6fffa;
+            border-left: 4px solid #38b2ac;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            color: #234e52;
+            font-size: 14px;
+        }
+
+        .success-box {
+            background: #c6f6d5;
+            border-left: 4px solid #48bb78;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .authority-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .authority-card:hover {
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+
+        .authority-card.selected {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .authority-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .authority-desc {
+            font-size: 14px;
+            color: #718096;
+            margin-bottom: 10px;
+        }
+
+        .authority-link {
+            font-size: 13px;
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-top: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .autocomplete-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f7fafc;
+        }
+
+        .autocomplete-item:hover {
+            background: #f7fafc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="wizard-card">
+            <div class="wizard-header">
+                <h1>🚊 Welcome to PTV-TRMNL</h1>
+                <p>Let's set up your intelligent transit display in just a few steps</p>
+            </div>
+
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step active" id="step-1-indicator">1</div>
+                <div class="step" id="step-2-indicator">2</div>
+                <div class="step" id="step-3-indicator">3</div>
+                <div class="step" id="step-4-indicator">4</div>
+            </div>
+
+            <!-- Step 1: Addresses -->
+            <div class="step-content active" id="step-1">
+                <h2 style="margin-bottom: 20px;">📍 Step 1: Your Addresses</h2>
+                <p style="color: #718096; margin-bottom: 25px;">
+                    Enter your home and work addresses. We'll automatically detect your state and suggest the right transit authority.
+                </p>
+
+                <div class="form-group" style="position: relative;">
+                    <label class="form-label">🏠 Home Address</label>
+                    <input type="text" id="home-address" class="form-input" placeholder="Start typing your home address..." autocomplete="off">
+                    <div id="home-suggestions" class="autocomplete-dropdown"></div>
+                </div>
+
+                <div class="form-group" style="position: relative;">
+                    <label class="form-label">💼 Work Address</label>
+                    <input type="text" id="work-address" class="form-input" placeholder="Start typing your work address..." autocomplete="off">
+                    <div id="work-suggestions" class="autocomplete-dropdown"></div>
+                </div>
+
+                <div class="form-group" style="position: relative;">
+                    <label class="form-label">☕ Favorite Cafe (Optional)</label>
+                    <input type="text" id="cafe-address" class="form-input" placeholder="Your go-to coffee spot...">
+                    <div id="cafe-suggestions" class="autocomplete-dropdown"></div>
+                </div>
+
+                <div id="state-detection" style="display: none;" class="info-box">
+                    <strong>✓ Detected:</strong> <span id="detected-state"></span>
+                </div>
+
+                <button class="btn" onclick="nextStep(1)">Next: Choose Transit Authority →</button>
+            </div>
+
+            <!-- Step 2: Transit Authority -->
+            <div class="step-content" id="step-2">
+                <h2 style="margin-bottom: 20px;">🚆 Step 2: Transit Authority</h2>
+                <p style="color: #718096; margin-bottom: 25px;">
+                    We've detected your location. Please confirm or choose your transit authority.
+                </p>
+
+                <div id="authority-list"></div>
+
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="previousStep(2)">← Back</button>
+                    <button class="btn" onclick="nextStep(2)">Next: API Credentials →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: API Credentials -->
+            <div class="step-content" id="step-3">
+                <h2 style="margin-bottom: 20px;">🔑 Step 3: API Credentials</h2>
+                <p style="color: #718096; margin-bottom: 25px;">
+                    To access real-time transit data, you'll need API credentials from your transit authority.
+                </p>
+
+                <div id="api-info" class="info-box"></div>
+
+                <div id="api-credentials-form"></div>
+
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="previousStep(3)">← Back</button>
+                    <button class="btn" onclick="nextStep(3)">Next: Journey Settings →</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Journey Settings -->
+            <div class="step-content" id="step-4">
+                <h2 style="margin-bottom: 20px;">⏰ Step 4: Journey Preferences</h2>
+                <p style="color: #718096; margin-bottom: 25px;">
+                    When do you need to arrive at work?
+                </p>
+
+                <div class="form-group">
+                    <label class="form-label">Arrival Time at Work</label>
+                    <input type="time" id="arrival-time" class="form-input" value="09:00">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="include-coffee" checked style="margin-right: 8px;">
+                        Calculate coffee stop times
+                    </label>
+                </div>
+
+                <div id="setup-status"></div>
+
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="previousStep(4)">← Back</button>
+                    <button class="btn" onclick="completeSetup()">🚀 Complete Setup</button>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px; font-size: 13px; opacity: 0.8;">
+            © 2026 Angus Bergman. All rights reserved.
+        </div>
+    </div>
+
+    <script type="module">
+        let currentStep = 1;
+        let selectedAuthority = null;
+        let detectedState = null;
+        let addresses = {};
+        let autocompleteDebounce = null;
+
+        // Transit Authorities Configuration
+        const AUTHORITIES = {
+            VIC: { name: 'Public Transport Victoria (PTV)', state: 'Victoria', url: 'https://www.ptv.vic.gov.au/footer/data-and-reporting/datasets/ptv-timetable-api/' },
+            NSW: { name: 'Transport for NSW', state: 'New South Wales', url: 'https://opendata.transport.nsw.gov.au/user/register' },
+            QLD: { name: 'TransLink Queensland', state: 'Queensland', url: 'https://www.data.qld.gov.au/' },
+            WA: { name: 'Transperth', state: 'Western Australia', url: 'https://www.transperth.wa.gov.au/About/Spatial-Data-Access' },
+            SA: { name: 'Adelaide Metro', state: 'South Australia', url: 'https://data.sa.gov.au/' },
+            TAS: { name: 'Metro Tasmania', state: 'Tasmania', url: 'https://www.metrotas.com.au/' },
+            ACT: { name: 'Transport Canberra', state: 'ACT', url: 'https://www.data.act.gov.au/' },
+            NT: { name: 'Darwin Bus Service', state: 'Northern Territory', url: 'https://nt.gov.au/driving/public-transport-cycling' }
+        };
+
+        function detectState(address) {
+            const lower = address.toLowerCase();
+            if (lower.includes('melbourne') || lower.includes('victoria') || lower.includes('geelong')) return 'VIC';
+            if (lower.includes('sydney') || lower.includes('nsw')) return 'NSW';
+            if (lower.includes('brisbane') || lower.includes('queensland') || lower.includes('gold coast')) return 'QLD';
+            if (lower.includes('perth') || lower.includes('western australia')) return 'WA';
+            if (lower.includes('adelaide') || lower.includes('south australia')) return 'SA';
+            if (lower.includes('hobart') || lower.includes('tasmania')) return 'TAS';
+            if (lower.includes('canberra')) return 'ACT';
+            if (lower.includes('darwin')) return 'NT';
+            return null;
+        }
+
+        function setupAddressAutocomplete(inputId, suggestionsId) {
+            const input = document.getElementById(inputId);
+            const suggestions = document.getElementById(suggestionsId);
+
+            input.addEventListener('input', function() {
+                clearTimeout(autocompleteDebounce);
+                const query = this.value.trim();
+
+                if (query.length < 3) {
+                    suggestions.style.display = 'none';
+                    return;
+                }
+
+                autocompleteDebounce = setTimeout(async () => {
+                    try {
+                        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}, Australia&limit=5`;
+                        const response = await fetch(url);
+                        const results = await response.json();
+
+                        if (results.length > 0) {
+                            suggestions.innerHTML = results.map(r => `
+                                <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${suggestionsId}', '${r.display_name.replace(/'/g, "\\'")}')">
+                                    ${r.display_name}
+                                </div>
+                            `).join('');
+                            suggestions.style.display = 'block';
+                        }
+                    } catch (e) {
+                        console.error('Autocomplete error:', e);
+                    }
+                }, 500);
+            });
+        }
+
+        window.selectAddress = function(inputId, suggestionsId, address) {
+            document.getElementById(inputId).value = address;
+            document.getElementById(suggestionsId).style.display = 'none';
+
+            // Detect state
+            if (inputId === 'home-address' || inputId === 'work-address') {
+                const state = detectState(address);
+                if (state && !detectedState) {
+                    detectedState = state;
+                    document.getElementById('state-detection').style.display = 'block';
+                    document.getElementById('detected-state').textContent = AUTHORITIES[state].state;
+                }
+            }
+        };
+
+        window.nextStep = function(step) {
+            if (step === 1) {
+                const home = document.getElementById('home-address').value;
+                const work = document.getElementById('work-address').value;
+
+                if (!home || !work) {
+                    alert('Please enter both home and work addresses');
+                    return;
+                }
+
+                addresses = {
+                    home,
+                    work,
+                    cafe: document.getElementById('cafe-address').value
+                };
+
+                // Show authorities
+                showAuthorities();
+            } else if (step === 2) {
+                if (!selectedAuthority) {
+                    alert('Please select a transit authority');
+                    return;
+                }
+                showAPIForm();
+            } else if (step === 3) {
+                // Validate API credentials
+                const apiKey = document.getElementById('api-key')?.value;
+                if (!apiKey && selectedAuthority === 'VIC') {
+                    alert('Please enter your API credentials');
+                    return;
+                }
+            }
+
+            document.getElementById(`step-${step}`).classList.remove('active');
+            document.getElementById(`step-${step + 1}`).classList.add('active');
+            document.getElementById(`step-${step}-indicator`).classList.add('completed');
+            document.getElementById(`step-${step}-indicator`).classList.remove('active');
+            document.getElementById(`step-${step + 1}-indicator`).classList.add('active');
+            currentStep = step + 1;
+        };
+
+        window.previousStep = function(step) {
+            document.getElementById(`step-${step}`).classList.remove('active');
+            document.getElementById(`step-${step - 1}`).classList.add('active');
+            document.getElementById(`step-${step - 1}-indicator`).classList.remove('completed');
+            document.getElementById(`step-${step}-indicator`).classList.remove('active');
+            document.getElementById(`step-${step - 1}-indicator`).classList.add('active');
+            currentStep = step - 1;
+        };
+
+        function showAuthorities() {
+            const list = document.getElementById('authority-list');
+            let html = '';
+
+            Object.entries(AUTHORITIES).forEach(([code, auth]) => {
+                const isDetected = code === detectedState;
+                html += `
+                    <div class="authority-card ${isDetected ? 'selected' : ''}" onclick="selectAuthority('${code}')">
+                        <div class="authority-name">${auth.name} ${isDetected ? '✓' : ''}</div>
+                        <div class="authority-desc">${auth.state}</div>
+                        <a href="${auth.url}" target="_blank" class="authority-link">Register for API →</a>
+                    </div>
+                `;
+            });
+
+            list.innerHTML = html;
+            if (detectedState) {
+                selectedAuthority = detectedState;
+            }
+        }
+
+        window.selectAuthority = function(code) {
+            selectedAuthority = code;
+            document.querySelectorAll('.authority-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+        };
+
+        function showAPIForm() {
+            const auth = AUTHORITIES[selectedAuthority];
+            document.getElementById('api-info').innerHTML = `
+                <strong>📄 Register for ${auth.name} API</strong><br>
+                Visit: <a href="${auth.url}" target="_blank" style="color: #667eea;">${auth.url}</a><br>
+                Get your API credentials and enter them below.
+            `;
+
+            let html = '';
+            if (selectedAuthority === 'VIC') {
+                html = `
+                    <div class="form-group">
+                        <label class="form-label">Developer ID</label>
+                        <input type="text" id="dev-id" class="form-input" placeholder="Your PTV Developer ID">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" id="api-key" class="form-input" placeholder="Your PTV API Key">
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" id="api-key" class="form-input" placeholder="Your API Key">
+                    </div>
+                `;
+            }
+
+            document.getElementById('api-credentials-form').innerHTML = html;
+        }
+
+        window.completeSetup = async function() {
+            const config = {
+                addresses: addresses,
+                authority: selectedAuthority,
+                arrivalTime: document.getElementById('arrival-time').value,
+                includeCoffee: document.getElementById('include-coffee').checked,
+                credentials: {
+                    devId: document.getElementById('dev-id')?.value,
+                    apiKey: document.getElementById('api-key')?.value
+                }
+            };
+
+            try {
+                // Save configuration
+                const response = await fetch('/admin/setup/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('setup-status').innerHTML = `
+                        <div class="success-box">
+                            <h3 style="color: #22543d; margin-bottom: 10px;">✅ Setup Complete!</h3>
+                            <p style="color: #22543d;">Your intelligent transit display is ready.</p>
+                            <button class="btn" onclick="window.location.href='/admin'" style="margin-top: 15px;">Go to Dashboard →</button>
+                        </div>
+                    `;
+                } else {
+                    alert('Setup failed: ' + result.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupAddressAutocomplete('home-address', 'home-suggestions');
+            setupAddressAutocomplete('work-address', 'work-suggestions');
+            setupAddressAutocomplete('cafe-address', 'cafe-suggestions');
+        });
+    </script>
+</body>
+</html>

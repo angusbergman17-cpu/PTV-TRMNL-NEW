@@ -2878,6 +2878,54 @@ app.get('/preview', (req, res) => {
 });
 
 /* =========================================================
+   SETUP WIZARD ENDPOINTS
+   ========================================================= */
+
+/**
+ * Setup Wizard Page
+ */
+app.get('/setup', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'setup-wizard.html'));
+});
+
+/**
+ * Complete Setup - Save configuration from wizard
+ */
+app.post('/admin/setup/complete', async (req, res) => {
+  try {
+    const { addresses, authority, arrivalTime, includeCoffee, credentials } = req.body;
+
+    // Save configuration to preferences
+    const prefs = preferences.get();
+    prefs.addresses = addresses;
+    prefs.authority = authority;
+    prefs.journey = {
+      arrivalTime,
+      coffeeEnabled: includeCoffee
+    };
+    prefs.api = {
+      key: credentials.devId,
+      token: credentials.apiKey
+    };
+
+    preferences.save(prefs);
+
+    console.log(`✅ Setup completed for ${authority}`);
+
+    res.json({
+      success: true,
+      message: 'Setup completed successfully'
+    });
+  } catch (error) {
+    console.error('Setup completion error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/* =========================================================
    START SERVER
    ========================================================= */
 
