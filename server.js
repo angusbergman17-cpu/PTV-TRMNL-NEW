@@ -2243,6 +2243,23 @@ app.get('/admin/live-display', async (req, res) => {
             margin-bottom: 10px;
         }
 
+        .back-btn {
+            display: inline-block;
+            background: rgba(99, 102, 241, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(99, 102, 241, 1);
+            transform: translateY(-1px);
+        }
+
         .live-indicator {
             display: inline-flex;
             align-items: center;
@@ -2795,7 +2812,10 @@ app.get('/preview', (req, res) => {
       </script>
     </head>
     <body>
-      <h1>🚊 PTV-TRMNL Preview</h1>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="margin: 0;">🚊 PTV-TRMNL Preview</h1>
+        <a href="/admin" style="background: #6366f1; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500;">← Back to Admin</a>
+      </div>
       <div class="info">
         <h2>Available Endpoints:</h2>
         <ul class="endpoints">
