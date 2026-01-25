@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-25
-**Version**: 1.0.1
+**Version**: 1.0.2
 
 ---
 
@@ -57,30 +57,34 @@
 ### ✅ Victorian Transit Data - ONLY USE:
 
 **CORRECT SOURCE**:
-- **Name**: Transport Victoria GTFS Realtime API
+- **Name**: Transport Victoria OpenData API
 - **Provider**: Transport for Victoria via OpenData Transport Victoria
 - **Portal**: https://opendata.transport.vic.gov.au/
-- **Authentication**: Subscription Key (Ocp-Apim-Subscription-Key header)
-- **Protocol**: GTFS Realtime (Protocol Buffers)
-- **Coverage**: Melbourne Metro Trains
-- **Documentation**: VICTORIA-GTFS-REALTIME-PROTOCOL.md
+- **Authentication**: API Key + API Token (JWT format)
+- **Protocol**: REST API with JWT authentication
+- **Coverage**: Melbourne Metro Trains, Trams, Buses, V/Line
+- **Documentation**: OpenData Transport Victoria portal
 
-**Environment Variable**:
+**Environment Variables**:
 ```bash
-TRANSPORT_VICTORIA_GTFS_KEY=your_subscription_key_here
+ODATA_API_KEY=your_api_key_here
+ODATA_TOKEN=your_jwt_token_here
 ```
+
+**Credential Format** (as of 2026):
+- **API Key**: 36-character UUID format (e.g., ce606b90-9ffb-43e8-bcd7-0c2bd0498367)
+- **API Token**: JWT format (e.g., eyJ0eXAiOiJKV1Qi...)
 
 **Code References**:
 ```javascript
 // CORRECT:
-const apiKey = process.env.TRANSPORT_VICTORIA_GTFS_KEY;
-const headers = { 'Ocp-Apim-Subscription-Key': apiKey };
-const url = 'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro/trip-updates';
+const apiKey = process.env.ODATA_API_KEY;
+const apiToken = process.env.ODATA_TOKEN;
 
-// WRONG - DO NOT USE:
-const devId = process.env.PTV_USER_ID; // ❌
-const apiKey = process.env.PTV_API_KEY; // ❌
+// Use in API calls per OpenData Transport Victoria specifications
 ```
+
+**Note**: The OpenData Transport Victoria portal provides both an API Key and API Token. Both are required for authentication.
 
 ---
 

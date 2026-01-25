@@ -860,13 +860,18 @@
                         <span class="card-icon">🔑</span>
                         <h2 id="transit-api-title">Transit Authority API</h2>
                     </div>
-                    <div id="transit-api-description" style="margin-bottom: 15px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px;">
+                    <div id="transit-api-description" style="margin-bottom: 15px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; display: none;">
                         <p style="margin: 0; opacity: 0.9; font-size: 13px;">
-                            <strong>Victoria:</strong> For PTV Timetable API v3 credentials, visit
-                            <a href="https://data.vic.gov.au/data/dataset/ptv-timetable-api" target="_blank" style="color: #667eea;">OpenData Transport Victoria</a>
+                            <strong>Victoria:</strong> For Transport Victoria OpenData API credentials, visit
+                            <a href="https://opendata.transport.vic.gov.au/" target="_blank" style="color: #667eea;">OpenData Transport Victoria</a>
                         </p>
                         <p style="margin: 8px 0 0 0; opacity: 0.8; font-size: 12px;">
                             See <strong>VICTORIA-GTFS-REALTIME-PROTOCOL.md</strong> for GTFS Realtime API instructions
+                        </p>
+                    </div>
+                    <div id="transit-api-description-generic" style="margin-bottom: 15px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px;">
+                        <p style="margin: 0; opacity: 0.9; font-size: 13px;">
+                            Enter your transit authority API credentials below. Configuration details will appear after detecting your location.
                         </p>
                     </div>
                     <div id="api-message"></div>
@@ -1925,24 +1930,29 @@
             const gtfsConfig = document.getElementById('victoria-gtfs-config');
             const transitApiTitle = document.getElementById('transit-api-title');
             const transitApiDesc = document.getElementById('transit-api-description');
+            const transitApiDescGeneric = document.getElementById('transit-api-description-generic');
 
             // Show/hide Victorian-specific elements
             if (state === 'VIC') {
                 if (viewer) viewer.style.display = 'block';
                 if (gtfsConfig) gtfsConfig.style.display = 'block';
+                if (transitApiDesc) transitApiDesc.style.display = 'block';
+                if (transitApiDescGeneric) transitApiDescGeneric.style.display = 'none';
 
                 // Update transit API title for Victorian users
-                if (transitApiTitle) transitApiTitle.textContent = 'Transport for Victoria - PTV Timetable API v3';
+                if (transitApiTitle) transitApiTitle.textContent = 'Transport for Victoria - OpenData API';
 
-                console.log('✅ Victorian GTFS Realtime features enabled');
+                console.log('✅ Victorian features enabled');
             } else {
                 if (viewer) viewer.style.display = 'none';
                 if (gtfsConfig) gtfsConfig.style.display = 'none';
+                if (transitApiDesc) transitApiDesc.style.display = 'none';
+                if (transitApiDescGeneric) transitApiDescGeneric.style.display = 'block';
 
                 // Generic title for non-Victorian users
                 if (transitApiTitle) transitApiTitle.textContent = 'Transit Authority API';
 
-                console.log(`ℹ️  Victorian GTFS features hidden (state: ${state})`);
+                console.log(`ℹ️  State-specific features hidden (state: ${state || 'unknown'})`);
             }
         }
 
