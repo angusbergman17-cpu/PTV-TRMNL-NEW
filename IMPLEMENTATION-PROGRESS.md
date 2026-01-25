@@ -258,7 +258,7 @@ docker-compose up -d
 - Absolute prohibitions (forbidden terms)
 - Required data sources
 - Terminology standards
-- 8 design principles (mandatory)
+- 10 design principles (mandatory)
 - Code standards
 - Environment variable format
 - Documentation requirements
@@ -316,8 +316,10 @@ a9b0af0 - Bump version to v2.5.2
 | **Technical Specs** | 🟢 Complete | Task #7 complete |
 | **Self-Hosting** | 🟢 Complete | Tasks #1, #9 complete |
 | **Legal Compliance** | 🟢 Complete | Task #2 complete |
+| **Version Consistency** | 🔴 Pending | Requires audit & enforcement |
+| **Performance & Efficiency** | 🔴 Pending | Requires optimization pass |
 
-**Overall**: 4/8 principles fully implemented, 4/8 in progress
+**Overall**: 4/10 principles fully implemented, 4/10 in progress, 2/10 pending
 
 ---
 

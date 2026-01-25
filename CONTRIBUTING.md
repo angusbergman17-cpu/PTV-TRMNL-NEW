@@ -71,7 +71,7 @@ cat DEVELOPMENT-RULES.md
 - ❓ Am I using "Transport for Victoria" (not "PTV")?
 - ❓ Am I using TRANSPORT_VICTORIA_GTFS_KEY environment variable?
 - ❓ Am I referencing opendata.transport.vic.gov.au (not legacy APIs)?
-- ❓ Do my changes align with the 8 design principles?
+- ❓ Do my changes align with the 10 design principles?
 
 ### 4. Make Your Changes
 
@@ -222,6 +222,8 @@ All contributions must align with these mandatory principles:
 6. **Technical Docs**: Complete API docs, architecture diagrams
 7. **Self-Hosting**: Easy deployment, platform-agnostic
 8. **Legal Compliance**: CC BY-NC 4.0, proper attributions
+9. **Version Consistency**: All files synchronized with current versions
+10. **Performance & Efficiency**: Optimized code, minimal resource usage
 
 ---
 

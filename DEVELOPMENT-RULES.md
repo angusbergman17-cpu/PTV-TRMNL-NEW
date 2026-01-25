@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-25
-**Version**: 1.0.2
+**Version**: 1.0.3
 
 ---
 
@@ -166,6 +166,19 @@ All development must align with these core principles:
 - **Data source attributions** clearly documented
 - **Privacy policy** for user data
 - **API usage limits** monitored and documented
+
+### I. Version Consistency
+- **Every file element** consistent with current/updated versions
+- **No version mismatches** between related files
+- **Synchronized updates** across all documentation
+- **Consistent terminology** in all code and docs
+
+### J. Performance & Efficiency
+- **Remove unused code** that slows the system
+- **Optimize processing** for actively used features
+- **Minimize resource usage** for background tasks
+- **Clean data architecture** - no clogged or redundant data
+- **Efficient API calls** - cache and batch where possible
 
 ---
 
