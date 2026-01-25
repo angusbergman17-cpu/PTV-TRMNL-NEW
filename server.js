@@ -1857,55 +1857,67 @@ app.post('/admin/smart-setup', async (req, res) => {
     }
 
     // Step 1: Geocode addresses to get coordinates
-    console.log('  📍 Geocoding addresses...');
+    console.log('  📍 Geocoding home address:', addresses.home);
     const homeGeocode = await geocodingService.geocode(addresses.home);
+    console.log('  📍 Home geocode result:', homeGeocode);
+
+    console.log('  📍 Geocoding work address:', addresses.work);
     const workGeocode = await geocodingService.geocode(addresses.work);
+    console.log('  📍 Work geocode result:', workGeocode);
 
     if (!homeGeocode.success || !homeGeocode.location) {
+      console.error('  ❌ Home address geocoding failed');
       return res.status(400).json({
         success: false,
-        message: 'Could not geocode home address'
+        message: `Could not find home address: "${addresses.home}". Please try entering the full address with suburb and state (e.g., "1 Clara Street, South Yarra VIC 3141")`
       });
     }
 
     if (!workGeocode.success || !workGeocode.location) {
+      console.error('  ❌ Work address geocoding failed');
       return res.status(400).json({
         success: false,
-        message: 'Could not geocode work address'
+        message: `Could not find work address: "${addresses.work}". Please try entering the full address with suburb and state.`
       });
     }
 
     const homeLocation = homeGeocode.location;
     const workLocation = workGeocode.location;
 
-    console.log(`  ✅ Home: ${homeLocation.lat}, ${homeLocation.lon}`);
-    console.log(`  ✅ Work: ${workLocation.lat}, ${workLocation.lon}`);
+    console.log(`  ✅ Home: ${homeLocation.lat}, ${homeLocation.lon} (${homeLocation.city || 'unknown city'})`);
+    console.log(`  ✅ Work: ${workLocation.lat}, ${workLocation.lon} (${workLocation.city || 'unknown city'})`);
 
     // Step 2: Detect state from coordinates (using home address)
     const state = smartJourneyPlanner.detectStateFromCoordinates(homeLocation.lat, homeLocation.lon);
     console.log(`  🗺️  Detected state: ${state}`);
 
     // Step 3: Find nearby stops using smart journey planner
-    console.log('  🔍 Finding nearby transit stops...');
+    console.log('  🔍 Finding nearby transit stops for home...');
     const nearbyStopsHome = await smartJourneyPlanner.findNearbyStops(homeLocation);
+    console.log(`  📊 Home stops result:`, nearbyStopsHome ? `${nearbyStopsHome.length} stops` : 'null/undefined');
+
+    console.log('  🔍 Finding nearby transit stops for work...');
     const nearbyStopsWork = await smartJourneyPlanner.findNearbyStops(workLocation);
+    console.log(`  📊 Work stops result:`, nearbyStopsWork ? `${nearbyStopsWork.length} stops` : 'null/undefined');
 
     if (!nearbyStopsHome || nearbyStopsHome.length === 0) {
+      console.error('  ❌ No stops found near home');
       return res.status(400).json({
         success: false,
-        message: 'No transit stops found near your home address'
+        message: `No transit stops found near your home address (${addresses.home}). This area may not have public transport coverage, or you may be too far from the nearest stop. Try a different address or contact support.`
       });
     }
 
     if (!nearbyStopsWork || nearbyStopsWork.length === 0) {
+      console.error('  ❌ No stops found near work');
       return res.status(400).json({
         success: false,
-        message: 'No transit stops found near your work address'
+        message: `No transit stops found near your work address (${addresses.work}). This area may not have public transport coverage, or you may be too far from the nearest stop. Try a different address or contact support.`
       });
     }
 
-    console.log(`  ✅ Found ${nearbyStopsHome.length} stops near home`);
-    console.log(`  ✅ Found ${nearbyStopsWork.length} stops near work`);
+    console.log(`  ✅ Found ${nearbyStopsHome.length} stops near home:`, nearbyStopsHome.slice(0, 3).map(s => s.stop_name));
+    console.log(`  ✅ Found ${nearbyStopsWork.length} stops near work:`, nearbyStopsWork.slice(0, 3).map(s => s.stop_name));
 
     // Step 4: Auto-select best stops (highest priority = train, then tram, then bus)
     const bestHomeStop = nearbyStopsHome[0]; // Already sorted by priority + distance
@@ -2066,9 +2078,11 @@ app.get('/admin/address/search', async (req, res) => {
     const { query } = req.query;
 
     if (!query || query.length < 3) {
+      console.log(`⚠️  Search query too short: "${query || ''}"`);
       return res.json({
         success: true,
-        results: []
+        results: [],
+        message: 'Query too short (minimum 3 characters)'
       });
     }
 
@@ -2232,16 +2246,32 @@ app.get('/admin/address/search', async (req, res) => {
 
     console.log(`✅ Combined results: ${uniqueResults.length} unique locations`);
 
+    if (uniqueResults.length === 0) {
+      console.warn(`⚠️  No results found for query: "${query}"`);
+      return res.json({
+        success: true,
+        results: [],
+        count: 0,
+        sources: [...new Set(combinedResults.map(r => r.source))],
+        message: `No results found for "${query}". Try including more details (e.g., suburb, state, postcode)`
+      });
+    }
+
     res.json({
       success: true,
       results: uniqueResults.slice(0, 10), // Top 10 results
       count: uniqueResults.length,
-      sources: [...new Set(combinedResults.map(r => r.source))]
+      sources: [...new Set(combinedResults.map(r => r.source))],
+      message: `Found ${uniqueResults.length} result(s)`
     });
 
   } catch (error) {
-    console.error('❌ Address search error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Address search error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Search failed. Please try again or contact support.'
+    });
   }
 });
 
