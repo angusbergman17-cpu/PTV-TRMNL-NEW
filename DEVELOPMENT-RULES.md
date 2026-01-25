@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-25
-**Version**: 2.0.0
+**Version**: 2.1.0
 
 ---
 
@@ -256,6 +256,57 @@ async function fetchVictorianTransitData(subscriptionKey) {
   // ✅ CORRECT terminology and references
 }
 ```
+
+### Module Export Patterns
+
+**CRITICAL**: Match import style to export type to prevent runtime errors.
+
+```javascript
+// ====== SINGLETON MODULES (export instance) ======
+// File ends with: export default new ClassName();
+// Import as lowercase, do NOT use 'new':
+
+import healthMonitor from './health-monitor.js';  // ✅ CORRECT
+healthMonitor.start();
+
+import HealthMonitor from './health-monitor.js';  // ❌ WRONG
+const hm = new HealthMonitor();  // Runtime Error!
+
+// ====== CLASS MODULES (export class) ======
+// File ends with: export default ClassName;
+// Import as PascalCase, use 'new' to instantiate:
+
+import JourneyProfiles from './journey-profiles.js';  // ✅ CORRECT
+const profiles = new JourneyProfiles();
+
+import journeyProfiles from './journey-profiles.js';  // ❌ WRONG (confusing)
+```
+
+**How to identify export type**:
+```bash
+# Check what a module exports:
+tail -5 ./module-name.js | grep "export default"
+
+# If you see: export default new ClassName();  → Singleton (lowercase import)
+# If you see: export default ClassName;        → Class (PascalCase import)
+```
+
+### Service Worker Requirements
+
+Service workers MUST be served at root URL path for proper caching scope.
+
+```javascript
+// ✅ REQUIRED: Add this route for service workers
+app.get('/service-worker.js', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'service-worker.js'));
+});
+
+// ❌ WRONG: Relying only on static middleware
+// app.use('/admin', express.static('public'));
+// This serves SW at /admin/service-worker.js (wrong scope!)
+```
+
+**Why**: Service workers can only control pages within their scope. A SW at `/admin/service-worker.js` can only cache `/admin/*` URLs, not the entire app.
 
 ---
 
@@ -571,7 +622,7 @@ DESIGN PRINCIPLES COMPLIANCE (Section 4):
 
 ---
 
-**Version**: 2.0.0
+**Version**: 2.1.0
 **Last Updated**: 2026-01-25
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
@@ -579,6 +630,11 @@ DESIGN PRINCIPLES COMPLIANCE (Section 4):
 ---
 
 ## 📋 CHANGELOG
+
+### v2.1.0 (2026-01-25)
+- Added Module Export Patterns rule (prevents singleton/class confusion)
+- Added Service Worker Requirements rule (ensures proper caching scope)
+- Rules added based on runtime errors found during new user testing
 
 ### v2.0.0 (2026-01-25)
 - **MAJOR**: Added 5 new design principles (I-M)
