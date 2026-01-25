@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-25
-**Version**: 1.0.2
+**Version**: 2.0.0
 
 ---
 
@@ -166,6 +166,46 @@ All development must align with these core principles:
 - **Data source attributions** clearly documented
 - **Privacy policy** for user data
 - **API usage limits** monitored and documented
+
+### I. Privacy by Design
+- **User data never leaves their server** by default
+- **No analytics/tracking** without explicit opt-in
+- **Minimal data collection** (only what's necessary for functionality)
+- **Clear data retention policies** documented
+- **No third-party data sharing** without user consent
+- **Local-first architecture** - data stored on user's infrastructure
+
+### J. Offline Resilience
+- **Core functionality works offline** using cached schedules
+- **Graceful degradation** with clear indicators when using stale data
+- **Automatic sync** when connectivity is restored
+- **Local-first data storage** on TRMNL device
+- **Cache age indicators** showing data freshness
+- **Fallback timetables** for all supported regions
+
+### K. Performance & Efficiency
+- **API responses < 500ms** (95th percentile target)
+- **Dashboard render < 2 seconds** on standard hardware
+- **Efficient caching** to minimize redundant API calls
+- **Optimized payload sizes** for slow/metered connections
+- **Battery-conscious updates** for device longevity
+- **Resource-efficient server** (low memory/CPU footprint)
+
+### L. Accessibility (WCAG Compliance)
+- **WCAG 2.1 AA minimum** compliance for all interfaces
+- **High contrast ratios** (critical for e-ink displays)
+- **Screen reader compatible** admin panel
+- **Full keyboard navigation** support
+- **No color-only information** encoding (use icons/text too)
+- **Readable font sizes** with user scaling support
+
+### M. Transparency & Explainability
+- **Show data sources** for each piece of information
+- **Explain calculation methodology** (e.g., "Coffee time: 5 min based on peak hours")
+- **Decision logs visible** in admin panel
+- **Confidence indicators** on predictions and geocoding
+- **"How was this calculated?"** tooltips on complex values
+- **Audit trail** for system decisions
 
 ---
 
@@ -502,10 +542,24 @@ Before committing, verify:
 □ Only "Transport for Victoria" in documentation
 □ Only "opendata.transport.vic.gov.au" for Victorian APIs
 □ TRANSPORT_VICTORIA_GTFS_KEY environment variable used
-□ Design principles followed (section 4)
 □ Attribution requirements met (ATTRIBUTION.md)
 □ License notice included where appropriate
 □ Code comments reference correct sources
+
+DESIGN PRINCIPLES COMPLIANCE (Section 4):
+□ A. Ease of Use - One-step setup, auto-detection, smart defaults
+□ B. Visual Simplicity - Clean UI, tooltips, visual feedback
+□ C. Accuracy - Multi-source validation, confidence scores
+□ D. Intelligent Redundancies - Multiple sources, fallbacks, caching
+□ E. Customization - Profiles, preferences, configurable sources
+□ F. Technical Documentation - API docs, architecture, code comments
+□ G. Self-Hosting - Clear instructions, one-command deploy, env config
+□ H. Legal Compliance - CC BY-NC 4.0, attributions, privacy policy
+□ I. Privacy by Design - No tracking, minimal data, local-first
+□ J. Offline Resilience - Works offline, graceful degradation, sync
+□ K. Performance - <500ms APIs, <2s render, efficient caching
+□ L. Accessibility - WCAG 2.1 AA, high contrast, keyboard nav
+□ M. Transparency - Show sources, explain calculations, decision logs
 ```
 
 ---
@@ -517,7 +571,28 @@ Before committing, verify:
 
 ---
 
-**Version**: 1.0.0
+**Version**: 2.0.0
 **Last Updated**: 2026-01-25
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
+
+---
+
+## 📋 CHANGELOG
+
+### v2.0.0 (2026-01-25)
+- **MAJOR**: Added 5 new design principles (I-M)
+  - I. Privacy by Design
+  - J. Offline Resilience
+  - K. Performance & Efficiency
+  - L. Accessibility (WCAG Compliance)
+  - M. Transparency & Explainability
+- Updated compliance self-check with all 13 principles
+- Version bump to 2.0.0 (breaking change in principle count)
+
+### v1.0.2 (2026-01-25)
+- Added self-amending requirement
+- Fixed terminology inconsistencies
+
+### v1.0.0 (2026-01-25)
+- Initial release with 8 core design principles (A-H)
