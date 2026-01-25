@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+    PTV-TRMNL - Your Journey Today Display
+    Copyright (c) 2026 Angus Bergman
+    All rights reserved.
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Journey Today - PTV-TRMNL</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #2d3748;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      font-size: 14px;
+      color: #718096;
+    }
+
+    /* E-ink Display - 800x480 */
+    .eink-display {
+      width: 800px;
+      height: 480px;
+      background: white;
+      border: 3px solid #333;
+      position: relative;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Title: Your Journey Today */
+    .journey-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      border-bottom: 3px solid black;
+      padding-bottom: 10px;
+    }
+
+    /* Journey Timeline */
+    .journey-timeline {
+      position: relative;
+      margin-top: 20px;
+    }
+
+    .journey-leg {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .journey-leg:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 30px;
+      top: 60px;
+      width: 3px;
+      height: 40px;
+      background: #cbd5e0;
+      z-index: 0;
+    }
+
+    .transit-icon {
+      font-size: 36px;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border: 3px solid black;
+      border-radius: 50%;
+      margin-right: 20px;
+      z-index: 1;
+      flex-shrink: 0;
+    }
+
+    .transit-icon.delayed {
+      border-color: #e53e3e;
+      animation: pulse-red 2s infinite;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { background: white; }
+      50% { background: #fed7d7; }
+    }
+
+    .leg-details {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .leg-info {
+      flex: 1;
+    }
+
+    .leg-route {
+      font-size: 14px;
+      font-weight: bold;
+      color: #2d3748;
+      margin-bottom: 3px;
+    }
+
+    .leg-location {
+      font-size: 12px;
+      color: #4a5568;
+    }
+
+    .leg-time {
+      text-align: right;
+      padding-left: 20px;
+    }
+
+    .departure-time {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2d3748;
+      white-space: nowrap;
+    }
+
+    .departure-time.delayed {
+      color: #e53e3e;
+      text-decoration: line-through;
+    }
+
+    .revised-time {
+      font-size: 20px;
+      font-weight: bold;
+      color: #38a169;
+      margin-left: 10px;
+    }
+
+    .duration {
+      font-size: 11px;
+      color: #718096;
+      margin-top: 3px;
+    }
+
+    /* Arrival Box */
+    .arrival-box {
+      margin-top: 30px;
+      padding: 20px;
+      background: black;
+      color: white;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .arrival-label {
+      font-size: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+      opacity: 0.8;
+    }
+
+    .arrival-time {
+      font-size: 36px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    .arrival-location {
+      font-size: 14px;
+      margin-top: 5px;
+      opacity: 0.9;
+    }
+
+    /* Status indicators */
+    .status-banner {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .status-banner.on-time {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .status-banner.delayed {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+
+    .status-banner.disrupted {
+      background: #feebc8;
+      color: #7c2d12;
+    }
+
+    /* Live indicator */
+    .live-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #48bb78;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Info panel */
+    .info-panel {
+      margin-top: 30px;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .info-panel h3 {
+      font-size: 16px;
+      color: #2d3748;
+      margin-bottom: 15px;
+    }
+
+    .info-section {
+      margin-bottom: 20px;
+    }
+
+    .info-section h4 {
+      font-size: 14px;
+      color: #4a5568;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .info-section p {
+      font-size: 13px;
+      color: #718096;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .info-section ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .info-section li {
+      font-size: 13px;
+      color: #4a5568;
+      padding: 6px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .info-section li:last-child {
+      border-bottom: none;
+    }
+
+    .feature-icon {
+      display: inline-block;
+      width: 20px;
+      margin-right: 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 850px) {
+      .eink-display {
+        transform: scale(0.9);
+        transform-origin: top center;
+      }
+    }
+
+    @media (max-width: 750px) {
+      .eink-display {
+        transform: scale(0.7);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Your Journey Today</h1>
+      <p><span class="live-indicator"></span>Real-time journey visualization with live connection updates</p>
+    </div>
+
+    <!-- E-ink Display -->
+    <div class="eink-display">
+      <!-- Status Banner -->
+      <div class="status-banner on-time" id="statusBanner">
+        ✓ ON TIME
+      </div>
+
+      <!-- Journey Title -->
+      <div class="journey-title">Your Journey Today</div>
+
+      <!-- Journey Timeline -->
+      <div class="journey-timeline" id="journeyTimeline">
+        <!-- Example Journey Leg: Tram -->
+        <div class="journey-leg">
+          <div class="transit-icon">🚊</div>
+          <div class="leg-details">
+            <div class="leg-info">
+              <div class="leg-route">Tram 86 → Bourke St</div>
+              <div class="leg-location">From: Smith St / Gertrude St</div>
+            </div>
+            <div class="leg-time">
+              <div class="departure-time">7:42</div>
+              <div class="duration">12 min ride</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Example Journey Leg: Walk -->
+        <div class="journey-leg">
+          <div class="transit-icon">🚶</div>
+          <div class="leg-details">
+            <div class="leg-info">
+              <div class="leg-route">Walk to Station</div>
+              <div class="leg-location">To: Flinders Street Station</div>
+            </div>
+            <div class="leg-time">
+              <div class="departure-time">7:54</div>
+              <div class="duration">5 min walk</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Example Journey Leg: Train (with delay) -->
+        <div class="journey-leg">
+          <div class="transit-icon delayed">🚆</div>
+          <div class="leg-details">
+            <div class="leg-info">
+              <div class="leg-route">Cranbourne Line → Southern Cross</div>
+              <div class="leg-location">From: Flinders Street</div>
+            </div>
+            <div class="leg-time">
+              <div>
+                <span class="departure-time delayed">8:00</span>
+                <span class="revised-time">8:04</span>
+              </div>
+              <div class="duration">4 min delay</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Example Journey Leg: Final Walk -->
+        <div class="journey-leg">
+          <div class="transit-icon">🚶</div>
+          <div class="leg-details">
+            <div class="leg-info">
+              <div class="leg-route">Walk to Office</div>
+              <div class="leg-location">To: 123 Collins St</div>
+            </div>
+            <div class="leg-time">
+              <div class="departure-time">8:09</div>
+              <div class="duration">3 min walk</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrival Box -->
+      <div class="arrival-box">
+        <div class="arrival-label">ARRIVE AT WORK</div>
+        <div class="arrival-time" id="arrivalTime">8:16</div>
+        <div class="arrival-location">4 min later than planned</div>
+      </div>
+    </div>
+
+    <!-- Information Panel -->
+    <div class="info-panel">
+      <h3>📊 How the System Works</h3>
+
+      <div class="info-section">
+        <h4>🔄 Real-Time Connection Updates</h4>
+        <p>The system continuously monitors all transit services on your journey and automatically recalculates connections if delays or disruptions occur.</p>
+        <ul>
+          <li><span class="feature-icon">⚡</span> Live GTFS-Realtime data from Transport Victoria</li>
+          <li><span class="feature-icon">🔄</span> Updates every 30 seconds</li>
+          <li><span class="feature-icon">🎯</span> Intelligently adjusts connections to minimize delays</li>
+          <li><span class="feature-icon">📱</span> Shows revised times when disruptions detected</li>
+        </ul>
+      </div>
+
+      <div class="info-section">
+        <h4>🗺️ Multi-Tier Address Resolution</h4>
+        <p><strong>What is Fallback Mode?</strong> The system uses multiple geocoding services in priority order to find addresses and cafe locations with maximum accuracy:</p>
+        <ul>
+          <li><span class="feature-icon">1️⃣</span> Google Places API (best for cafes and businesses)</li>
+          <li><span class="feature-icon">2️⃣</span> Mapbox Geocoding (excellent street address accuracy)</li>
+          <li><span class="feature-icon">3️⃣</span> HERE Geocoding (optimized for Australian addresses)</li>
+          <li><span class="feature-icon">4️⃣</span> Foursquare Places (venues and popular locations)</li>
+          <li><span class="feature-icon">5️⃣</span> LocationIQ (free tier with good coverage)</li>
+          <li><span class="feature-icon">6️⃣</span> OpenStreetMap Nominatim (always available, no API key needed)</li>
+        </ul>
+        <p>If one service can't find your address, the system automatically tries the next one. This ensures your journey always works, even if some services are unavailable.</p>
+      </div>
+
+      <div class="info-section">
+        <h4>⏱️ Efficient Data Retrieval</h4>
+        <p>All data is pulled from the most up-to-date sources:</p>
+        <ul>
+          <li><span class="feature-icon">🚆</span> <strong>Transit Data:</strong> Live GTFS-Realtime feeds from Transport Victoria OpenData platform</li>
+          <li><span class="feature-icon">🌤️</span> <strong>Weather:</strong> Official Bureau of Meteorology (BOM) JSON feeds</li>
+          <li><span class="feature-icon">🗺️</span> <strong>Locations:</strong> 6-tier geocoding fallback system</li>
+          <li><span class="feature-icon">💾</span> <strong>Caching:</strong> 30-second cache to reduce API calls while maintaining freshness</li>
+        </ul>
+      </div>
+
+      <div class="info-section">
+        <h4>🎨 Transit Mode Icons</h4>
+        <p>Each connection displays an icon for instant recognition:</p>
+        <ul>
+          <li>🚆 <strong>Train</strong> - Metro and regional rail services</li>
+          <li>🚊 <strong>Tram</strong> - Yarra Trams network</li>
+          <li>🚌 <strong>Bus</strong> - Metro and regional buses</li>
+          <li>🚄 <strong>V/Line</strong> - Regional services</li>
+          <li>🚶 <strong>Walking</strong> - Walking segments between connections</li>
+        </ul>
+        <p>Icons turn red and pulse when delays are detected, making it easy to spot issues at a glance.</p>
+      </div>
+
+      <div class="info-section">
+        <h4>🧠 Intelligent Journey Planning</h4>
+        <p>The system brain connects multiple data points:</p>
+        <ol style="list-style: decimal; padding-left: 20px;">
+          <li style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+            <strong>User Input:</strong> Home address, cafe preference, work address, arrival time
+          </li>
+          <li style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+            <strong>State Detection:</strong> Automatically identifies transit authority from address
+          </li>
+          <li style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+            <strong>Location Resolution:</strong> Multi-tier geocoding finds exact coordinates
+          </li>
+          <li style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+            <strong>Route Calculation:</strong> Multi-modal router finds best journey with transit + walking
+          </li>
+          <li style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+            <strong>Live Monitoring:</strong> Continuous GTFS-RT updates detect delays/disruptions
+          </li>
+          <li style="padding: 8px 0;">
+            <strong>Dynamic Adjustment:</strong> Recalculates connections when service changes occur
+          </li>
+        </ol>
+      </div>
+
+      <div class="info-section">
+        <h4>📍 Sequential Data Flow</h4>
+        <p>Setup is designed for ease of use with intelligent defaults:</p>
+        <ul>
+          <li><span class="feature-icon">1️⃣</span> Enter home and work addresses first</li>
+          <li><span class="feature-icon">2️⃣</span> System auto-detects your state/territory from address</li>
+          <li><span class="feature-icon">3️⃣</span> Transit authority pre-selected based on location</li>
+          <li><span class="feature-icon">4️⃣</span> Links provided to register for API access</li>
+          <li><span class="feature-icon">5️⃣</span> Journey preferences configured last</li>
+        </ul>
+        <p>Each step flows naturally from the previous one, minimizing configuration time.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Live journey updates simulation
+    const API_URL = '/api/journey-status';
+
+    async function updateJourney() {
+      try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+
+        // Update status banner
+        const statusBanner = document.getElementById('statusBanner');
+        if (data.status === 'on-time') {
+          statusBanner.className = 'status-banner on-time';
+          statusBanner.textContent = '✓ ON TIME';
+        } else if (data.status === 'delayed') {
+          statusBanner.className = 'status-banner delayed';
+          statusBanner.textContent = '⚠ DELAYED';
+        } else if (data.status === 'disrupted') {
+          statusBanner.className = 'status-banner disrupted';
+          statusBanner.textContent = '⚠ DISRUPTED';
+        }
+
+        // Update arrival time
+        document.getElementById('arrivalTime').textContent = data.arrivalTime;
+
+        console.log('Journey updated:', data);
+      } catch (error) {
+        console.error('Error updating journey:', error);
+      }
+    }
+
+    // Update every 30 seconds
+    setInterval(updateJourney, 30000);
+    updateJourney();
+  </script>
+</body>
+</html>

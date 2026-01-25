@@ -1,0 +1,327 @@
+/**
+ * Multi-Tier Geocoding Service
+ * Intelligent address and business name resolution with multiple fallbacks
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * All rights reserved.
+ */
+
+import fetch from 'node-fetch';
+
+/**
+ * Geocoding Service with sequential fallback priority
+ *
+ * Priority Order:
+ * 1. Google Places API (best for businesses/cafes) - if API key configured
+ * 2. Mapbox Geocoding API (excellent accuracy) - if API key configured
+ * 3. HERE Geocoding API (good for Australian addresses) - if API key configured
+ * 4. OpenStreetMap Nominatim (free, no key, always available)
+ * 5. LocationIQ (free tier available)
+ *
+ * For Business/Cafe Names:
+ * 1. Google Places API (best)
+ * 2. Foursquare Places API (good for venues)
+ * 3. OpenStreetMap Nominatim (fallback)
+ */
+class GeocodingService {
+  constructor(config = {}) {
+    // API Keys (optional - fallback to free services if not provided)
+    this.googlePlacesKey = config.googlePlacesKey || process.env.GOOGLE_PLACES_KEY;
+    this.mapboxToken = config.mapboxToken || process.env.MAPBOX_TOKEN;
+    this.hereApiKey = config.hereApiKey || process.env.HERE_API_KEY;
+    this.foursquareApiKey = config.foursquareApiKey || process.env.FOURSQUARE_API_KEY;
+    this.locationIqKey = config.locationIqKey || process.env.LOCATIONIQ_KEY;
+
+    // Cache for geocoding results (in-memory)
+    this.cache = new Map();
+    this.cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
+  }
+
+  /**
+   * Main geocoding function - tries all available services in priority order
+   * @param {string} address - Address or business name to geocode
+   * @param {object} options - { country: 'AU', bias: { lat, lon }, type: 'address'|'business' }
+   * @returns {object} { lat, lon, formattedAddress, source }
+   */
+  async geocode(address, options = {}) {
+    // Check cache first
+    const cacheKey = `${address}:${options.country || 'AU'}:${options.type || 'address'}`;
+    if (this.cache.has(cacheKey)) {
+      const cached = this.cache.get(cacheKey);
+      if (Date.now() - cached.timestamp < this.cacheExpiry) {
+        console.log(`✓ Geocode cache hit: ${address}`);
+        return cached.result;
+      }
+    }
+
+    const country = options.country || 'AU';
+    const type = options.type || 'address';
+
+    let result = null;
+    const attempts = [];
+
+    // Sequential fallback chain
+    const services = [
+      // Tier 1: Google Places (best for everything, especially businesses)
+      { name: 'Google Places', fn: () => this.geocodeGooglePlaces(address, country, type) },
+
+      // Tier 2: Mapbox (excellent accuracy)
+      { name: 'Mapbox', fn: () => this.geocodeMapbox(address, country, options.bias) },
+
+      // Tier 3: HERE (good for Australian addresses)
+      { name: 'HERE', fn: () => this.geocodeHERE(address, country) },
+
+      // Tier 4: Foursquare (good for businesses/venues)
+      type === 'business' ? { name: 'Foursquare', fn: () => this.geocodeFoursquare(address, country, options.bias) } : null,
+
+      // Tier 5: LocationIQ (free tier)
+      { name: 'LocationIQ', fn: () => this.geocodeLocationIQ(address, country) },
+
+      // Tier 6: OpenStreetMap Nominatim (always available, free)
+      { name: 'Nominatim', fn: () => this.geocodeNominatim(address, country) }
+    ].filter(Boolean);
+
+    for (const service of services) {
+      try {
+        console.log(`Trying ${service.name} for: ${address}`);
+        result = await service.fn();
+
+        if (result && result.lat && result.lon) {
+          result.source = service.name;
+          attempts.push({ service: service.name, success: true });
+          console.log(`✅ ${service.name} succeeded: ${result.formattedAddress}`);
+          break;
+        }
+      } catch (error) {
+        attempts.push({ service: service.name, success: false, error: error.message });
+        console.log(`❌ ${service.name} failed: ${error.message}`);
+      }
+    }
+
+    if (!result) {
+      throw new Error(`All geocoding services failed for "${address}". Attempts: ${attempts.map(a => a.service).join(', ')}`);
+    }
+
+    // Cache the result
+    this.cache.set(cacheKey, {
+      result,
+      timestamp: Date.now()
+    });
+
+    return result;
+  }
+
+  /**
+   * Google Places API - Best for businesses and cafes
+   */
+  async geocodeGooglePlaces(query, country, type) {
+    if (!this.googlePlacesKey) {
+      throw new Error('Google Places API key not configured');
+    }
+
+    const searchType = type === 'business' ? 'textquery' : 'findplacefromtext';
+    const url = `https://maps.googleapis.com/maps/api/place/${searchType}/json?input=${encodeURIComponent(query)}&inputtype=textquery&fields=formatted_address,geometry,name&key=${this.googlePlacesKey}&region=${country.toLowerCase()}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.candidates && data.candidates.length > 0) {
+      const place = data.candidates[0];
+      return {
+        lat: place.geometry.location.lat,
+        lon: place.geometry.location.lng,
+        formattedAddress: place.formatted_address,
+        name: place.name
+      };
+    }
+
+    throw new Error(`Google Places: ${data.status}`);
+  }
+
+  /**
+   * Mapbox Geocoding API - Excellent accuracy
+   */
+  async geocodeMapbox(query, country, bias) {
+    if (!this.mapboxToken) {
+      throw new Error('Mapbox token not configured');
+    }
+
+    let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=${country}&limit=1&access_token=${this.mapboxToken}`;
+
+    if (bias && bias.lat && bias.lon) {
+      url += `&proximity=${bias.lon},${bias.lat}`;
+    }
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.features && data.features.length > 0) {
+      const feature = data.features[0];
+      return {
+        lat: feature.center[1],
+        lon: feature.center[0],
+        formattedAddress: feature.place_name
+      };
+    }
+
+    throw new Error('Mapbox: No results');
+  }
+
+  /**
+   * HERE Geocoding API - Good for Australian addresses
+   */
+  async geocodeHERE(query, country) {
+    if (!this.hereApiKey) {
+      throw new Error('HERE API key not configured');
+    }
+
+    const url = `https://geocode.search.hereapi.com/v1/geocode?q=${encodeURIComponent(query)}&in=countryCode:${country}&apiKey=${this.hereApiKey}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.items && data.items.length > 0) {
+      const item = data.items[0];
+      return {
+        lat: item.position.lat,
+        lon: item.position.lng,
+        formattedAddress: item.address.label
+      };
+    }
+
+    throw new Error('HERE: No results');
+  }
+
+  /**
+   * Foursquare Places API - Good for businesses and venues
+   */
+  async geocodeFoursquare(query, country, bias) {
+    if (!this.foursquareApiKey) {
+      throw new Error('Foursquare API key not configured');
+    }
+
+    let url = `https://api.foursquare.com/v3/places/search?query=${encodeURIComponent(query)}&limit=1`;
+
+    if (bias && bias.lat && bias.lon) {
+      url += `&ll=${bias.lat},${bias.lon}`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': this.foursquareApiKey,
+        'Accept': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.results && data.results.length > 0) {
+      const place = data.results[0];
+      return {
+        lat: place.geocodes.main.latitude,
+        lon: place.geocodes.main.longitude,
+        formattedAddress: `${place.name}, ${place.location.formatted_address}`,
+        name: place.name
+      };
+    }
+
+    throw new Error('Foursquare: No results');
+  }
+
+  /**
+   * LocationIQ - Free tier available
+   */
+  async geocodeLocationIQ(query, country) {
+    if (!this.locationIqKey) {
+      throw new Error('LocationIQ key not configured');
+    }
+
+    const url = `https://us1.locationiq.com/v1/search.php?key=${this.locationIqKey}&q=${encodeURIComponent(query)}&countrycodes=${country.toLowerCase()}&format=json&limit=1`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data && data.length > 0) {
+      const result = data[0];
+      return {
+        lat: parseFloat(result.lat),
+        lon: parseFloat(result.lon),
+        formattedAddress: result.display_name
+      };
+    }
+
+    throw new Error('LocationIQ: No results');
+  }
+
+  /**
+   * OpenStreetMap Nominatim - Always available, free, no API key
+   */
+  async geocodeNominatim(query, country) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}, ${country}&limit=1&addressdetails=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'PTV-TRMNL/1.0 (Educational; Contact: github.com/angusbergman17-cpu)'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data && data.length > 0) {
+      const result = data[0];
+      return {
+        lat: parseFloat(result.lat),
+        lon: parseFloat(result.lon),
+        formattedAddress: result.display_name
+      };
+    }
+
+    throw new Error('Nominatim: No results');
+  }
+
+  /**
+   * Specialized business/cafe search with enhanced name matching
+   */
+  async findBusiness(name, location, options = {}) {
+    const query = location ? `${name}, ${location}` : name;
+
+    return await this.geocode(query, {
+      ...options,
+      type: 'business'
+    });
+  }
+
+  /**
+   * Get available geocoding services
+   */
+  getAvailableServices() {
+    return {
+      googlePlaces: !!this.googlePlacesKey,
+      mapbox: !!this.mapboxToken,
+      here: !!this.hereApiKey,
+      foursquare: !!this.foursquareApiKey,
+      locationiq: !!this.locationIqKey,
+      nominatim: true // always available
+    };
+  }
+
+  /**
+   * Clear geocoding cache
+   */
+  clearCache() {
+    this.cache.clear();
+    console.log('Geocoding cache cleared');
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys())
+    };
+  }
+}
+
+export default GeocodingService;

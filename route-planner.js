@@ -212,16 +212,38 @@ class RoutePlanner {
 
   /**
    * Geocode an address to coordinates
-   * Uses OpenStreetMap Nominatim (free, no API key needed)
+   * Uses multi-tier geocoding service with intelligent fallbacks
+   * Priority: Google Places > Mapbox > HERE > Foursquare > LocationIQ > Nominatim
    */
-  async geocodeAddress(address) {
+  async geocodeAddress(address, type = 'address') {
     // Check cache first
     if (this.geocodeCache.has(address)) {
       return this.geocodeCache.get(address);
     }
 
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}, Melbourne, Australia&limit=1`;
+      // Use global geocoding service if available (multi-tier fallback)
+      if (global.geocodingService) {
+        const result = await global.geocodingService.geocode(address, {
+          country: 'AU',
+          type: type,
+          bias: { lat: -37.8136, lon: 144.9631 } // Melbourne CBD bias
+        });
+
+        const cachedResult = {
+          lat: result.lat,
+          lon: result.lon,
+          display_name: result.formattedAddress,
+          source: result.source
+        };
+
+        this.geocodeCache.set(address, cachedResult);
+        console.log(`✅ Geocoded: ${address} → (${result.lat}, ${result.lon}) [${result.source}]`);
+        return cachedResult;
+      }
+
+      // Fallback to Nominatim if geocoding service not initialized
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}, Australia&limit=1`;
 
       const response = await fetch(url, {
         headers: {
@@ -242,13 +264,12 @@ class RoutePlanner {
       const result = {
         lat: parseFloat(data[0].lat),
         lon: parseFloat(data[0].lon),
-        display_name: data[0].display_name
+        display_name: data[0].display_name,
+        source: 'Nominatim (fallback)'
       };
 
-      // Cache the result
       this.geocodeCache.set(address, result);
-
-      console.log(`✅ Geocoded: ${address} → (${result.lat}, ${result.lon})`);
+      console.log(`✅ Geocoded: ${address} → (${result.lat}, ${result.lon}) [Nominatim fallback]`);
       return result;
 
     } catch (error) {

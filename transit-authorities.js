@@ -8,38 +8,73 @@
 
 export const TRANSIT_AUTHORITIES = {
   VIC: {
-    id: 'vic_ptv',
-    name: 'Public Transport Victoria (PTV)',
+    id: 'vic_transport',
+    name: 'Transport Victoria',
     state: 'Victoria',
     stateCode: 'VIC',
-    apiName: 'PTV Timetable API',
+    apiName: 'Transport Victoria Open Data API',
     apiType: 'GTFS-RT',
-    description: 'Covers Melbourne metro trains, trams, buses, and regional V/Line services',
+    description: 'Latest GTFS Realtime data for Melbourne metro trains, trams, buses, and regional V/Line services',
 
-    // API Registration
-    registrationUrl: 'https://www.ptv.vic.gov.au/footer/data-and-reporting/datasets/ptv-timetable-api/',
-    documentationUrl: 'https://www.ptv.vic.gov.au/footer/data-and-reporting/datasets/ptv-timetable-api/',
+    // API Registration - Updated to OpenData platform
+    registrationUrl: 'https://opendata.transport.vic.gov.au/',
+    documentationUrl: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime',
+    apiGuideUrl: 'https://gtfs.org/realtime/',
 
     // Credentials required
     credentials: [
-      { key: 'devid', label: 'Developer ID', type: 'text', placeholder: 'Your PTV Developer ID' },
-      { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Your PTV API Key' }
+      { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Your Transport Victoria API Key', required: true }
     ],
 
-    // API Configuration
-    baseUrl: 'https://timetableapi.ptv.vic.gov.au',
-    authMethod: 'hmac-sha1',
+    // API Configuration - Updated endpoints
+    baseUrl: 'https://opendata.transport.vic.gov.au',
+    gtfsRealtimeEndpoints: {
+      metroTrain: {
+        tripUpdates: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/0010d606-47bf-4abb-a04f-63add63a4d23',
+        vehiclePositions: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/d0da6c3c-20f7-4b17-9279-118e34e7f2b5',
+        serviceAlerts: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/7d36a355-1c7e-4cc4-8d06-95ae2f91dbfa'
+      },
+      yarraTrams: {
+        tripUpdates: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/17745980-fdd1-4467-9c62-0167eee5cf39',
+        vehiclePositions: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/5bc31eb4-c7af-4d50-b2c7-bcdf8c0b9c4f',
+        serviceAlerts: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/c35521e8-c294-407c-b285-bed8c4222c7c'
+      },
+      metroBus: {
+        tripUpdates: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/c2cbf93f-5d29-4f91-86a9-95811291996d',
+        vehiclePositions: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/4583b565-9e35-46ab-a9fb-7c5d396e3c11',
+        serviceAlerts: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/e38c4519-ef63-47b2-8302-05c42fb01c59'
+      },
+      regionalBus: {
+        tripUpdates: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/9b6bf4e5-1a9e-4a6c-af8a-88f38efa4857',
+        vehiclePositions: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/4d90bbe1-2b0c-4894-9e14-7e1c83f8d7f2',
+        serviceAlerts: 'https://opendata.transport.vic.gov.au/dataset/gtfs-realtime/resource/47813b81-8ae6-41f1-adc5-19b7f8e2b0c6'
+      }
+    },
+    authMethod: 'api-key-header',
+    authHeaderName: 'Authorization',
+    rateLimit: 27, // calls per minute
+    cacheDuration: 30, // seconds
 
     // Transit modes available
     modes: [
-      { id: 0, name: 'Train', icon: '🚆', color: '#0072ce' },
-      { id: 1, name: 'Tram', icon: '🚊', color: '#78be20' },
-      { id: 2, name: 'Bus', icon: '🚌', color: '#ff8200' },
-      { id: 3, name: 'V/Line', icon: '🚄', color: '#8f1a95' }
+      { id: 0, name: 'Train', icon: '🚆', color: '#0072ce', gtfsType: 'metroTrain' },
+      { id: 1, name: 'Tram', icon: '🚊', color: '#78be20', gtfsType: 'yarraTrams' },
+      { id: 2, name: 'Bus', icon: '🚌', color: '#ff8200', gtfsType: 'metroBus' },
+      { id: 3, name: 'V/Line', icon: '🚄', color: '#8f1a95', gtfsType: 'regionalBus' }
     ],
 
     // Major cities/regions
-    cities: ['Melbourne', 'Geelong', 'Ballarat', 'Bendigo', 'Shepparton']
+    cities: ['Melbourne', 'Geelong', 'Ballarat', 'Bendigo', 'Shepparton'],
+
+    // API Features
+    features: {
+      tripUpdates: true,
+      vehiclePositions: true,
+      serviceAlerts: true,
+      scheduleRelationships: true,
+      routeId: true,
+      directionId: true
+    }
   },
 
   NSW: {

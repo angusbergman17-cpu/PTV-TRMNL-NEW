@@ -20,6 +20,7 @@ import CafeBusyDetector from './cafe-busy-detector.js';
 import PreferencesManager from './preferences-manager.js';
 import MultiModalRouter from './multi-modal-router.js';
 import SmartJourneyPlanner from './smart-journey-planner.js';
+import GeocodingService from './geocoding-service.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,11 @@ const busyDetector = new CafeBusyDetector();
 const preferences = new PreferencesManager();
 const multiModalRouter = new MultiModalRouter();
 const smartPlanner = new SmartJourneyPlanner();
+
+// Initialize multi-tier geocoding service (global for route planner)
+global.geocodingService = new GeocodingService();
+console.log('✅ Multi-tier geocoding service initialized');
+console.log('   Available services:', global.geocodingService.getAvailableServices());
 
 // Load preferences on startup
 preferences.load().then(() => {
@@ -879,6 +885,21 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'admin.html'));
 });
 
+// Journey display visualization
+app.get('/journey', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'journey-display.html'));
+});
+
+// Setup wizard
+app.get('/setup', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'setup-wizard.html'));
+});
+
+// Dashboard template
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'dashboard-template.html'));
+});
+
 // Get server status
 app.get('/admin/status', async (req, res) => {
   const apiConfig = await loadApiConfig();
@@ -1721,6 +1742,154 @@ app.get('/admin/route', (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+/**
+ * Journey Status - Real-time journey information with live connection updates
+ * GET /api/journey-status
+ *
+ * Returns current journey status including:
+ * - All journey legs with transit mode icons
+ * - Departure times (scheduled and revised if delayed)
+ * - Delay detection and live updates
+ * - Expected arrival time at work
+ * - Overall journey status (on-time, delayed, disrupted)
+ */
+app.get('/api/journey-status', async (req, res) => {
+  try {
+    // Get the cached journey plan
+    const journey = smartPlanner.getCachedJourney();
+
+    if (!journey || !journey.success) {
+      // Return fallback journey status
+      return res.json({
+        status: 'no-journey',
+        message: 'No journey planned. Configure your journey in the admin panel.',
+        arrivalTime: '--:--',
+        legs: []
+      });
+    }
+
+    // Get real-time data for delay detection
+    const liveData = await getData();
+
+    // Build journey legs with icons and times
+    const legs = [];
+    let overallStatus = 'on-time';
+    let totalDelay = 0;
+
+    // Parse the journey structure
+    const { route } = journey;
+
+    if (route && route.legs) {
+      for (const leg of route.legs) {
+        const legData = {
+          type: leg.type || 'walk',
+          icon: getTransitIcon(leg.type),
+          route: leg.route || 'Walking',
+          from: leg.from || '',
+          to: leg.to || '',
+          departureTime: leg.departureTime || '--:--',
+          arrivalTime: leg.arrivalTime || '--:--',
+          duration: leg.duration || 0,
+          delayed: false,
+          revisedTime: null
+        };
+
+        // Check for delays on transit legs
+        if (leg.type !== 'walk' && leg.type !== 'walking') {
+          const delay = await checkForDelays(leg, liveData);
+          if (delay > 0) {
+            legData.delayed = true;
+            legData.revisedTime = calculateRevisedTime(leg.departureTime, delay);
+            totalDelay += delay;
+            overallStatus = delay > 10 ? 'disrupted' : 'delayed';
+          }
+        }
+
+        legs.push(legData);
+      }
+    }
+
+    // Calculate final arrival time
+    const plannedArrival = journey.arrivalTime || '--:--';
+    const actualArrival = totalDelay > 0
+      ? calculateRevisedTime(plannedArrival, totalDelay)
+      : plannedArrival;
+
+    res.json({
+      status: overallStatus,
+      legs,
+      arrivalTime: actualArrival,
+      plannedArrival,
+      totalDelay,
+      lastUpdate: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Journey status error:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      arrivalTime: '--:--',
+      legs: []
+    });
+  }
+});
+
+// Helper: Get transit icon for leg type
+function getTransitIcon(type) {
+  const icons = {
+    'train': '🚆',
+    'tram': '🚊',
+    'bus': '🚌',
+    'vline': '🚄',
+    'ferry': '⛴️',
+    'walk': '🚶',
+    'walking': '🚶'
+  };
+  return icons[type?.toLowerCase()] || '🚶';
+}
+
+// Helper: Check for delays on a specific leg
+async function checkForDelays(leg, liveData) {
+  try {
+    // Compare scheduled vs actual departure times
+    if (leg.type === 'train' && liveData.trains) {
+      const relevantTrain = liveData.trains.find(t =>
+        t.destination === leg.destination || t.line === leg.route
+      );
+      if (relevantTrain && relevantTrain.delay) {
+        return relevantTrain.delay;
+      }
+    }
+
+    if (leg.type === 'tram' && liveData.trams) {
+      const relevantTram = liveData.trams.find(t =>
+        t.destination === leg.destination || t.route === leg.route
+      );
+      if (relevantTram && relevantTram.delay) {
+        return relevantTram.delay;
+      }
+    }
+
+    return 0; // No delay detected
+  } catch (error) {
+    console.error('Delay check error:', error);
+    return 0;
+  }
+}
+
+// Helper: Calculate revised time with delay
+function calculateRevisedTime(originalTime, delayMinutes) {
+  try {
+    const [hours, minutes] = originalTime.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes + delayMinutes);
+    return date.toTimeString().slice(0, 5);
+  } catch (error) {
+    return originalTime;
+  }
+}
 
 // Get PTV connections for cached route
 app.get('/admin/route/connections', async (req, res) => {
