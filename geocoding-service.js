@@ -287,10 +287,19 @@ class GeocodingService {
 
     if (data && data.length > 0) {
       const result = data[0];
+
+      // Extract business/place name from Nominatim result if available
+      let name = null;
+      if (result.address) {
+        name = result.address.amenity || result.address.shop || result.address.cafe ||
+               result.address.restaurant || result.address.name || result.name;
+      }
+
       return {
         lat: parseFloat(result.lat),
         lon: parseFloat(result.lon),
-        formattedAddress: result.display_name
+        formattedAddress: result.display_name,
+        name: name
       };
     }
 

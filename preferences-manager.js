@@ -18,6 +18,7 @@ class PreferencesManager {
       addresses: {
         home: '',
         cafe: '',
+        cafeName: '',  // Business name (e.g., "Seven Seeds Coffee")
         work: ''
       },
 
