@@ -4,6 +4,22 @@
 
 Built for the [TRMNL](https://usetrmnl.com) e-ink display (800x480).
 
+## 📚 Documentation
+
+**New to PTV-TRMNL?** Here's where to start:
+
+- **[DOCUMENTATION-INDEX.md](DOCUMENTATION-INDEX.md)** - Complete guide to all documentation
+- **[docs/guides/COMPLETE-BEGINNER-GUIDE.md](docs/guides/COMPLETE-BEGINNER-GUIDE.md)** - Step-by-step setup for beginners
+- **[docs/guides/OPENDATA-VIC-API-GUIDE.md](docs/guides/OPENDATA-VIC-API-GUIDE.md)** - Get your API credentials (Victoria)
+- **[docs/deployment/DEPLOYMENT-v2.5.0-COMPLETE.md](docs/deployment/DEPLOYMENT-v2.5.0-COMPLETE.md)** - Production deployment guide
+
+**Key Features**:
+- ✅ **Location-Agnostic**: Works anywhere in Australia - just enter your address!
+- ✅ **Automatic Setup**: System detects your state and configures itself
+- ✅ **Multi-State Support**: All 8 Australian states/territories supported
+- ✅ **Fallback Data**: 80+ transit stops - works even when APIs are offline
+- ✅ **Zero Configuration**: No hardcoded locations or defaults
+
 ## What You Get
 
 ```
@@ -133,16 +149,26 @@ The **server is the brain** - it calculates your leave time, checks coffee feasi
 ### Step 3: Configure Your Dashboard
 
 1. Open `https://your-app-name.onrender.com/admin`
-2. Go to the **Configuration** tab
-3. Enter your **API Key** and **API Token** (NOT "Developer ID" - we use the correct OpenData terminology)
-4. Go to the **Journey Planner** tab
-5. Enter your home address, work address, and favorite cafe name
-6. Set your work arrival time (e.g., 09:00)
-7. **Wait 1.5 seconds** - all fields auto-save (you'll see "✓ Saved" indicator)
-8. Journey calculation starts **automatically** - no need to click anything!
-9. Check "Automatic Journey Calculation" card - status should show "Active"
+2. Click the **🚀 Setup** tab (integrated wizard - no separate page!)
+3. **Step 1 - Addresses**:
+   - Enter your **home address** (autocomplete will help)
+   - System **automatically detects your state** from the address
+   - Enter **work address** and **cafe name** (optional)
+4. **Step 2 - Transit Routes**: Configure your route (train, tram, bus, etc.)
+5. **Step 3 - Journey Preferences**: Set your arrival time (e.g., 09:00)
+6. **Step 4 - API Credentials**:
+   - Enter your **API Key** and **API Token**
+   - (Labels match OpenData portal exactly)
+7. Click **Complete Setup**
+8. Journey calculation starts **automatically** - system is now fully configured!
 
-**Note**: Everything is automatic! Auto-save, auto-calculation, auto-updates every 2 minutes.
+**Location-Agnostic Magic**:
+- ✅ No need to select your state - system detects it automatically
+- ✅ Transit authority configured based on your address
+- ✅ Everything cascades from your home address
+- ✅ Works anywhere in Australia (all 8 states supported)
+
+**Need More Help?** See **[docs/guides/COMPLETE-BEGINNER-GUIDE.md](docs/guides/COMPLETE-BEGINNER-GUIDE.md)** for detailed step-by-step instructions.
 
 ### Step 4: Flash Your TRMNL Device
 
@@ -1863,6 +1889,30 @@ MIT License - Customize for your own commute!
 - Your support helps allocate time to this project
 - Funds continued development and improvements
 - 100% optional, system is free to use
+
+---
+
+## 📖 Complete Documentation
+
+All documentation has been organized for easy navigation:
+
+### 🚀 Getting Started
+- **[DOCUMENTATION-INDEX.md](DOCUMENTATION-INDEX.md)** - Master index of all documentation
+- **[COMPLETE-BEGINNER-GUIDE.md](docs/guides/COMPLETE-BEGINNER-GUIDE.md)** - Step-by-step setup guide
+- **[OPENDATA-VIC-API-GUIDE.md](docs/guides/OPENDATA-VIC-API-GUIDE.md)** - API credentials for Victoria
+
+### 🔧 Technical Documentation
+- **[SYSTEM-ARCHITECTURE.md](SYSTEM-ARCHITECTURE.md)** - Technical architecture and design
+- **[VERSION-MANAGEMENT.md](VERSION-MANAGEMENT.md)** - How versions are managed
+- **[VISUAL-AUDIT-v2.md](docs/guides/VISUAL-AUDIT-v2.md)** - Testing and QA procedures
+
+### 🚀 Deployment
+- **[DEPLOYMENT-v2.5.0-COMPLETE.md](docs/deployment/DEPLOYMENT-v2.5.0-COMPLETE.md)** - Production deployment guide
+- **[LIVE-SYSTEM-AUDIT.md](docs/deployment/LIVE-SYSTEM-AUDIT.md)** - User perspective audit
+- **[FINAL-AUDIT-SUMMARY.md](docs/deployment/FINAL-AUDIT-SUMMARY.md)** - Audit results (10/10 pass)
+
+### 📦 Archived Documentation
+Older documentation is kept in `docs/archive/` for historical reference.
 
 ---
 
