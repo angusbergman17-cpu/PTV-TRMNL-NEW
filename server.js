@@ -39,6 +39,9 @@ app.use(express.json());
 // Initialize preferences first (needed by other modules for state-agnostic operation)
 const preferences = new PreferencesManager();
 
+// Configuration validation flag
+let isConfigured = false;
+
 // Initialize all modules (pass preferences where needed for state awareness)
 const coffeeEngine = new CoffeeDecision();
 const weather = new WeatherBOM(preferences);
@@ -154,14 +157,48 @@ function startAutomaticJourneyCalculation() {
 preferences.load().then(() => {
   console.log('✅ User preferences loaded');
   const status = preferences.getStatus();
-  if (!status.configured) {
+  isConfigured = status.configured;
+
+  if (!isConfigured) {
     console.log('⚠️  User preferences not fully configured');
-    console.log('   Please configure via admin panel: /admin');
+    console.log('   Please complete setup wizard: /setup');
+    console.log('   System will operate in limited mode until configured');
   } else {
+    console.log('✅ System fully configured');
     // Start automatic journey calculation if configured
     startAutomaticJourneyCalculation();
   }
 });
+
+/**
+ * Configuration Validation Middleware
+ * Ensures critical endpoints are only accessible when system is configured
+ */
+function requireConfiguration(req, res, next) {
+  if (!isConfigured) {
+    // Check if this is a setup-related or admin route
+    const allowedPaths = ['/setup', '/admin', '/api/version', '/api/transit-authorities'];
+    const isAllowed = allowedPaths.some(path => req.path.startsWith(path));
+
+    if (isAllowed) {
+      return next();
+    }
+
+    // For API endpoints, return JSON error
+    if (req.path.startsWith('/api/')) {
+      return res.status(503).json({
+        error: 'System not configured',
+        message: 'Please complete the setup wizard at /setup',
+        configured: false
+      });
+    }
+
+    // For HTML pages, redirect to setup wizard
+    return res.redirect('/setup');
+  }
+
+  next();
+}
 
 /**
  * Fallback timetable - typical weekday schedule
@@ -500,6 +537,93 @@ app.get('/api/version', (req, res) => {
   }
 });
 
+/**
+ * Get Required Attributions
+ * Returns data source attributions based on configured transit authority
+ */
+app.get('/api/attributions', (req, res) => {
+  try {
+    const prefs = preferences.get();
+    const attributions = [];
+
+    // Software attribution (always shown)
+    attributions.push({
+      name: 'PTV-TRMNL',
+      text: 'Created by Angus Bergman',
+      license: 'CC BY-NC 4.0',
+      required: true,
+      priority: 1
+    });
+
+    // Transit Authority (based on configuration)
+    const transitAuthority = prefs?.location?.transitAuthority || prefs?.location?.state;
+    if (transitAuthority) {
+      const authorityMappings = {
+        'VIC': { name: 'Transport Victoria', text: 'Data © Transport Victoria', license: 'CC BY 4.0' },
+        'NSW': { name: 'Transport for NSW', text: 'Data © Transport for NSW', license: 'CC BY 4.0' },
+        'QLD': { name: 'TransLink', text: 'Data © TransLink Queensland', license: 'Open Data License' },
+        'WA': { name: 'Transperth', text: 'Data © Transperth', license: 'Creative Commons' },
+        'SA': { name: 'Adelaide Metro', text: 'Data © Adelaide Metro', license: 'Data.SA License' },
+        'TAS': { name: 'Metro Tasmania', text: 'Data © Metro Tasmania', license: 'Open Data' },
+        'ACT': { name: 'Transport Canberra', text: 'Data © Transport Canberra', license: 'CC BY 4.0' },
+        'NT': { name: 'Department of Infrastructure', text: 'Data © NT Government', license: 'Open Data' }
+      };
+
+      const authority = authorityMappings[transitAuthority];
+      if (authority) {
+        attributions.push({
+          name: authority.name,
+          text: authority.text,
+          license: authority.license,
+          required: true,
+          priority: 2
+        });
+      }
+    }
+
+    // Weather data (always used)
+    attributions.push({
+      name: 'Bureau of Meteorology',
+      text: 'Weather data © Commonwealth of Australia, Bureau of Meteorology',
+      license: 'CC BY 3.0 AU',
+      required: true,
+      priority: 3
+    });
+
+    // Geocoding services (based on what's configured)
+    // Always show OpenStreetMap as it's the fallback
+    attributions.push({
+      name: 'OpenStreetMap',
+      text: '© OpenStreetMap contributors',
+      license: 'ODbL',
+      required: true,
+      priority: 4
+    });
+
+    // Optional services (only if API keys are configured)
+    if (process.env.GOOGLE_PLACES_API_KEY) {
+      attributions.push({
+        name: 'Google Places',
+        text: 'Powered by Google',
+        license: 'Google Maps Platform ToS',
+        required: false,
+        priority: 5
+      });
+    }
+
+    res.json({
+      attributions: attributions.sort((a, b) => a.priority - b.priority),
+      transitAuthority: transitAuthority || 'Not configured',
+      location: prefs?.location?.city || prefs?.location?.stateName || 'Not configured'
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      attributions: []
+    });
+  }
+});
+
 // Decision log endpoints (transparency and troubleshooting)
 app.get('/api/decisions', (req, res) => {
   try {
@@ -643,7 +767,7 @@ app.get('/api/status', async (req, res) => {
 });
 
 // TRMNL screen endpoint (JSON markup)
-app.get('/api/screen', async (req, res) => {
+app.get('/api/screen', requireConfiguration, async (req, res) => {
   try {
     const data = await getData();
 
@@ -3311,7 +3435,7 @@ app.post('/admin/server/restart', (req, res) => {
 });
 
 // Preview HTML page
-app.get('/preview', (req, res) => {
+app.get('/preview', requireConfiguration, (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>

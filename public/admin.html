@@ -1096,12 +1096,10 @@
                 PTV-TRMNL - Intelligent Transit Display System
             </p>
 
-            <!-- Attribution Notice -->
-            <div style="margin-top: 15px; padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border-left: 2px solid rgba(237, 137, 54, 0.3); font-size: 11px; opacity: 0.7;">
-                <p style="margin: 0; line-height: 1.5;">
-                    Created by <strong>Angus Bergman</strong> • Licensed under CC BY-NC 4.0<br>
-                    <span style="font-size: 10px; opacity: 0.8;">Attribution required for all uses</span>
-                </p>
+            <!-- Data Source Attributions (Dynamic based on configuration) -->
+            <div id="attributions-footer" style="margin-top: 15px; padding: 10px 12px; background: rgba(255, 255, 255, 0.03); border-left: 2px solid rgba(237, 137, 54, 0.3); font-size: 10px; opacity: 0.7; line-height: 1.6;">
+                <div style="font-weight: 600; margin-bottom: 6px; font-size: 11px; opacity: 0.9;">Data Source Attributions</div>
+                <div id="attributions-content" style="font-size: 10px;">Loading...</div>
             </div>
 
             <!-- License Information (Collapsible) -->
@@ -1152,6 +1150,7 @@
             loadAllData();
             loadSavedPreferences();
             loadVersionInfo();
+            loadAttributions();
             refreshInterval = setInterval(loadAllData, 30000);
         });
 
@@ -1166,6 +1165,26 @@
                 .catch(() => {
                     document.getElementById('versionHash').textContent = 'v2.0.0';
                     document.getElementById('buildDate').textContent = new Date().toISOString().split('T')[0];
+                });
+        }
+
+        // Load required attributions based on configuration
+        function loadAttributions() {
+            fetch('/api/attributions')
+                .then(r => r.json())
+                .then(data => {
+                    const content = document.getElementById('attributions-content');
+                    if (data.attributions && data.attributions.length > 0) {
+                        content.innerHTML = data.attributions.map(attr => {
+                            const required = attr.required ? ' (Required)' : ' (Optional)';
+                            return `<div style="margin-bottom: 4px;">• ${attr.text} • ${attr.license}${attr.required ? '' : required}</div>`;
+                        }).join('');
+                    } else {
+                        content.innerHTML = '<div>No attributions loaded</div>';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('attributions-content').innerHTML = 'Created by <strong>Angus Bergman</strong> • Licensed under CC BY-NC 4.0';
                 });
         }
 

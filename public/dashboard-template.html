@@ -331,6 +331,12 @@
       <span class="separator">•</span>
       <span class="version-value">© 2026 Angus Bergman</span>
     </div>
+
+    <!-- Data Source Attributions -->
+    <div id="attributions-footer" style="margin-top: 20px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 10px; opacity: 0.7; line-height: 1.6; max-width: 800px; margin-left: auto; margin-right: auto;">
+      <div style="font-weight: 600; margin-bottom: 6px; font-size: 11px;">Data Source Attributions</div>
+      <div id="attributions-content">Loading...</div>
+    </div>
   </div>
 
   <script>
@@ -344,6 +350,21 @@
       .catch(() => {
         document.getElementById('versionHash').textContent = 'v2.0.0';
         document.getElementById('buildDate').textContent = new Date().toISOString().split('T')[0];
+      });
+
+    // Load required attributions
+    fetch('/api/attributions')
+      .then(r => r.json())
+      .then(data => {
+        const content = document.getElementById('attributions-content');
+        if (data.attributions && data.attributions.length > 0) {
+          content.innerHTML = data.attributions.map(attr =>
+            `<div style="margin-bottom: 3px;">• ${attr.text}</div>`
+          ).join('');
+        }
+      })
+      .catch(() => {
+        document.getElementById('attributions-content').innerHTML = 'Created by Angus Bergman • CC BY-NC 4.0';
       });
   </script>
   <script>
