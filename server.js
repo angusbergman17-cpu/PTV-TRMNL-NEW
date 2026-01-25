@@ -1827,9 +1827,121 @@ app.put('/admin/preferences/journey', async (req, res) => {
   }
 });
 
+// GTFS Realtime API configuration (Victorian users)
+app.post('/admin/apis/gtfs-realtime', async (req, res) => {
+  try {
+    const { subscription_key } = req.body;
+
+    if (!subscription_key) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subscription key is required'
+      });
+    }
+
+    // Store in preferences
+    const prefs = preferences.get();
+    prefs.gtfsRealtime = { subscription_key };
+    await preferences.save();
+
+    console.log('✅ GTFS Realtime API key saved');
+
+    res.json({
+      success: true,
+      message: 'GTFS Realtime API key saved successfully'
+    });
+  } catch (error) {
+    console.error('❌ GTFS Realtime save error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Test GTFS Realtime API connection
+app.post('/admin/apis/gtfs-realtime/test', async (req, res) => {
+  try {
+    const { subscription_key } = req.body;
+
+    if (!subscription_key) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subscription key is required'
+      });
+    }
+
+    console.log('🧪 Testing GTFS Realtime API connection...');
+
+    // Test the GTFS Realtime API
+    const testUrl = 'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro/trip-updates';
+    const response = await fetch(testUrl, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': subscription_key
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API returned status ${response.status}: ${response.statusText}`);
+    }
+
+    // Get the response as binary data
+    const buffer = await response.arrayBuffer();
+    const dataSize = buffer.byteLength;
+
+    console.log(`✅ GTFS Realtime test successful: received ${dataSize} bytes`);
+
+    res.json({
+      success: true,
+      message: 'Connection successful',
+      tripCount: 'Data received',
+      dataSize: `${(dataSize / 1024).toFixed(2)} KB`
+    });
+  } catch (error) {
+    console.error('❌ GTFS Realtime test failed:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Additional APIs configuration (Google Places, Mapbox, RSS feeds)
+app.post('/admin/apis/additional', async (req, res) => {
+  try {
+    const { google_places, mapbox, rss_feeds } = req.body;
+
+    // Store in environment variables / preferences
+    const prefs = preferences.get();
+    prefs.additionalAPIs = {
+      google_places: google_places || null,
+      mapbox: mapbox || null,
+      rss_feeds: rss_feeds || []
+    };
+    await preferences.save();
+
+    console.log('✅ Additional APIs saved:', {
+      googlePlaces: !!google_places,
+      mapbox: !!mapbox,
+      rssFeeds: rss_feeds?.length || 0
+    });
+
+    res.json({
+      success: true,
+      message: 'Additional APIs saved successfully'
+    });
+  } catch (error) {
+    console.error('❌ Additional APIs save error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // Get preferences status
 app.get('/admin/preferences/status', (req, res) => {
-  try {
+  try{
     const status = preferences.getStatus();
 
     res.json({
@@ -1996,9 +2108,9 @@ app.post('/admin/smart-setup', async (req, res) => {
 // Helper function to get transit authority for state
 function getTransitAuthorityForState(state) {
   const authorities = {
-    'VIC': 'Public Transport Victoria (PTV)',
+    'VIC': 'Transport for Victoria',
     'NSW': 'Transport for NSW',
-    'QLD': 'TransLink',
+    'QLD': 'TransLink (Queensland)',
     'SA': 'Adelaide Metro',
     'WA': 'Transperth',
     'TAS': 'Metro Tasmania',

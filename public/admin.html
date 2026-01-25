@@ -925,27 +925,102 @@
             </div>
 
             <div class="grid">
+                <!-- Transit Authority API Credentials -->
                 <div class="card">
                     <div class="card-header">
                         <span class="card-icon">🔑</span>
-                        <h2>PTV API Credentials</h2>
+                        <h2 id="transit-api-title">Transit Authority API</h2>
                     </div>
-                    <p style="margin-bottom: 15px; opacity: 0.8; font-size: 13px;">
-                        Add credentials from <a href="https://data.vic.gov.au/data/dataset/ptv-timetable-api" target="_blank" style="color: #667eea;">OpenData Transport Victoria</a> for live transit data
-                    </p>
+                    <div id="transit-api-description" style="margin-bottom: 15px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px;">
+                        <p style="margin: 0; opacity: 0.9; font-size: 13px;">
+                            <strong>Victoria:</strong> For PTV Timetable API v3 credentials, visit
+                            <a href="https://data.vic.gov.au/data/dataset/ptv-timetable-api" target="_blank" style="color: #667eea;">OpenData Transport Victoria</a>
+                        </p>
+                        <p style="margin: 8px 0 0 0; opacity: 0.8; font-size: 12px;">
+                            See <strong>VICTORIA-GTFS-REALTIME-PROTOCOL.md</strong> for GTFS Realtime API instructions
+                        </p>
+                    </div>
                     <div id="api-message"></div>
                     <div class="form-group">
                         <label class="form-label">API Key</label>
-                        <input type="text" id="ptv-dev-id" class="form-input" placeholder="Your API Key from OpenData Transport Victoria">
-                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 5px;">Previously called "Developer ID"</small>
+                        <input type="text" id="ptv-dev-id" class="form-input" placeholder="Your API Key">
+                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 5px;">
+                            VIC: Previously called "Developer ID" | Other states: Check your transit authority portal
+                        </small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">API Token</label>
+                        <label class="form-label">API Token / Secret</label>
                         <input type="password" id="ptv-api-key" class="form-input" placeholder="Your API Token">
                     </div>
                     <div style="display: flex; gap: 10px;">
                         <button class="btn" onclick="savePtvConfig()">Save</button>
                         <button class="btn btn-secondary" onclick="testPtvApi()">Test</button>
+                    </div>
+                </div>
+
+                <!-- Victorian GTFS Realtime API (Victoria only) -->
+                <div id="victoria-gtfs-config" class="card" style="display: none;">
+                    <div class="card-header">
+                        <span class="card-icon">🚂</span>
+                        <h2>GTFS Realtime API (Victoria)</h2>
+                    </div>
+                    <p style="margin-bottom: 15px; opacity: 0.9; font-size: 13px;">
+                        For real-time metro train updates via Transport for Victoria's OpenData portal
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">GTFS Realtime Subscription Key</label>
+                        <input type="password" id="gtfs-realtime-key" class="form-input" placeholder="Your subscription key from opendata.transport.vic.gov.au">
+                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 5px;">
+                            Get your key at <a href="https://opendata.transport.vic.gov.au/" target="_blank" style="color: #667eea;">opendata.transport.vic.gov.au</a>
+                        </small>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" onclick="saveGtfsRealtimeConfig()">Save</button>
+                        <button class="btn btn-secondary" onclick="testGtfsRealtimeApi()">Test</button>
+                    </div>
+                </div>
+
+                <!-- Additional API Keys -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-icon">🌐</span>
+                        <h2>Additional Data Sources</h2>
+                    </div>
+                    <p style="margin-bottom: 15px; opacity: 0.9; font-size: 13px;">
+                        Optional: Add Google Places, Mapbox, or custom RSS feeds for enhanced functionality
+                    </p>
+
+                    <div class="form-group">
+                        <label class="form-label">Google Places API Key (Optional)</label>
+                        <input type="password" id="google-places-key" class="form-input" placeholder="For enhanced geocoding and cafe busy-ness detection">
+                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 5px;">
+                            Get from <a href="https://console.cloud.google.com/" target="_blank" style="color: #667eea;">Google Cloud Console</a>
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Mapbox Access Token (Optional)</label>
+                        <input type="password" id="mapbox-token" class="form-input" placeholder="For additional geocoding coverage">
+                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 5px;">
+                            Get from <a href="https://account.mapbox.com/" target="_blank" style="color: #667eea;">Mapbox Account</a>
+                        </small>
+                    </div>
+
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="margin: 0; font-size: 14px; font-weight: 600;">Custom RSS Feeds</h3>
+                            <button class="btn btn-secondary" onclick="addRssFeed()" style="padding: 6px 12px; font-size: 12px;">+ Add Feed</button>
+                        </div>
+                        <div id="rss-feeds-list" style="display: grid; gap: 10px;">
+                            <!-- RSS feeds will be populated here -->
+                            <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; text-align: center; opacity: 0.6; font-size: 13px;">
+                                No custom RSS feeds added yet
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn" onclick="saveAdditionalAPIs()">Save All</button>
                     </div>
                 </div>
 
@@ -1806,6 +1881,26 @@
                 `);
             }
 
+            // Victorian GTFS Realtime API (Victoria only)
+            if (state === 'VIC') {
+                sources.push(`
+                    <div style="padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border-left: 3px solid #667eea;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="font-weight: 600; font-size: 14px;">🚂 Transport for Victoria - GTFS Realtime</div>
+                            <span style="padding: 4px 10px; background: rgba(251, 191, 36, 0.2); border-radius: 12px; font-size: 11px; font-weight: 600; color: #fbbf24;">
+                                Configure in API section
+                            </span>
+                        </div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-bottom: 5px;">
+                            <strong>Purpose:</strong> Real-time metro train trip updates (delays, cancellations)
+                        </div>
+                        <div style="font-size: 11px; opacity: 0.6;">
+                            https://api.opendata.transport.vic.gov.au • See <strong>VICTORIA-GTFS-REALTIME-PROTOCOL.md</strong>
+                        </div>
+                    </div>
+                `);
+            }
+
             // Fallback Timetables
             sources.push(`
                 <div style="padding: 15px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border-left: 3px solid #8b5cf6;">
@@ -1898,15 +1993,27 @@
 
         function updateVictorianGTFSViewer(state) {
             const viewer = document.getElementById('victoria-gtfs-viewer');
-            if (!viewer) return;
+            const gtfsConfig = document.getElementById('victoria-gtfs-config');
+            const transitApiTitle = document.getElementById('transit-api-title');
+            const transitApiDesc = document.getElementById('transit-api-description');
 
-            // Show viewer only for Victorian users
+            // Show/hide Victorian-specific elements
             if (state === 'VIC') {
-                viewer.style.display = 'block';
-                console.log('✅ Victorian GTFS Realtime viewer enabled');
+                if (viewer) viewer.style.display = 'block';
+                if (gtfsConfig) gtfsConfig.style.display = 'block';
+
+                // Update transit API title for Victorian users
+                if (transitApiTitle) transitApiTitle.textContent = 'Transport for Victoria - PTV Timetable API v3';
+
+                console.log('✅ Victorian GTFS Realtime features enabled');
             } else {
-                viewer.style.display = 'none';
-                console.log(`ℹ️  Victorian GTFS viewer hidden (state: ${state})`);
+                if (viewer) viewer.style.display = 'none';
+                if (gtfsConfig) gtfsConfig.style.display = 'none';
+
+                // Generic title for non-Victorian users
+                if (transitApiTitle) transitApiTitle.textContent = 'Transit Authority API';
+
+                console.log(`ℹ️  Victorian GTFS features hidden (state: ${state})`);
             }
         }
 
@@ -2383,6 +2490,130 @@
         async function testPtvApi() {
             const data = await fetch(BASE_URL + '/api/status').then(r => r.json());
             showMessage('api-message', data.dataMode === 'Live' ? 'Connected!' : 'Not connected', data.dataMode === 'Live' ? 'success' : 'error');
+        }
+
+        async function saveGtfsRealtimeConfig() {
+            try {
+                const key = document.getElementById('gtfs-realtime-key').value;
+                await fetch(BASE_URL + '/admin/apis/gtfs-realtime', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscription_key: key })
+                });
+                showMessage('api-message', '✅ GTFS Realtime key saved!', 'success');
+            } catch (e) {
+                showMessage('api-message', '❌ Error saving key', 'error');
+                console.error('GTFS Realtime save error:', e);
+            }
+        }
+
+        async function testGtfsRealtimeApi() {
+            try {
+                const key = document.getElementById('gtfs-realtime-key').value;
+                if (!key) {
+                    showMessage('api-message', '⚠️ Please enter a subscription key first', 'error');
+                    return;
+                }
+
+                showMessage('api-message', '🔄 Testing connection...', 'info');
+
+                const response = await fetch(BASE_URL + '/admin/apis/gtfs-realtime/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscription_key: key })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('api-message', `✅ Connected! Received ${result.tripCount || 0} trip updates`, 'success');
+                } else {
+                    showMessage('api-message', `❌ ${result.message || 'Connection failed'}`, 'error');
+                }
+            } catch (e) {
+                showMessage('api-message', '❌ Test failed: ' + e.message, 'error');
+                console.error('GTFS Realtime test error:', e);
+            }
+        }
+
+        async function saveAdditionalAPIs() {
+            try {
+                const googleKey = document.getElementById('google-places-key').value;
+                const mapboxToken = document.getElementById('mapbox-token').value;
+
+                await fetch(BASE_URL + '/admin/apis/additional', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        google_places: googleKey || null,
+                        mapbox: mapboxToken || null,
+                        rss_feeds: window.customRssFeeds || []
+                    })
+                });
+
+                showMessage('api-message', '✅ Additional APIs saved!', 'success');
+            } catch (e) {
+                showMessage('api-message', '❌ Error saving', 'error');
+                console.error('Additional APIs save error:', e);
+            }
+        }
+
+        // Initialize global RSS feeds array
+        window.customRssFeeds = window.customRssFeeds || [];
+
+        function addRssFeed() {
+            const feedUrl = prompt('Enter RSS feed URL:');
+            if (!feedUrl) return;
+
+            const feedName = prompt('Enter a name for this feed (optional):');
+
+            const feed = {
+                url: feedUrl,
+                name: feedName || feedUrl,
+                enabled: true,
+                id: Date.now().toString()
+            };
+
+            window.customRssFeeds.push(feed);
+            renderRssFeeds();
+        }
+
+        function removeRssFeed(feedId) {
+            window.customRssFeeds = window.customRssFeeds.filter(f => f.id !== feedId);
+            renderRssFeeds();
+        }
+
+        function toggleRssFeed(feedId) {
+            const feed = window.customRssFeeds.find(f => f.id === feedId);
+            if (feed) {
+                feed.enabled = !feed.enabled;
+                renderRssFeeds();
+            }
+        }
+
+        function renderRssFeeds() {
+            const container = document.getElementById('rss-feeds-list');
+            if (!container) return;
+
+            if (window.customRssFeeds.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; text-align: center; opacity: 0.6; font-size: 13px;">
+                        No custom RSS feeds added yet
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = window.customRssFeeds.map(feed => `
+                <div style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" ${feed.enabled ? 'checked' : ''} onchange="toggleRssFeed('${feed.id}')" style="cursor: pointer;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 13px;">${feed.name}</div>
+                        <div style="font-size: 11px; opacity: 0.7; word-break: break-all;">${feed.url}</div>
+                    </div>
+                    <button onclick="removeRssFeed('${feed.id}')" class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;">Remove</button>
+                </div>
+            `).join('');
         }
 
         function saveDisplaySettings() {
