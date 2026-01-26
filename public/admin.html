@@ -2522,6 +2522,59 @@
     </div>
 
     <script>
+        /**
+         * ========================================================================
+         * CRITICAL: DEVELOPMENT RULES COMPLIANCE REQUIRED
+         * ========================================================================
+         *
+         * ALL CODE IN THIS FILE MUST COMPLY WITH:
+         * docs/development/DEVELOPMENT-RULES.md (v1.0.12)
+         *
+         * TOP PRIORITY REQUIREMENTS:
+         *
+         * 1. LOCATION AGNOSTIC (Section K):
+         *    - NO hardcoded locations (Melbourne, Victoria, etc.)
+         *    - NO hardcoded timezones (Australia/Melbourne)
+         *    - MUST detect state from user input
+         *    - MUST use dynamic timezone based on detected state
+         *    - MUST support all 8 Australian states/territories equally
+         *
+         * 2. USER-FIRST API KEY FLOW (Section R):
+         *    - Setup MUST work WITHOUT API keys (fallback data)
+         *    - API keys are OPTIONAL enhancements
+         *    - Clear indicators: fallback vs live data
+         *
+         * 3. TERMINOLOGY (Section 3):
+         *    - Use "Transport for Victoria" or "Transport Victoria"
+         *    - NEVER use "PTV" or "Public Transport Victoria"
+         *    - Use "ODATA_API_KEY" for environment variables
+         *
+         * 4. ROBUST ERROR HANDLING (Section N):
+         *    - Timeout protection on all external calls
+         *    - Circuit breakers for APIs
+         *    - Graceful degradation
+         *
+         * 5. TRMNL BYOS COMPLIANCE (Section P):
+         *    - 7.5" e-ink display (800x480 or 480x800)
+         *    - BYOS webhook format required
+         *    - Respect e-ink refresh limits
+         *
+         * 6. RENDER COMPATIBILITY (Section Q):
+         *    - Use process.cwd() for file paths
+         *    - Correct relative imports
+         *    - Memory optimization for free tier
+         *
+         * BEFORE MAKING CHANGES:
+         * - Read DEVELOPMENT-RULES.md sections 1-4
+         * - Check for forbidden terms (Section 1)
+         * - Verify location agnostic principles (Section K)
+         * - Test with fallback data (no API keys)
+         * - Run compliance self-check (Section 15)
+         *
+         * VIOLATIONS OF THESE RULES ARE NOT PERMITTED.
+         * ========================================================================
+         */
+
         const BASE_URL = window.location.origin;
         let refreshInterval;
 
@@ -5177,25 +5230,55 @@
                 if (result.success) {
                     progressText.textContent = '✅ Journey configured! Loading Live Data...';
 
-                    // Show success toast
-                    showToast('success', 'Journey Configured!',
-                        `${result.state || 'State detected'} | ${result.stopsFound || 0} stops found | ${result.routeMode || 'Route mode'} selected`
-                    );
-
-                    // Immediately switch to Live Data tab (don't wait)
+                    // Hide progress after brief display
                     setTimeout(() => {
                         progressDiv.style.display = 'none';
-                        showTab('live');
-                        // Trigger data load immediately
-                        loadAllData();
+                    }, 300);
 
-                        // Show detailed success message in Live Data tab
-                        setTimeout(() => {
-                            showToast('success', 'Live Data Active',
-                                `Home: ${result.homeStop || 'N/A'} | Work: ${result.workStop || 'N/A'}`
-                            );
-                        }, 500);
-                    }, 500); // Reduced from 1000ms to 500ms for faster response
+                    // Show comprehensive success message
+                    const setupMessage = document.getElementById('setup-message');
+                    setupMessage.className = 'message success';
+                    setupMessage.style.display = 'block';
+                    setupMessage.innerHTML = `
+                        <div style="padding: 20px;">
+                            <div style="font-size: 24px; margin-bottom: 15px;">✅ Journey Configured for ${result.state || 'Your Location'}!</div>
+
+                            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                <div style="font-weight: 600; margin-bottom: 10px;">📍 Your Journey:</div>
+                                <div style="font-size: 14px; line-height: 1.8;">
+                                    <div>🏠 <strong>Home:</strong> ${result.homeStop || 'Not available'}</div>
+                                    <div>💼 <strong>Work:</strong> ${result.workStop || 'Not available'}</div>
+                                    <div>🚆 <strong>Transit Mode:</strong> ${result.routeMode || 'Auto-detected'}</div>
+                                    <div>📊 <strong>Stops Found:</strong> ${result.stopsFound || 0} stops in your area</div>
+                                </div>
+                            </div>
+
+                            <div style="background: rgba(251, 191, 36, 0.15); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #fbbf24;">
+                                <div style="font-weight: 600; margin-bottom: 8px;">🔴 Using Fallback Timetable Data</div>
+                                <div style="font-size: 13px; opacity: 0.9; line-height: 1.6;">
+                                    Your journey is configured and working! Currently using static timetable data.
+                                    For real-time updates, add your API keys in the next step.
+                                </div>
+                            </div>
+
+                            <div style="font-weight: 600; margin-bottom: 10px;">What's Next?</div>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="showTab('api')" style="flex: 1; min-width: 200px;">
+                                    🔑 Configure API Keys for Live Data
+                                </button>
+                                <button class="btn btn-secondary" onclick="showTab('live')" style="flex: 1; min-width: 200px;">
+                                    👀 View Journey with Fallback Data
+                                </button>
+                            </div>
+
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px; opacity: 0.7;">
+                                <strong>💡 Tip:</strong> The system works great with fallback data! API keys are optional and just add real-time arrival updates.
+                            </div>
+                        </div>
+                    `;
+
+                    // Scroll to message
+                    setupMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 } else {
                     console.error('❌ Setup failed:', result.message);
                     progressDiv.style.display = 'none';
