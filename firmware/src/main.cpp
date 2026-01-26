@@ -1012,7 +1012,10 @@ void drawQRCode(const char* url, int x, int y, int scale) {
 
 // Show the enhanced setup screen with QR code, instructions, and live log
 void showEnhancedSetupScreen() {
-    // Clear screen
+    Serial.println("=== showEnhancedSetupScreen() START ===");
+
+    // Simple single clear - no delays that might cause watchdog
+    Serial.println("Clearing display...");
     bbep.fillScreen(BBEP_WHITE);
 
     // ========================================================================
