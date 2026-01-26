@@ -10,6 +10,7 @@
 
 import dayjs from "dayjs";
 import config from "../utils/config.js";
+import preferences from "./preferences-manager.js";
 import {
   getMetroTripUpdates,
   getMetroServiceAlerts,
@@ -24,7 +25,9 @@ const mem = {
   snapshot: null,
   gtfs: null,
   ids: null,
-  targetStopIdSet: null
+  targetStopIdSet: null,
+  lastOriginStopId: null,        // Track when origin changes (for cache invalidation)
+  lastDestinationStopId: null    // Track when destination changes (for cache invalidation)
 };
 
 function nowMs() { return Date.now(); }
@@ -90,12 +93,61 @@ export async function getSnapshot(apiKey) {
   // Load static GTFS (for platforms + station name->stop_id mapping)
   if (!mem.gtfs) mem.gtfs = tryLoadStops();
 
-  // Resolve Origin Station ids + preferred platform stop_id
-  if (!mem.ids) mem.ids = resolveOriginStationIds(config, mem.gtfs);
+  // Get journey configuration from preferences (dynamic) instead of config.js (static)
+  const prefs = preferences.get();
+  const journey = prefs.journey;
 
-  // Build a set of stop_ids for city‑bound targets (Parliament, State Library, etc.)
-  if (!mem.targetStopIdSet) {
-    mem.targetStopIdSet = buildTargetStopIdSet(mem.gtfs, config.cityBoundTargetStopNames || []);
+  // Use preferences journey data if available, otherwise fall back to config.js
+  let originStopId = null;
+  let destinationStopId = null;
+  let originStopName = null;
+
+  if (journey?.route?.originStop) {
+    originStopId = journey.route.originStop.id;
+    originStopName = journey.route.originStop.name;
+  }
+
+  if (journey?.route?.destinationStop) {
+    destinationStopId = journey.route.destinationStop.id;
+  }
+
+  // Resolve Origin Station ids + preferred platform stop_id
+  // Use preferences data if available, otherwise fall back to config
+  if (!mem.ids || mem.lastOriginStopId !== originStopId) {
+    if (originStopName && originStopId) {
+      // Create a temporary config object using preferences data
+      const dynamicConfig = {
+        stations: {
+          origin: {
+            name: originStopName,
+            preferredPlatformCode: null
+          }
+        }
+      };
+      mem.ids = resolveOriginStationIds(dynamicConfig, mem.gtfs);
+      mem.lastOriginStopId = originStopId;
+    } else {
+      // Fall back to static config.js
+      mem.ids = resolveOriginStationIds(config, mem.gtfs);
+      mem.lastOriginStopId = null;
+    }
+  }
+
+  // Build a set of stop_ids for city‑bound targets
+  // Use destination from preferences if available
+  if (!mem.targetStopIdSet || mem.lastDestinationStopId !== destinationStopId) {
+    let targetStopNames = [];
+
+    if (journey?.route?.destinationStop?.name) {
+      // Use destination from preferences
+      targetStopNames = [journey.route.destinationStop.name];
+    } else {
+      // Fall back to config.js targets
+      targetStopNames = config.cityBoundTargetStopNames || [];
+    }
+
+    mem.targetStopIdSet = buildTargetStopIdSet(mem.gtfs, targetStopNames);
+    mem.lastDestinationStopId = destinationStopId;
   }
 
   const snapshotBase = {

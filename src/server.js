@@ -1788,11 +1788,10 @@ async function loadApiConfig() {
         ptv_opendata: {
           name: "PTV Open Data API",
           api_key: process.env.ODATA_API_KEY || "",
-          token: process.env.ODATA_TOKEN || "",
           enabled: true,
           baseUrl: "https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1",
           lastChecked: null,
-          status: process.env.ODATA_TOKEN ? "active" : "unconfigured"
+          status: process.env.ODATA_API_KEY ? "active" : "unconfigured"
         }
       },
       server: {
@@ -1813,10 +1812,6 @@ async function saveApiConfig(config) {
   // Update environment variables if PTV credentials changed
   if (config.apis.ptv_opendata?.api_key) {
     process.env.ODATA_API_KEY = config.apis.ptv_opendata.api_key;
-  }
-  if (config.apis.ptv_opendata?.token) {
-    process.env.ODATA_TOKEN = config.apis.ptv_opendata.token;
-    process.env.ODATA_KEY = config.apis.ptv_opendata.token; // Legacy compatibility
   }
 }
 
@@ -2144,13 +2139,13 @@ app.get('/admin/status', async (req, res) => {
   const dataSources = [
     {
       name: 'Metro Trains',
-      active: !!process.env.ODATA_TOKEN,
-      status: process.env.ODATA_TOKEN ? 'Live' : 'Offline'
+      active: !!process.env.ODATA_API_KEY,
+      status: process.env.ODATA_API_KEY ? 'Live' : 'Offline'
     },
     {
       name: 'Yarra Trams',
-      active: !!process.env.ODATA_TOKEN,
-      status: process.env.ODATA_TOKEN ? 'Live' : 'Offline'
+      active: !!process.env.ODATA_API_KEY,
+      status: process.env.ODATA_API_KEY ? 'Live' : 'Offline'
     },
     {
       name: 'Fallback Timetable',
@@ -2164,7 +2159,7 @@ app.get('/admin/status', async (req, res) => {
     lastUpdate: lastUpdate || Date.now(),
     totalApis,
     activeApis,
-    dataMode: process.env.ODATA_TOKEN ? 'Live' : 'Fallback',
+    dataMode: process.env.ODATA_API_KEY ? 'Live' : 'Fallback',
     dataSources
   });
 });

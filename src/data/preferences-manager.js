@@ -122,9 +122,9 @@ class PreferencesManager {
       },
 
       // Transit Authority API credentials (configured per state)
+      // Note: Transport Victoria OpenData API uses only KeyId header (api key), no separate token
       api: {
         key: process.env.ODATA_API_KEY || '',
-        token: process.env.ODATA_TOKEN || '',
         baseUrl: ''  // Set based on selected transit authority, NO DEFAULT
       },
 
@@ -299,9 +299,6 @@ class PreferencesManager {
         // Load from environment variables if available
         if (process.env.ODATA_API_KEY) {
           this.preferences.api.key = process.env.ODATA_API_KEY;
-        }
-        if (process.env.ODATA_TOKEN) {
-          this.preferences.api.token = process.env.ODATA_TOKEN;
         }
 
         await this.save();
@@ -612,9 +609,6 @@ class PreferencesManager {
     // Preserve API credentials from environment if available
     if (process.env.ODATA_API_KEY) {
       this.preferences.api.key = process.env.ODATA_API_KEY;
-    }
-    if (process.env.ODATA_TOKEN) {
-      this.preferences.api.token = process.env.ODATA_TOKEN;
     }
 
     await this.save();

@@ -1,11 +1,12 @@
 /**
  * opendata.js
  * Minimal Open Data GTFS‑Realtime client for Metro Trains & Yarra Trams (VIC)
- * Uses a single ODATA_KEY and sends it using all header/query variants seen in docs.
+ * Uses Transport Victoria OpenData API with KeyId header authentication (UUID format API key)
  * Format: Protobuf (decoded via gtfs-realtime-bindings)
  *
  * Copyright (c) 2026 Angus Bergman
- * All rights reserved.
+ * Licensed under CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International License)
+ * https://creativecommons.org/licenses/by-nc/4.0/
  */
 
 import fetch from "node-fetch";
