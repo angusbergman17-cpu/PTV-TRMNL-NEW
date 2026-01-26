@@ -103,6 +103,20 @@ Edit `include/config.h`:
 
 ## Troubleshooting
 
+### No Serial Output
+
+**ESP32-C3 requires USB CDC enabled!**
+
+If you see no output from `pio device monitor`, check `platformio.ini`:
+
+```ini
+build_flags =
+    -D ARDUINO_USB_MODE=1              # MUST be 1
+    -D ARDUINO_USB_CDC_ON_BOOT=1       # MUST be 1
+```
+
+See `docs/FLASHING.md` for details.
+
 ### Display shows garbage/artifacts
 - Force a full refresh by pressing RESET
 - Reduce partial refresh count before full refresh in `main.cpp`
@@ -112,9 +126,9 @@ Edit `include/config.h`:
 - Check serial monitor for connection errors
 
 ### Device not detected for flashing
+- ESP32-C3 with USB-JTAG does NOT need bootloader mode
 - Try different USB cable (must support data)
-- Install CP210x or CH340 drivers
-- Ensure device is in bootloader mode
+- Check device enumeration: `pio device list`
 
 ## Building from Source
 
