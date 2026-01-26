@@ -258,17 +258,57 @@ class SmartJourneyPlanner {
   }
 
   /**
-   * Geocode a single address using Nominatim (OpenStreetMap)
+   * Geocode a single address using the global geocoding service
+   * Prioritizes Google Places API (when available) over Nominatim
    */
   async geocodeAddress(address) {
     // Check cache
     if (this.geocodeCache.has(address)) {
+      console.log(`  📦 Using cached result for: ${address}`);
       return this.geocodeCache.get(address);
     }
 
     try {
+      // Use global geocoding service if available (supports Google Places, Mapbox, Nominatim)
+      if (global.geocodingService) {
+        console.log(`  🔍 Geocoding with multi-tier service: ${address}`);
+
+        // Rate limit geocoding requests
+        await this.geocodeRateLimiter.acquire();
+
+        const geocodeResult = await this.geocodeCircuitBreaker.call(async () => {
+          return await global.geocodingService.geocode(address);
+        });
+
+        if (geocodeResult && geocodeResult.results && geocodeResult.results.length > 0) {
+          // Get the best result (first one, already sorted by confidence)
+          const bestResult = geocodeResult.results[0];
+
+          console.log(`  ✅ Found via ${bestResult.service}: ${bestResult.formatted_address}`);
+          console.log(`     Confidence: ${bestResult.confidence}, Lat/Lon: ${bestResult.lat}, ${bestResult.lon}`);
+
+          const result = {
+            lat: bestResult.lat,
+            lon: bestResult.lon,
+            display_name: bestResult.formatted_address,
+            suburb: bestResult.suburb || null,
+            service: bestResult.service,
+            confidence: bestResult.confidence
+          };
+
+          // Cache result
+          this.geocodeCache.set(address, result);
+
+          return result;
+        } else {
+          throw new Error(`No geocoding results found for: "${address}"`);
+        }
+      }
+
+      // Fallback: Use Nominatim directly if global service not available
+      console.log(`  ⚠️  Global geocoding service not available, falling back to Nominatim`);
+
       // Improve address by appending region if not already specified
-      // Configure DEFAULT_REGION in your deployment for your area
       const DEFAULT_REGION = process.env.GEOCODE_REGION || 'Victoria, Australia';
       const regionKeywords = DEFAULT_REGION.toLowerCase().split(/[,\s]+/).filter(k => k.length > 2);
 
@@ -286,7 +326,7 @@ class SmartJourneyPlanner {
       // Use circuit breaker and timeout
       const response = await this.geocodeCircuitBreaker.call(async () => {
         return await fetchWithRetry(url, {
-          headers: { 'User-Agent': 'PTV-TRMNL/2.0 (Smart Journey Planner)' }
+          headers: { 'User-Agent': 'PTV-TRMNL/3.0 (Smart Journey Planner)' }
         }, 2, 8000); // 2 retries, 8s timeout per request
       });
 
@@ -304,7 +344,9 @@ class SmartJourneyPlanner {
         lat: parseFloat(data[0].lat),
         lon: parseFloat(data[0].lon),
         display_name: data[0].display_name,
-        suburb: data[0].address?.suburb || data[0].address?.town || null
+        suburb: data[0].address?.suburb || data[0].address?.town || null,
+        service: 'nominatim',
+        confidence: 'medium'
       };
 
       // Cache result

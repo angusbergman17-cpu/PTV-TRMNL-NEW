@@ -2315,6 +2315,105 @@ app.post('/admin/apis/additional', async (req, res) => {
   }
 });
 
+// Force save Google Places API key and test it immediately
+// This endpoint saves the key, reinitializes services, and validates the key works
+app.post('/admin/apis/force-save-google-places', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+
+    if (!apiKey || apiKey.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'API key is required',
+        tested: false
+      });
+    }
+
+    console.log('🔑 Force-saving Google Places API key...');
+
+    // Get preferences
+    const prefs = preferences.get();
+
+    // Initialize additionalAPIs if it doesn't exist
+    if (!prefs.additionalAPIs) {
+      prefs.additionalAPIs = {
+        google_places: null,
+        mapbox: null,
+        rss_feeds: []
+      };
+    }
+
+    // Save the API key
+    prefs.additionalAPIs.google_places = apiKey.trim();
+    await preferences.save();
+    console.log('✅ Google Places API key saved to preferences');
+
+    // Immediately reinitialize geocoding service with the new key
+    console.log('🔄 Re-initializing geocoding service with new Google Places API key...');
+    global.geocodingService = new GeocodingService({
+      googlePlacesKey: prefs.additionalAPIs.google_places,
+      mapboxToken: prefs.additionalAPIs.mapbox || process.env.MAPBOX_ACCESS_TOKEN || process.env.MAPBOX_TOKEN
+    });
+    console.log('✅ Geocoding service re-initialized');
+    console.log('   Available services:', global.geocodingService.getAvailableServices());
+
+    // Test the API key by doing a test geocode
+    let testResult = { success: false, message: 'Not tested' };
+    try {
+      console.log('🧪 Testing Google Places API key with sample address...');
+      const testAddress = 'Federation Square, Melbourne VIC';
+      const result = await global.geocodingService.geocode(testAddress);
+
+      if (result && result.results && result.results.length > 0) {
+        const firstResult = result.results[0];
+        testResult = {
+          success: true,
+          message: 'API key is valid and working',
+          testAddress: testAddress,
+          foundAddress: firstResult.formatted_address,
+          service: firstResult.service,
+          confidence: firstResult.confidence
+        };
+        console.log('✅ Google Places API key test PASSED');
+        console.log('   Test address:', testAddress);
+        console.log('   Found:', firstResult.formatted_address);
+        console.log('   Service used:', firstResult.service);
+      } else {
+        testResult = {
+          success: false,
+          message: 'API key saved but test geocode returned no results',
+          testAddress: testAddress
+        };
+        console.log('⚠️  Google Places API key test returned no results');
+      }
+    } catch (testError) {
+      testResult = {
+        success: false,
+        message: `API key saved but test failed: ${testError.message}`,
+        error: testError.message
+      };
+      console.log('❌ Google Places API key test FAILED:', testError.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Google Places API key saved and service reinitialized',
+      keyLength: apiKey.trim().length,
+      availableServices: global.geocodingService.getAvailableServices(),
+      tested: true,
+      testResult: testResult,
+      prioritizeGoogle: testResult.success ? true : false
+    });
+  } catch (error) {
+    console.error('❌ Force save Google Places API error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      tested: false
+    });
+  }
+});
+
 // Get preferences status
 app.get('/admin/preferences/status', (req, res) => {
   try{
