@@ -424,9 +424,10 @@ Create multiple journeys:
 - **[docs/guides/OPENDATA-VIC-API-GUIDE.md](docs/guides/OPENDATA-VIC-API-GUIDE.md)** - Victoria API key registration
 
 ### Developer Docs
-- **[DEVELOPMENT-RULES.md](docs/development/DEVELOPMENT-RULES.md)** - Mandatory coding standards (v1.0.13)
-- **[SYSTEM-AUDIT-2026-01-26.md](docs/SYSTEM-AUDIT-2026-01-26.md)** - Complete system audit
-- **[REBUILD-PLAN-2026-01-26.md](REBUILD-PLAN-2026-01-26.md)** - Architecture rebuild plan
+- **[DEVELOPMENT-RULES.md](docs/development/DEVELOPMENT-RULES.md)** - Mandatory coding standards (v1.0.24)
+- **[COMPLIANCE-AUDIT-2026-01-27.md](COMPLIANCE-AUDIT-2026-01-27.md)** - Development Rules compliance audit
+- **[LEGAL-COMPLIANCE-AUDIT-2026-01-27.md](LEGAL-COMPLIANCE-AUDIT-2026-01-27.md)** - Legal & licensing compliance audit
+- **[ATTRIBUTION.md](ATTRIBUTION.md)** - Third-party data sources & attributions
 - **[FILE-STRUCTURE.md](FILE-STRUCTURE.md)** - Repository organization
 
 ### API Reference
@@ -507,9 +508,10 @@ open http://localhost:3000/admin
 ## 📊 System Status
 
 ### Current Version
-- **Version**: 3.0.0
-- **Last Updated**: 2026-01-26
-- **Development Rules**: v1.0.13
+- **Version**: 2.5.2
+- **Last Updated**: 2026-01-27
+- **Development Rules**: v1.0.24 (✅ **FULLY COMPLIANT**)
+- **Legal Compliance**: 🟢 **AUDITED & COMPLIANT**
 - **Status**: ✅ Production Ready
 
 ### Feature Status
@@ -524,6 +526,25 @@ open http://localhost:3000/admin
 | API Key Optional Flow | ✅ Complete | Setup → API Settings → Live Data |
 | Journey Profiles | ✅ Complete | Multiple routes, scheduling |
 | Real-time Transit Data | ✅ Complete | State-specific APIs |
+| Journey Customization | ✅ Complete | Stop selection, alternative routes |
+| Smart Setup Wizard | ✅ Complete | 8-step sequential flow |
+
+### Compliance Status
+
+| Compliance Area | Status | Last Audited |
+|----------------|--------|--------------|
+| Development Rules | 🟢 **COMPLIANT** | 2026-01-27 |
+| Legal/Licensing | 🟢 **COMPLIANT** | 2026-01-27 |
+| API Terms | 🟢 **COMPLIANT** | 2026-01-27 |
+| Code Standards | 🟢 **COMPLIANT** | 2026-01-27 |
+| Privacy/Security | 🟢 **COMPLIANT** | 2026-01-27 |
+| Attribution | 🟢 **COMPLIANT** | 2026-01-27 |
+
+**Recent Audits**:
+- ✅ Development Rules Compliance Audit (107ca4b)
+- ✅ Legal Compliance Audit (8641667)
+- ✅ All forbidden legacy PTV API code removed
+- ✅ All third-party data sources properly attributed
 
 ### Known Limitations
 
@@ -697,28 +718,43 @@ Every contribution, no matter the size, is deeply appreciated and motivates cont
 
 ## 📜 Changelog
 
-### v3.0.0 (2026-01-26) - Location-Agnostic Rebuild
+### v2.5.2 (2026-01-27) - Compliance & Journey Customization
 
-**Major Changes**:
-- Complete rebuild for all 8 Australian states
-- Removed all hardcoded Melbourne/Victoria references
-- Added fallback GTFS data for all states
-- New API Settings tab separating API keys from configuration
-- Google Places API integration in setup wizard
-- Enhanced journey planning with state detection
+**Critical Compliance Fixes**:
+- ✅ Removed all legacy PTV API v3 code (SmartJourneyPlanner, MultiModalRouter)
+- ✅ Replaced with compliant JourneyPlanner using fallback timetables
+- ✅ Fixed auto-journey calculation to use compliant planner
+- ✅ Deprecated legacy endpoints (/admin/route/*)
+- ✅ Fixed Transport Victoria API validation URL
+- ✅ Fixed firmware setup screen refresh loop
 
-**Technical**:
-- Location-agnostic timezone handling
-- Dynamic transit mode selection per state
-- Fallback-first data cascade
-- BYOS compliance verification
-- Free tier quota protection
+**New Features**:
+- ✅ Journey customization with stop selection (home & work)
+- ✅ Alternative routes display (top 3 options)
+- ✅ Multi-modal routing (tram + train combinations)
+- ✅ 8-step sequential setup wizard
+- ✅ Auto-redirect to dashboard after setup
+
+**Compliance Audits**:
+- 🟢 Development Rules v1.0.24 compliance audit (PASS)
+- 🟢 Legal/licensing compliance audit (PASS)
+- 🟢 All third-party data sources properly attributed
+- 🟢 API terms compliance verified (Transport Victoria, Google, OSM)
+- 🟢 Privacy & security compliance verified
 
 **Documentation**:
-- New INSTALL.md deployment guide
-- System audit documentation
-- Updated development rules (v1.0.13)
-- API endpoint inventory
+- Added COMPLIANCE-AUDIT-2026-01-27.md (development rules)
+- Added LEGAL-COMPLIANCE-AUDIT-2026-01-27.md (legal & licensing)
+- Added COMPLIANCE-FIXES-DEPLOYED.md (fixes summary)
+- Updated DEVELOPMENT-RULES.md to v1.0.24 (Section 17: Build & Troubleshooting)
+- Added JOURNEY-CUSTOMIZATION-DEPLOYED.md (feature docs)
+
+**Technical**:
+- No buildPTVUrl methods (forbidden code removed)
+- No timetableapi.ptv.vic.gov.au references
+- No HMAC-SHA1 authentication (forbidden)
+- All journey planning uses fallback-timetables.js
+- Transport Victoria OpenData API compliant
 
 ### Previous Versions
 
@@ -731,7 +767,8 @@ See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 **Repository**: https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW
 **Author**: Angus Bergman
 **License**: CC BY-NC 4.0
-**Last Updated**: 2026-01-26
+**Last Updated**: 2026-01-27
+**Compliance**: Development Rules v1.0.24 | Legal Audit 🟢 PASS
 
 ---
 
