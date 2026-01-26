@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-26
-**Version**: 1.0.18
+**Version**: 1.0.19
 
 ---
 
@@ -214,6 +214,60 @@ headers: {
 ```
 
 **Note**: The OpenData Transport Victoria API uses the `KeyId` header (case-sensitive) with your UUID format API Key. This is the ONLY credential needed.
+
+### ✅ Geocoding Services - PRIORITY ORDER:
+
+**CRITICAL**: Always use Google Places API (new) when available.
+
+**PRIMARY (Recommended)**:
+- **Name**: Google Places API (new)
+- **API Version**: Places API (New)
+- **Portal**: https://console.cloud.google.com/apis/library/places-backend.googleapis.com
+- **Endpoint Base**: https://places.googleapis.com/v1/
+- **Documentation**: https://developers.google.com/maps/documentation/places/web-service/cloud-setup
+- **Authentication**: API Key
+- **Free Tier**: $200/month credit
+- **Why Primary**: Best accuracy for Australian addresses, business names, and points of interest
+
+**IMPORTANT DISTINCTION**:
+- ✅ **USE**: Google Places API (new) - Modern cloud-based API
+- ❌ **DO NOT USE**: Google Places API (Legacy) - Deprecated version
+
+**Environment Variables**:
+```bash
+GOOGLE_PLACES_API_KEY=your_new_places_api_key_here
+```
+
+**Force-Save Endpoint** (No restart required):
+```javascript
+// POST /admin/apis/force-save-google-places
+{
+  apiKey: "your_google_places_api_key"
+}
+```
+
+**SECONDARY (Fallback)**:
+- **Name**: Mapbox Geocoding
+- **Endpoint**: https://api.mapbox.com/geocoding/v5/
+- **Token Variable**: `MAPBOX_ACCESS_TOKEN`
+
+**TERTIARY (Free Fallback)**:
+- **Name**: Nominatim (OpenStreetMap)
+- **Endpoint**: https://nominatim.openstreetmap.org/
+- **No authentication required**
+- **Rate limit**: 1 request/second
+
+**Multi-Tier Strategy**:
+The system uses a cascading approach:
+1. Try Google Places API (new) first - if key configured
+2. Fall back to Mapbox - if token configured
+3. Fall back to Nominatim - always available
+
+**Smart Journey Planner Integration**:
+- Automatically uses global.geocodingService
+- Prioritizes Google Places results for best accuracy
+- Logs which service handled each request
+- No code changes needed when API keys are added
 
 ---
 

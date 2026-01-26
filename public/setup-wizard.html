@@ -304,6 +304,25 @@
                     <div id="cafe-suggestions" class="autocomplete-dropdown"></div>
                 </div>
 
+                <!-- Google Places API (New) Key (Optional but Recommended) -->
+                <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                    <label class="form-label">🔑 Google Places API (New) Key (Recommended)</label>
+                    <p style="font-size: 13px; color: #718096; margin-bottom: 10px;">
+                        For best address accuracy, add your <strong>Google Places API (new)</strong> key. It's saved immediately, no restart needed, and prioritizes Google results for all address searches.
+                    </p>
+                    <input type="text" id="google-places-api-key" class="form-input" placeholder="Enter your Google Places API (new) key...">
+                    <button class="btn" onclick="saveGooglePlacesKey()" style="margin-top: 10px; background: #48bb78;" id="save-api-key-btn">
+                        💾 Save & Activate API Key
+                    </button>
+                    <div id="api-key-status" style="margin-top: 10px; display: none;"></div>
+                    <a href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com" target="_blank" style="font-size: 13px; color: #667eea; display: block; margin-top: 8px;">
+                        Get a free Google Places API (new) key →
+                    </a>
+                    <small style="font-size: 12px; color: #a0aec0; display: block; margin-top: 5px;">
+                        Note: Use the modern "Places API (new)", not the legacy version
+                    </small>
+                </div>
+
                 <div id="state-detection" style="display: none;" class="info-box">
                     <strong>✓ Detected:</strong> <span id="detected-state"></span>
                 </div>
@@ -497,6 +516,61 @@
                     document.getElementById('state-detection').style.display = 'block';
                     document.getElementById('detected-state').textContent = AUTHORITIES[state].state;
                 }
+            }
+        };
+
+        // Save Google Places API Key
+        window.saveGooglePlacesKey = async function() {
+            const apiKey = document.getElementById('google-places-api-key').value.trim();
+            const btn = document.getElementById('save-api-key-btn');
+            const status = document.getElementById('api-key-status');
+
+            if (!apiKey) {
+                status.style.display = 'block';
+                status.style.color = '#e53e3e';
+                status.innerHTML = '⚠️ Please enter an API key';
+                return;
+            }
+
+            // Disable button during save
+            btn.disabled = true;
+            btn.textContent = '💾 Saving...';
+            status.style.display = 'block';
+            status.style.color = '#718096';
+            status.innerHTML = '⏳ Saving and testing API key...';
+
+            try {
+                const response = await fetch('/admin/apis/force-save-google-places', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey: apiKey })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    status.style.color = '#48bb78';
+                    if (result.testResult && result.testResult.success) {
+                        status.innerHTML = `✅ API key saved and tested successfully!<br><small style="color: #718096;">Service: ${result.testResult.service}, Address found: ${result.testResult.foundAddress}</small>`;
+                    } else {
+                        status.innerHTML = '✅ API key saved (test inconclusive - will be used for address searches)';
+                    }
+                    btn.textContent = '✓ Saved & Activated';
+                    btn.style.background = '#48bb78';
+
+                    // Re-enable autocomplete with new API key
+                    console.log('Google Places API key activated, available services:', result.availableServices);
+                } else {
+                    status.style.color = '#e53e3e';
+                    status.innerHTML = `❌ Failed to save: ${result.message}`;
+                    btn.disabled = false;
+                    btn.textContent = '💾 Save & Activate API Key';
+                }
+            } catch (error) {
+                status.style.color = '#e53e3e';
+                status.innerHTML = `❌ Error: ${error.message}`;
+                btn.disabled = false;
+                btn.textContent = '💾 Save & Activate API Key';
             }
         };
 

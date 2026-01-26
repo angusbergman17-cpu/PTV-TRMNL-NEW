@@ -1849,10 +1849,17 @@
                     </p>
 
                     <div class="form-group">
-                        <label class="form-label">Google Places API Key (Optional)</label>
-                        <input type="password" id="google-places-key" class="form-input" placeholder="For enhanced geocoding and cafe busy-ness detection">
-                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 5px;">
-                            Get from <a href="https://console.cloud.google.com/" target="_blank" style="color: #667eea;">Google Cloud Console</a>
+                        <label class="form-label">Google Places API (new) Key (Recommended)</label>
+                        <input type="password" id="google-places-key" class="form-input" placeholder="For best address accuracy and business search">
+                        <button class="btn" onclick="forceGooglePlacesKey()" style="margin-top: 10px; background: #48bb78; width: 100%;" id="force-google-key-btn">
+                            💾 Save & Test Immediately (No Restart)
+                        </button>
+                        <div id="google-key-status" style="margin-top: 10px; padding: 10px; border-radius: 6px; display: none; font-size: 13px;"></div>
+                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 8px;">
+                            Get from <a href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com" target="_blank" style="color: #667eea;">Google Cloud Console - Places API (new)</a>
+                        </small>
+                        <small style="color: rgba(255,255,255,0.5); font-size: 11px; display: block; margin-top: 4px;">
+                            ⚠️ Use "Places API (new)", not the legacy version
                         </small>
                     </div>
 
@@ -4399,6 +4406,66 @@
             } catch (e) {
                 showMessage('api-message', '❌ Test failed: ' + e.message, 'error');
                 console.error('GTFS Realtime test error:', e);
+            }
+        }
+
+        // Force save Google Places API (new) key - no restart required
+        async function forceGooglePlacesKey() {
+            const apiKey = document.getElementById('google-places-key').value.trim();
+            const btn = document.getElementById('force-google-key-btn');
+            const status = document.getElementById('google-key-status');
+
+            if (!apiKey) {
+                status.style.display = 'block';
+                status.style.background = 'rgba(229, 62, 62, 0.2)';
+                status.style.color = '#fc8181';
+                status.innerHTML = '⚠️ Please enter an API key';
+                return;
+            }
+
+            // Disable button during save
+            btn.disabled = true;
+            btn.textContent = '💾 Saving & Testing...';
+            status.style.display = 'block';
+            status.style.background = 'rgba(113, 128, 150, 0.2)';
+            status.style.color = '#cbd5e0';
+            status.innerHTML = '⏳ Saving and testing API key...';
+
+            try {
+                const response = await fetch(BASE_URL + '/admin/apis/force-save-google-places', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey: apiKey })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    status.style.background = 'rgba(72, 187, 120, 0.2)';
+                    status.style.color = '#68d391';
+                    if (result.testResult && result.testResult.success) {
+                        status.innerHTML = `✅ API key saved and tested successfully!<br><small style="opacity: 0.8;">Service: ${result.testResult.service}<br>Test: "${result.testResult.testAddress}" → "${result.testResult.foundAddress}"<br>Available services: ${result.availableServices.join(', ')}</small>`;
+                    } else {
+                        status.innerHTML = '✅ API key saved (test inconclusive - will be used for address searches)<br><small style="opacity: 0.8;">The key will be tried for all address lookups</small>';
+                    }
+                    btn.textContent = '✓ Saved & Activated';
+                    btn.style.background = '#48bb78';
+
+                    // Refresh data mode indicator
+                    setTimeout(() => updateAPIKeysStatus(), 500);
+                } else {
+                    status.style.background = 'rgba(229, 62, 62, 0.2)';
+                    status.style.color = '#fc8181';
+                    status.innerHTML = `❌ Failed to save: ${result.message}`;
+                    btn.disabled = false;
+                    btn.textContent = '💾 Save & Test Immediately (No Restart)';
+                }
+            } catch (error) {
+                status.style.background = 'rgba(229, 62, 62, 0.2)';
+                status.style.color = '#fc8181';
+                status.innerHTML = `❌ Error: ${error.message}`;
+                btn.disabled = false;
+                btn.textContent = '💾 Save & Test Immediately (No Restart)';
             }
         }
 
