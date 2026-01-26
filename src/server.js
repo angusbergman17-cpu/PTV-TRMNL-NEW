@@ -3806,14 +3806,36 @@ function buildRegionDataItems(regions) {
   `).join('');
 }
 
+/**
+ * ========================================================================
+ * DEVELOPMENT RULES COMPLIANCE: docs/development/DEVELOPMENT-RULES.md v1.0.12
+ * ========================================================================
+ * - Location agnostic (dynamic timezone based on detected state)
+ * - Works with fallback data (no API keys required)
+ * - Transit mode agnostic (supports all 8 Australian states)
+ * - Clear data source indicators
+ */
 app.get('/admin/live-display', async (req, res) => {
   try {
     // Gather all live data
     const data = await getData();
     const regionUpdates = await getRegionUpdates();
     const prefs = preferences.get();
+    const config = dataManager.getConfig();
+    const apis = dataManager.getApis();
     const cachedRoute = routePlanner.getCachedRoute();
     const cachedAutoJourney = smartPlanner.getCachedJourney();
+
+    // Location-agnostic timezone detection
+    const state = config?.location?.state || config?.location?.stateCode || 'VIC';
+    const stateName = config?.location?.stateName || state;
+    const timezone = getTimezoneForState(state);
+
+    // Determine data source mode
+    const hasLiveData = apis?.transitAuthority?.configured || apis?.victorianGTFS?.configured || false;
+    const dataSourceMode = hasLiveData ? 'LIVE' : 'FALLBACK';
+    const dataSourceIcon = hasLiveData ? '🟢' : '🔴';
+    const dataSourceText = hasLiveData ? 'Live Data Active' : 'Using Fallback Timetables';
 
     // Get weather data
     let weatherData = null;
@@ -3833,14 +3855,49 @@ app.get('/admin/live-display', async (req, res) => {
       }
     }
 
-    // Get configured station names or use generic defaults
-    const trainStationName = prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'Train Station';
-    const tramStationName = prefs?.journey?.transitRoute?.mode2?.originStation?.name || 'Tram Stop';
+    // Get transit mode and stops (location agnostic)
+    const transitMode = config?.preferences?.transitMode || prefs?.preferences?.transitMode || 'train';
+    const primaryStop = config?.stops?.home?.name || prefs?.journey?.transitRoute?.mode1?.originStation?.name || 'Transit Stop';
+    const secondaryStop = config?.stops?.work?.name || prefs?.journey?.transitRoute?.mode2?.originStation?.name || 'Destination';
+
+    // State-specific mode labels
+    let primaryModeLabel = 'Trains';
+    let secondaryModeLabel = 'Trams';
+    let primaryModeIcon = '🚆';
+    let secondaryModeIcon = '🚊';
+
+    if (state === 'NSW' || state === 'ACT' || state === 'QLD' || state === 'WA') {
+      primaryModeLabel = 'Trains';
+      secondaryModeLabel = 'Buses';
+      primaryModeIcon = '🚆';
+      secondaryModeIcon = '🚌';
+    } else if (state === 'SA') {
+      primaryModeLabel = 'Trams';
+      secondaryModeLabel = 'Buses';
+      primaryModeIcon = '🚊';
+      secondaryModeIcon = '🚌';
+    } else if (state === 'TAS') {
+      primaryModeLabel = 'Buses';
+      secondaryModeLabel = 'Ferries';
+      primaryModeIcon = '🚌';
+      secondaryModeIcon = '⛴️';
+    } else if (state === 'NT') {
+      primaryModeLabel = 'Buses';
+      secondaryModeLabel = 'Buses';
+      primaryModeIcon = '🚌';
+      secondaryModeIcon = '🚌';
+    }
 
     // Pre-build dynamic HTML parts
     const trainRows = buildDepartureRows(data.trains, 'train');
     const tramRows = buildDepartureRows(data.trams, 'tram');
+    const busRows = buildDepartureRows(data.buses, 'bus');
+    const ferryRows = buildDepartureRows(data.ferries, 'ferry');
     const regionDataItems = buildRegionDataItems(regionUpdates.regions);
+
+    // Select appropriate rows based on state
+    const primaryRows = trainRows || busRows;
+    const secondaryRows = tramRows || busRows || ferryRows;
 
     // Build journey section
     const journey = cachedAutoJourney || cachedRoute;
@@ -3866,16 +3923,17 @@ app.get('/admin/live-display', async (req, res) => {
       `;
     }
 
+    // Location-agnostic time display
     const now = new Date();
-    const melbourneTime = now.toLocaleString('en-AU', {
-      timeZone: 'Australia/Melbourne',
+    const currentTime = now.toLocaleString('en-AU', {
+      timeZone: timezone,
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false
     });
-    const melbourneDate = now.toLocaleDateString('en-AU', {
-      timeZone: 'Australia/Melbourne',
+    const currentDate = now.toLocaleDateString('en-AU', {
+      timeZone: timezone,
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -4208,33 +4266,45 @@ app.get('/admin/live-display', async (req, res) => {
     <div class="container">
         <a href="/admin" class="back-link">← Back to Admin Panel</a>
 
+        <!-- Data Source Banner -->
+        <div style="background: ${hasLiveData ? 'rgba(16, 185, 129, 0.2)' : 'rgba(251, 191, 36, 0.2)'}; border: 2px solid ${hasLiveData ? 'rgba(16, 185, 129, 0.5)' : 'rgba(251, 191, 36, 0.5)'}; border-radius: 12px; padding: 15px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">${dataSourceIcon}</span>
+                <div>
+                    <div style="font-size: 16px; font-weight: 600;">${dataSourceText}</div>
+                    <div style="font-size: 12px; opacity: 0.8;">${stateName} • ${dataSourceMode} Mode</div>
+                </div>
+            </div>
+            ${!hasLiveData ? '<a href="/admin#tab-api" style="background: #6366f1; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 500;">Configure API Keys</a>' : ''}
+        </div>
+
         <div class="header">
             <h1>📺 Live Device Display</h1>
             <div class="live-indicator">
                 <span class="live-dot"></span>
-                LIVE DATA
+                ${dataSourceMode}
             </div>
-            <div class="time-display" id="currentTime">${melbourneTime}</div>
-            <div class="date-display">${melbourneDate}</div>
+            <div class="time-display" id="currentTime">${currentTime}</div>
+            <div class="date-display">${currentDate}</div>
         </div>
 
         <div class="grid">
-            <!-- Train Departures -->
+            <!-- Primary Mode Departures -->
             <div class="card">
                 <div class="card-header">
-                    <span class="card-icon">🚆</span>
-                    <h2>Metro Trains - ${trainStationName}</h2>
+                    <span class="card-icon">${primaryModeIcon}</span>
+                    <h2>${primaryModeLabel} - ${primaryStop}</h2>
                 </div>
-                ${trainRows}
+                ${primaryRows}
             </div>
 
-            <!-- Tram Departures -->
+            <!-- Secondary Mode Departures -->
             <div class="card">
                 <div class="card-header">
-                    <span class="card-icon">🚊</span>
-                    <h2>Trams - ${tramStationName}</h2>
+                    <span class="card-icon">${secondaryModeIcon}</span>
+                    <h2>${secondaryModeLabel} - ${secondaryStop}</h2>
                 </div>
-                ${tramRows}
+                ${secondaryRows}
             </div>
 
             <!-- Weather -->
@@ -4382,11 +4452,12 @@ app.get('/admin/live-display', async (req, res) => {
     </div>
 
     <script>
-        // Update time display every second
+        // Update time display every second (location-agnostic)
+        const systemTimezone = '${timezone}';
         function updateTime() {
             const now = new Date();
             const time = now.toLocaleTimeString('en-AU', {
-                timeZone: 'Australia/Melbourne',
+                timeZone: systemTimezone,
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
