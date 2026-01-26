@@ -5,6 +5,8 @@ Built for the [TRMNL](https://usetrmnl.com) BYOS e-ink display (800×480).
 
 **⚖️ License**: CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0) - Free for non-commercial use with attribution. See [LICENSE](LICENSE) for details.
 
+**☕ Support Development**: If this project helps you never miss your train, consider [buying me a coffee](https://buymeacoffee.com/angusbergman)!
+
 ---
 
 ## 🚀 Quick Start

@@ -644,6 +644,23 @@ See [LICENSE](LICENSE) for full details.
 
 ---
 
+## Support This Project
+
+If PTV-TRMNL helps you never miss your train, consider supporting development:
+
+**☕ [Buy Me a Coffee](https://buymeacoffee.com/angusbergman)** - One-time support
+
+Your support helps with:
+- TRMNL device compatibility testing
+- GTFS data updates and maintenance
+- New feature development
+- Documentation and support
+- Server hosting costs
+
+Every contribution is deeply appreciated!
+
+---
+
 **🎉 Congratulations!** You now have a working PTV-TRMNL transit dashboard!
 
 Enjoy never missing your train again! 🚊☕
