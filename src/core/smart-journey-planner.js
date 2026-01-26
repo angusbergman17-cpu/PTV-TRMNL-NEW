@@ -280,20 +280,18 @@ class SmartJourneyPlanner {
           return await global.geocodingService.geocode(address);
         });
 
-        if (geocodeResult && geocodeResult.results && geocodeResult.results.length > 0) {
-          // Get the best result (first one, already sorted by confidence)
-          const bestResult = geocodeResult.results[0];
-
-          console.log(`  ✅ Found via ${bestResult.service}: ${bestResult.formatted_address}`);
-          console.log(`     Confidence: ${bestResult.confidence}, Lat/Lon: ${bestResult.lat}, ${bestResult.lon}`);
+        // GeocodingService returns direct object: { lat, lon, formattedAddress, source }
+        if (geocodeResult && geocodeResult.lat && geocodeResult.lon) {
+          console.log(`  ✅ Found via ${geocodeResult.source}: ${geocodeResult.formattedAddress}`);
+          console.log(`     Lat/Lon: ${geocodeResult.lat}, ${geocodeResult.lon}`);
 
           const result = {
-            lat: bestResult.lat,
-            lon: bestResult.lon,
-            display_name: bestResult.formatted_address,
-            suburb: bestResult.suburb || null,
-            service: bestResult.service,
-            confidence: bestResult.confidence
+            lat: geocodeResult.lat,
+            lon: geocodeResult.lon,
+            display_name: geocodeResult.formattedAddress,
+            suburb: geocodeResult.suburb || null,
+            service: geocodeResult.source,
+            confidence: 1.0  // GeocodingService returns best result
           };
 
           // Cache result
