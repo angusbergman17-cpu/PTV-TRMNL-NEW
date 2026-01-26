@@ -95,73 +95,91 @@ class RoutePlanner {
       duration: this.SAFETY_BUFFER
     });
 
-    // Segment 2: Transit Mode 1
-    addSegment({
-      type: this.getTransitTypeName(transitRoute.mode1.type),
-      from: transitRoute.mode1.originStation.name,
-      to: transitRoute.mode1.destinationStation.name,
-      duration: transitRoute.mode1.estimatedDuration || 20,
-      mode: transitRoute.mode1.type
-    });
+    // Segment 2+: All Transit Modes (supports 1-4 connections)
+    for (let modeNum = 1; modeNum <= numberOfModes; modeNum++) {
+      const modeKey = `mode${modeNum}`;
+      const currentMode = transitRoute[modeKey];
 
-    // Segment 3: Between transits or after last transit
-    if (numberOfModes === 2) {
-      // Connection between transit modes
-      if (coffeeEnabled && cafeLocation === 'between-transits') {
-        addSegment({
-          type: 'walk',
-          from: transitRoute.mode1.destinationStation.name,
-          to: 'Cafe',
-          duration: times.transit1ToCafe,
-          distance: locations.transit1ToCafe?.distance || 0
-        });
-        addSegment({
-          type: 'coffee',
-          location: 'Cafe',
-          duration: coffeePurchaseTime,
-          busyLevel: busyData.level,
-          busyIcon: busyDesc.icon,
-          busyText: busyDesc.text
-        });
-        addSegment({
-          type: 'walk',
-          from: 'Cafe',
-          to: transitRoute.mode2.originStation.name,
-          duration: times.cafeToTransit2,
-          distance: locations.cafeToTransit2?.distance || 0
-        });
-      } else {
-        addSegment({
-          type: 'walk',
-          from: transitRoute.mode1.destinationStation.name,
-          to: transitRoute.mode2.originStation.name,
-          duration: times.transit1ToTransit2,
-          distance: locations.transit1ToTransit2?.distance || 0,
-          isConnection: true
-        });
+      if (!currentMode || !currentMode.originStation?.name) {
+        console.warn(`⚠️  Mode ${modeNum} not configured, skipping`);
+        continue;
       }
 
-      // Safety buffer at connection
+      // Add transit segment
       addSegment({
-        type: 'wait',
-        location: transitRoute.mode2.originStation.name,
-        duration: this.SAFETY_BUFFER
+        type: this.getTransitTypeName(currentMode.type),
+        from: currentMode.originStation.name,
+        to: currentMode.destinationStation.name,
+        duration: currentMode.estimatedDuration || 20,
+        mode: currentMode.type,
+        modeNumber: modeNum
       });
 
-      // Transit Mode 2
-      addSegment({
-        type: this.getTransitTypeName(transitRoute.mode2.type),
-        from: transitRoute.mode2.originStation.name,
-        to: transitRoute.mode2.destinationStation.name,
-        duration: transitRoute.mode2.estimatedDuration || 15,
-        mode: transitRoute.mode2.type
-      });
+      // Add connection to next mode (if not last mode)
+      if (modeNum < numberOfModes) {
+        const nextModeKey = `mode${modeNum + 1}`;
+        const nextMode = transitRoute[nextModeKey];
+
+        if (nextMode && nextMode.originStation?.name) {
+          // Check if coffee should be during this connection
+          if (coffeeEnabled && cafeLocation === `between-transit-${modeNum}-${modeNum + 1}`) {
+            // Walk to cafe
+            addSegment({
+              type: 'walk',
+              from: currentMode.destinationStation.name,
+              to: 'Cafe',
+              duration: times[`transit${modeNum}ToCafe`] || 5,
+              distance: locations[`transit${modeNum}ToCafe`]?.distance || 0
+            });
+            // Get coffee
+            addSegment({
+              type: 'coffee',
+              location: 'Cafe',
+              duration: coffeePurchaseTime,
+              busyLevel: busyData.level,
+              busyIcon: busyDesc.icon,
+              busyText: busyDesc.text
+            });
+            // Walk to next transit
+            addSegment({
+              type: 'walk',
+              from: 'Cafe',
+              to: nextMode.originStation.name,
+              duration: times[`cafeToTransit${modeNum + 1}`] || 5,
+              distance: locations[`cafeToTransit${modeNum + 1}`]?.distance || 0
+            });
+          } else {
+            // Direct connection between transit modes
+            addSegment({
+              type: 'walk',
+              from: currentMode.destinationStation.name,
+              to: nextMode.originStation.name,
+              duration: times[`transit${modeNum}ToTransit${modeNum + 1}`] || 5,
+              distance: locations[`transit${modeNum}ToTransit${modeNum + 1}`]?.distance || 0,
+              isConnection: true
+            });
+          }
+
+          // Safety buffer at connection
+          addSegment({
+            type: 'wait',
+            location: nextMode.originStation.name,
+            duration: this.SAFETY_BUFFER
+          });
+        }
+      }
     }
 
-    // Segment 4: [Last Transit] → Work
-    const lastTransitStation = numberOfModes === 2
-      ? transitRoute.mode2.destinationStation.name
-      : transitRoute.mode1.destinationStation.name;
+    // Segment 3: [Last Transit] → Work
+    // Determine last transit station dynamically
+    let lastTransitStation = transitRoute.mode1.destinationStation.name;
+    for (let i = numberOfModes; i >= 1; i--) {
+      const mode = transitRoute[`mode${i}`];
+      if (mode && mode.destinationStation?.name) {
+        lastTransitStation = mode.destinationStation.name;
+        break;
+      }
+    }
 
     if (coffeeEnabled && cafeLocation === 'after-last-transit') {
       addSegment({
@@ -208,9 +226,54 @@ class RoutePlanner {
       0: 'train',
       1: 'tram',
       2: 'bus',
-      3: 'vline'
+      3: 'vline',
+      4: 'ferry',
+      5: 'light-rail'
     };
     return types[typeId] || 'transit';
+  }
+
+  /**
+   * Build connection info for multi-modal journeys
+   * Supports 1-4 transit connections
+   * @private
+   */
+  buildConnectionInfo(transitRoute, numberOfModes, cafeLocation) {
+    const connections = [];
+
+    for (let i = 1; i < numberOfModes; i++) {
+      const fromMode = transitRoute[`mode${i}`];
+      const toMode = transitRoute[`mode${i + 1}`];
+
+      if (fromMode && toMode && fromMode.destinationStation && toMode.originStation) {
+        connections.push({
+          from: fromMode.destinationStation.name,
+          to: toMode.originStation.name,
+          coffee_during_connection: cafeLocation === `between-transit-${i}-${i + 1}` ||
+                                   (i === 1 && cafeLocation === 'between-transits') // Backwards compatibility
+        });
+      }
+    }
+
+    return connections.length > 0 ? connections : null;
+  }
+
+  /**
+   * Get list of transit mode names for journey
+   * Supports 1-4 transit modes
+   * @private
+   */
+  getTransitModesList(transitRoute, numberOfModes) {
+    const modes = [];
+
+    for (let i = 1; i <= numberOfModes; i++) {
+      const mode = transitRoute[`mode${i}`];
+      if (mode && mode.type !== null && mode.type !== undefined) {
+        modes.push(this.getTransitTypeName(mode.type));
+      }
+    }
+
+    return modes.length > 0 ? modes : ['train']; // Default to train if none found
   }
 
   /**
@@ -373,7 +436,7 @@ class RoutePlanner {
     } = journeyConfig;
 
     const numberOfModes = transitRoute.numberOfModes || 1;
-    const hasConnection = numberOfModes === 2;
+    const hasConnection = numberOfModes >= 2;
 
     if (manualWalkingTimes.useManualTimes) {
       console.log('\n⚙️  Using manual walking times (override mode)');
@@ -703,19 +766,13 @@ class RoutePlanner {
         // Flexible segments
         segments,
 
-        // Journey metadata
+        // Journey metadata (supports 1-4 transit modes)
         journey: {
           cafe_location: cafeLocation,
           number_of_transit_modes: numberOfModes,
           has_connection: hasConnection,
-          connection_info: hasConnection ? {
-            from: transitRoute.mode1.destinationStation.name,
-            to: transitRoute.mode2.originStation.name,
-            coffee_during_connection: cafeLocation === 'between-transits'
-          } : null,
-          transit_modes: hasConnection
-            ? [this.getTransitTypeName(transitRoute.mode1.type), this.getTransitTypeName(transitRoute.mode2.type)]
-            : [this.getTransitTypeName(transitRoute.mode1.type)]
+          connection_info: hasConnection ? this.buildConnectionInfo(transitRoute, numberOfModes, cafeLocation) : null,
+          transit_modes: this.getTransitModesList(transitRoute, numberOfModes)
         },
 
         summary: {

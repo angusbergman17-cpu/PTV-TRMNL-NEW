@@ -51,13 +51,14 @@ class PreferencesManager {
 
         // Transit route configuration
         // No hardcoded defaults - users configure via Journey Planner
+        // Supports 1-4 transit connections for complex journeys
         transitRoute: {
-          numberOfModes: 1,              // 1 or 2 transit modes
+          numberOfModes: 1,              // 1-4 transit modes (expandable)
           mode1: {
-            type: 0,                     // Route type ID (0=Train, 1=Tram, 2=Bus, 3=V/Line)
+            type: 0,                     // Route type ID (0=Train, 1=Tram, 2=Bus, 3=V/Line, 4=Ferry, 5=Light Rail)
             originStation: {
               name: null,                // Configure via Journey Planner
-              id: null,                  // PTV station ID
+              id: null,                  // Station/stop ID
               lat: null,
               lon: null
             },
@@ -69,7 +70,39 @@ class PreferencesManager {
             },
             estimatedDuration: null      // minutes - auto-calculated
           },
-          mode2: {                       // Only used if numberOfModes === 2
+          mode2: {                       // Optional: used if numberOfModes >= 2
+            type: null,
+            originStation: {
+              name: '',
+              id: null,
+              lat: null,
+              lon: null
+            },
+            destinationStation: {
+              name: '',
+              id: null,
+              lat: null,
+              lon: null
+            },
+            estimatedDuration: null
+          },
+          mode3: {                       // Optional: used if numberOfModes >= 3
+            type: null,
+            originStation: {
+              name: '',
+              id: null,
+              lat: null,
+              lon: null
+            },
+            destinationStation: {
+              name: '',
+              id: null,
+              lat: null,
+              lon: null
+            },
+            estimatedDuration: null
+          },
+          mode4: {                       // Optional: used if numberOfModes === 4
             type: null,
             originStation: {
               name: '',
