@@ -28,6 +28,10 @@ import { getPrimaryCityForState } from './utils/australian-cities.js';
 import fallbackTimetables from './data/fallback-timetables.js';
 import { readFileSync } from 'fs';
 import nodemailer from 'nodemailer';
+import safeguards from './utils/deployment-safeguards.js';
+
+// Setup error handlers early (before any async operations)
+safeguards.setupErrorHandlers();
 
 // Read version from package.json
 const packageJsonPath = path.join(process.cwd(), 'package.json');
@@ -77,6 +81,18 @@ if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
 
 // Middleware
 app.use(express.json());
+app.use(safeguards.requestTimeout(30000)); // 30 second timeout for all requests
+
+// Validate environment on startup
+const envCheck = safeguards.validateEnvironment();
+console.log('📋 Environment Configuration:');
+console.log('   Required:', envCheck.required);
+console.log('   Optional:', envCheck.optional);
+safeguards.log(safeguards.LOG_LEVELS.INFO, 'Server starting', {
+  version: VERSION,
+  node: process.version,
+  environment: envCheck
+});
 
 // Initialize preferences first (needed by other modules for state-agnostic operation)
 const preferences = new PreferencesManager();
@@ -1050,31 +1066,42 @@ Sent via PTV-TRMNL Admin Panel`,
   }
 });
 
-// Status endpoint
+// Status endpoint (enhanced for monitoring and troubleshooting)
 app.get('/api/status', async (req, res) => {
   try {
     const data = await getData();
-    res.json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
+
+    // Get enhanced health status
+    const healthStatus = safeguards.getHealthStatus({
+      version: VERSION,
+      configured: isConfigured,
       dataMode: data.meta?.mode === 'fallback' ? 'Fallback' : 'Live',
       cache: {
         age: Math.round((Date.now() - lastUpdate) / 1000),
         maxAge: Math.round(CACHE_MS / 1000)
       },
       data: {
-        trains: data.trains,  // Return full array, not just length
-        trams: data.trams,    // Return full array, not just length
+        trains: data.trains,
+        trams: data.trams,
         alerts: data.news ? 1 : 0,
         coffee: data.coffee,
         weather: data.weather
       },
+      geocoding: {
+        circuitBreaker: safeguards.getCircuitBreakerStatus(global.geocodingService),
+        rateLimiter: safeguards.getRateLimiterStatus(global.geocodingService)
+      },
       meta: data.meta
     });
+
+    res.json(healthStatus);
   } catch (error) {
+    safeguards.trackError('health-check', error.message);
+    safeguards.log(safeguards.LOG_LEVELS.ERROR, 'Health check failed', { error: error.message });
     res.status(500).json({
       status: 'error',
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -5560,12 +5587,14 @@ app.post('/admin/setup/complete', async (req, res) => {
 
 const HOST = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
-app.listen(PORT, async () => {
+// Start server and capture instance for graceful shutdown
+const server = app.listen(PORT, async () => {
   console.log(`🚀 PTV-TRMNL server listening on port ${PORT}`);
   console.log(`📍 Preview: ${HOST}/preview`);
   console.log(`🔗 TRMNL endpoint: ${HOST}/api/screen`);
   console.log(`💚 Keep-alive: ${HOST}/api/keepalive`);
   console.log(`🔧 Admin Panel: ${HOST}/admin`);
+  console.log(`📊 Health Check: ${HOST}/api/status`);
 
   // Initialize persistent storage
   await loadDevices();
@@ -5573,12 +5602,43 @@ app.listen(PORT, async () => {
   // Pre-warm cache
   getData().then(() => {
     console.log('✅ Initial data loaded');
+    safeguards.log(safeguards.LOG_LEVELS.INFO, 'Initial data loaded successfully');
   }).catch(err => {
     console.warn('⚠️  Initial data load failed:', err.message);
+    safeguards.trackError('initial-data-load', err.message);
   });
 
   // Set up refresh cycle
   setInterval(() => {
-    getData().catch(err => console.warn('Background refresh failed:', err.message));
+    getData().catch(err => {
+      console.warn('Background refresh failed:', err.message);
+      safeguards.trackError('background-refresh', err.message);
+    });
   }, config.refreshSeconds * 1000);
+
+  safeguards.log(safeguards.LOG_LEVELS.INFO, 'Server started successfully', {
+    port: PORT,
+    host: HOST,
+    version: VERSION
+  });
+});
+
+// Setup graceful shutdown with cleanup
+safeguards.setupGracefulShutdown(server, async () => {
+  console.log('🧹 Running cleanup tasks...');
+
+  // Save any pending data
+  try {
+    await saveDevices();
+    console.log('✅ Device data saved');
+  } catch (err) {
+    console.error('Failed to save devices:', err);
+  }
+
+  // Close geocoding service connections
+  if (global.geocodingService) {
+    console.log('✅ Geocoding service closed');
+  }
+
+  console.log('✅ Cleanup completed');
 });
