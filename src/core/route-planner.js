@@ -318,17 +318,20 @@ class RoutePlanner {
   }
 
   /**
-   * Find nearest PTV stop to coordinates
-   * Uses PTV API to search for stops near location
+   * Find nearest transit stop to coordinates
+   * Uses GTFS static data or OpenData API for stop search
+   *
+   * NOTE: Legacy PTV API v3 (/v3/stops/location) is FORBIDDEN per Development Rules v1.0.16
    */
   async findNearestStop(lat, lon, routeType = null) {
-    // This would use PTV API's /v3/stops/location endpoint
-    // Returns null to indicate stops should be configured by user
+    // Returns null to indicate stops should be configured by user via setup wizard
+    // Setup wizard uses smart-journey-planner which queries GTFS static data
 
-    // TODO: Implement actual PTV stop search when API supports it
-    // For production: configure stops via Journey Planner or PTV API
+    // TODO: Implement OpenData Transport Victoria API stop search
+    // Use Transport Victoria OpenData API (src/services/opendata.js)
+    // Or query GTFS static timetables (src/data/fallback-timetables.js)
 
-    console.log('⚠️  No stop configured - use Journey Planner to set up your route');
+    console.log('⚠️  No stop configured - use Setup Wizard to configure your journey');
     return null;
   }
 

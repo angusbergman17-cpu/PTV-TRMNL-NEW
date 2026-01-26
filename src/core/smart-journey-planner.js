@@ -1099,9 +1099,30 @@ class SmartJourneyPlanner {
   }
 
   /**
-   * Build authenticated PTV API URL
+   * @deprecated LEGACY CODE - VIOLATES DEVELOPMENT RULES v1.0.16
+   *
+   * This method uses the LEGACY PTV Timetable API v3 which is FORBIDDEN
+   * per Development Rules Section 1 (Absolute Prohibitions).
+   *
+   * MUST NOT USE:
+   * - PTV Timetable API v3 (timetableapi.ptv.vic.gov.au)
+   * - HMAC-SHA1 authentication
+   * - devid/signature authentication
+   *
+   * MUST USE INSTEAD:
+   * - Transport Victoria OpenData API (src/services/opendata.js)
+   * - GTFS Realtime feeds (for live data)
+   * - GTFS Static timetables (for fallback)
+   *
+   * TODO: Replace entire SmartJourneyPlanner with OpenData API integration
+   * @see src/services/opendata.js for correct implementation
+   * @see Development Rules Section 2 for required data sources
    */
   buildPTVUrl(endpoint, params, apiKey, apiToken) {
+    console.warn('⚠️  DEPRECATED: SmartJourneyPlanner.buildPTVUrl() uses LEGACY PTV API v3 (FORBIDDEN)');
+    console.warn('    Use Transport Victoria OpenData API instead (src/services/opendata.js)');
+    console.warn('    See Development Rules v1.0.16 Section 2 for required data sources');
+
     params.set('devid', apiKey);
     const requestPath = `${endpoint}?${params.toString()}`;
 

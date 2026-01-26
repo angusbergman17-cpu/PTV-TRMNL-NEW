@@ -207,9 +207,28 @@ class MultiModalRouter {
   }
 
   /**
-   * Build authenticated PTV API URL
+   * @deprecated LEGACY CODE - VIOLATES DEVELOPMENT RULES v1.0.16
+   *
+   * This method uses the LEGACY PTV Timetable API v3 which is FORBIDDEN
+   * per Development Rules Section 1 (Absolute Prohibitions).
+   *
+   * MUST NOT USE:
+   * - PTV Timetable API v3 (timetableapi.ptv.vic.gov.au)
+   * - HMAC-SHA1 authentication
+   * - devid/signature authentication
+   *
+   * MUST USE INSTEAD:
+   * - Transport Victoria OpenData API (src/services/opendata.js)
+   * - GTFS Realtime feeds (for live data)
+   * - GTFS Static timetables (for fallback)
+   *
+   * TODO: Replace this entire method with OpenData API calls
+   * @see src/services/opendata.js for correct implementation
    */
   buildPTVUrl(endpoint, params, apiKey, apiToken) {
+    console.warn('⚠️  DEPRECATED: buildPTVUrl() uses LEGACY PTV API v3 (FORBIDDEN by Development Rules)');
+    console.warn('    Use Transport Victoria OpenData API instead (src/services/opendata.js)');
+
     const baseUrl = 'https://timetableapi.ptv.vic.gov.au';
 
     // Add devid to params
@@ -226,9 +245,16 @@ class MultiModalRouter {
   }
 
   /**
-   * Generate HMAC signature for PTV API
+   * @deprecated LEGACY CODE - HMAC-SHA1 AUTHENTICATION FORBIDDEN
+   *
+   * HMAC-SHA1 signature authentication is from legacy PTV API v3.
+   * Modern Transport Victoria OpenData API uses KeyId header authentication.
+   *
+   * TODO: Remove this method - no longer needed with OpenData API
+   * @see src/services/opendata.js - uses KeyId header instead
    */
   generateSignature(request, key) {
+    console.warn('⚠️  DEPRECATED: generateSignature() uses HMAC-SHA1 (FORBIDDEN by Development Rules)');
     const hmac = crypto.createHmac('sha1', key);
     hmac.update(request);
     return hmac.digest('hex').toUpperCase();
