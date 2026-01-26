@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
-**Last Updated**: 2026-01-25
-**Version**: 1.0.4
+**Last Updated**: 2026-01-26
+**Version**: 1.0.5
 
 ---
 
@@ -180,6 +180,52 @@ All development must align with these core principles:
 - **Minimize resource usage** for background tasks
 - **Clean data architecture** - no clogged or redundant data
 - **Efficient API calls** - cache and batch where possible
+
+### K. Location Agnostic at First Setup
+- **No location assumptions** during initial configuration
+- **State/region detection** based on user input (address geocoding)
+- **Universal interface** that works for all Australian states/territories
+- **Transit mode discovery** based on detected location
+- **Graceful handling** of locations without transit data
+
+**Implementation**:
+- Setup form should not pre-select or assume Victorian location
+- Geocoding should detect state from address coordinates
+- Transit mode options should populate based on detected state
+- Fallback data should be state-appropriate
+
+### L. Cascading Tab Population
+- **Data flows forward** from Setup → Live Data → Config → System
+- **Setup tab decisions** auto-populate subsequent tabs
+- **No redundant data entry** across tabs
+- **Configuration inheritance** from primary setup
+- **Clear data dependencies** between interface sections
+
+**Implementation**:
+- Address entries in Setup tab should persist to Config tab
+- State detection should enable/disable relevant features
+- Transit stop selections should auto-populate Live Data display
+- Journey profiles should cascade to all viewing interfaces
+
+### M. Dynamic Transit Mode Display
+- **Only show active modes** based on detected state/location
+- **Hide irrelevant modules** (e.g., metro trains for non-metro cities)
+- **Conditional UI elements** based on available transit types
+- **Smart feature enablement** based on transit infrastructure
+- **Clear messaging** when modes are unavailable
+
+**Implementation**:
+```javascript
+// Only display modules for detected transit modes
+const detectedModes = ['train', 'tram']; // From state detection
+if (detectedModes.includes('train')) {
+  showMetroTrainModule();
+}
+if (detectedModes.includes('tram')) {
+  showTramModule();
+}
+// Don't show bus, ferry, lightrail if not available in this location
+```
 
 ---
 
