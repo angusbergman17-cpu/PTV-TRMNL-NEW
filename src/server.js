@@ -1748,13 +1748,17 @@ app.use('/assets', express.static(path.join(process.cwd(), 'public/assets')));
 // Serve all public files
 app.use(express.static(path.join(process.cwd(), 'public')));
 
-// Admin panel home (clean interface - rebuilt from ground up)
+// Admin panel home (smart setup wizard & live dashboard - v3)
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(process.cwd(), 'public', 'admin-clean.html'));
+  res.sendFile(path.join(process.cwd(), 'public', 'admin-v3.html'));
 });
 
 // Previous interfaces (kept for reference)
 app.get('/admin/v2', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'admin-clean.html'));
+});
+
+app.get('/admin/v1', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'admin-new.html'));
 });
 
@@ -1776,6 +1780,234 @@ app.get('/journey', (req, res) => {
 app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'dashboard-template.html'));
 });
+
+// ============================================================================
+// SMART SETUP WIZARD ENDPOINTS (v3)
+// ============================================================================
+
+// Geocode address using best available service
+app.post('/admin/geocode', async (req, res) => {
+  try {
+    const { address } = req.body;
+
+    if (!address) {
+      return res.status(400).json({ success: false, error: 'Address is required' });
+    }
+
+    const result = await global.geocodingService.geocode(address);
+
+    if (!result) {
+      return res.status(404).json({ success: false, error: 'Could not find address' });
+    }
+
+    res.json({
+      success: true,
+      ...result
+    });
+
+  } catch (error) {
+    console.error('Geocode error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Calculate smart journey
+app.post('/admin/smart-journey/calculate', async (req, res) => {
+  try {
+    const {
+      homeLocation,
+      workLocation,
+      cafeLocation,
+      workStartTime,
+      cafeDuration,
+      transitAuthority,
+      useFallbackData
+    } = req.body;
+
+    if (!homeLocation || !workLocation || !workStartTime) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters'
+      });
+    }
+
+    // Use smart journey planner
+    const journey = await global.smartJourneyPlanner.planJourney({
+      home: { lat: homeLocation.lat, lon: homeLocation.lon },
+      work: { lat: workLocation.lat, lon: workLocation.lon },
+      cafe: cafeLocation ? { lat: cafeLocation.lat, lon: cafeLocation.lon } : null,
+      workStartTime,
+      cafeDuration: cafeDuration || 10,
+      state: transitAuthority,
+      useFallback: useFallbackData
+    });
+
+    res.json({
+      success: true,
+      ...journey
+    });
+
+  } catch (error) {
+    console.error('Journey calculation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Find closest BOM weather station
+app.post('/admin/bom/find-station', async (req, res) => {
+  try {
+    const { lat, lon } = req.body;
+
+    if (!lat || !lon) {
+      return res.status(400).json({ success: false, error: 'Coordinates required' });
+    }
+
+    // Find closest weather station
+    const station = await global.weatherBOM.findClosestStation(lat, lon);
+
+    if (!station) {
+      return res.status(404).json({ success: false, error: 'No weather station found' });
+    }
+
+    // Get current weather
+    const current = await global.weatherBOM.getCurrentWeather(station.id);
+
+    res.json({
+      success: true,
+      stationID: station.id,
+      stationName: station.name,
+      distance: station.distance,
+      current: current || null
+    });
+
+  } catch (error) {
+    console.error('BOM station lookup error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Validate transit API key
+app.post('/admin/transit/validate-api', async (req, res) => {
+  try {
+    const { state, apiKey } = req.body;
+
+    if (!state || !apiKey) {
+      return res.status(400).json({ success: false, error: 'State and API key required' });
+    }
+
+    // Test API key with simple request
+    // For VIC, test with Transport Victoria OpenData API
+    if (state === 'VIC') {
+      const testUrl = 'https://opendata.transport.vic.gov.au/v1/gtfsrt-metro-trains';
+      const response = await fetch(testUrl, {
+        headers: {
+          'KeyId': apiKey,
+          'Accept': '*/*'
+        }
+      });
+
+      if (response.status !== 200) {
+        throw new Error(`API test failed: ${response.statusText}`);
+      }
+
+      res.json({ success: true, message: 'API key validated successfully' });
+    } else {
+      // For other states, assume valid (implement state-specific validation as needed)
+      res.json({ success: true, message: 'API key accepted' });
+    }
+
+  } catch (error) {
+    console.error('Transit API validation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Complete setup and save all configuration
+app.post('/admin/setup/complete', async (req, res) => {
+  try {
+    const setupData = req.body;
+
+    // Save all configuration to preferences
+    const prefs = preferences.get();
+
+    // Update locations
+    if (setupData.homeLocation) {
+      prefs.locations = prefs.locations || {};
+      prefs.locations.home = {
+        address: setupData.homeLocation.formattedAddress,
+        lat: setupData.homeLocation.lat,
+        lon: setupData.homeLocation.lon
+      };
+    }
+
+    if (setupData.workLocation) {
+      prefs.locations = prefs.locations || {};
+      prefs.locations.work = {
+        address: setupData.workLocation.formattedAddress,
+        lat: setupData.workLocation.lat,
+        lon: setupData.workLocation.lon
+      };
+    }
+
+    if (setupData.cafeLocation) {
+      prefs.locations = prefs.locations || {};
+      prefs.locations.cafe = {
+        address: setupData.cafeLocation.formattedAddress,
+        lat: setupData.cafeLocation.lat,
+        lon: setupData.cafeLocation.lon,
+        businessName: setupData.cafeLocation.businessName
+      };
+    }
+
+    // Update state and transit authority
+    if (setupData.detectedState) {
+      prefs.state = setupData.detectedState;
+      prefs.transitAuthority = setupData.transitAuthority.name;
+    }
+
+    // Update journey
+    if (setupData.calculatedJourney) {
+      prefs.journey = setupData.calculatedJourney;
+    }
+
+    // Update BOM station
+    if (setupData.bomStation) {
+      prefs.weatherStation = {
+        id: setupData.bomStation.stationID,
+        name: setupData.bomStation.stationName
+      };
+    }
+
+    // Update device
+    if (setupData.selectedDevice) {
+      prefs.device = {
+        type: setupData.selectedDevice,
+        name: setupData.selectedDevice
+      };
+    }
+
+    // Update API keys if provided
+    if (setupData.transitAPIKey) {
+      process.env.ODATA_API_KEY = setupData.transitAPIKey;
+      prefs.transitAPIConfigured = true;
+    } else {
+      prefs.transitAPIConfigured = false;
+    }
+
+    // Save preferences
+    await preferences.save(prefs);
+
+    res.json({ success: true, message: 'Setup completed successfully' });
+
+  } catch (error) {
+    console.error('Setup completion error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
+// END SMART SETUP WIZARD ENDPOINTS
+// ============================================================================
 
 // Get server status
 app.get('/admin/status', async (req, res) => {

@@ -2735,9 +2735,977 @@ Before committing, verify:
 **Non-compliance with these rules is not permitted.**
 **When in doubt, consult this document first.**
 
+## 1️⃣6️⃣ SMART SETUP WIZARD & LIVE DASHBOARD
+
+### Purpose
+
+Provide a sophisticated, intelligent admin interface that guides users through complete system configuration with smart journey planning and live monitoring capabilities.
+
+### Setup Wizard Flow (MANDATORY SEQUENCE)
+
+**CRITICAL**: Each step MUST be completed and validated before proceeding to the next. No overlapping panels, no skipping ahead.
+
+#### Step 1: Google Places API (New) Key
+
+**Purpose**: Obtain enhanced geocoding capability for accurate address finding.
+
+**Requirements**:
+- **MUST present Google Places API (new) as FIRST step** (not optional)
+- **MUST explain benefit**: Accurate location finding for homes, cafes, businesses
+- **MUST provide link**: https://developers.google.com/maps/documentation/places/web-service/cloud-setup
+- **MUST note free tier**: $200/month credit available
+- **MUST allow skip**: User can proceed without key (uses fallback Nominatim)
+- **MUST validate immediately**: Test API key before allowing progression
+- **MUST save immediately**: No server restart required
+
+**UI Structure**:
+```html
+<div class="step-1-google-places">
+  <h2>🗺️ Step 1: Enhanced Location Finding</h2>
+
+  <div class="recommendation-box">
+    <h3>Recommended: Google Places API (New)</h3>
+    <p><strong>For best results</strong>, add your Google Places API (new) key now.
+    This ensures accurate address finding for your home, work, and cafe locations.</p>
+
+    <p>💡 The Google Places API (new) has a generous free tier ($200/month credit).
+    Adding it during setup prevents address lookup failures.</p>
+  </div>
+
+  <div class="api-key-input">
+    <label>Google Places API (New) Key:</label>
+    <input type="password" id="google-places-key" placeholder="AIza...">
+    <a href="https://developers.google.com/maps/documentation/places/web-service/cloud-setup"
+       target="_blank">Get API Key</a>
+  </div>
+
+  <div class="actions">
+    <button onclick="validateAndSaveGooglePlaces()">Validate & Continue</button>
+    <button onclick="skipGooglePlaces()" class="secondary">
+      Skip (Use Free Geocoding)
+    </button>
+  </div>
+
+  <div class="note">
+    <strong>Note:</strong> Skipping will use free Nominatim geocoding, which may be
+    less accurate for specific buildings and businesses.
+  </div>
+</div>
+```
+
+**Validation Logic**:
+```javascript
+async function validateAndSaveGooglePlaces() {
+  const apiKey = document.getElementById('google-places-key').value;
+
+  if (!apiKey) {
+    showError('Please enter an API key or click Skip');
+    return;
+  }
+
+  // Test API key with simple request
+  showLoading('Testing Google Places API...');
+
+  const response = await fetch('/admin/apis/validate-google-places', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey })
+  });
+
+  const result = await response.json();
+
+  if (!result.success) {
+    showError('Invalid API key. Please check and try again.');
+    return;
+  }
+
+  // Save immediately (no restart needed)
+  await fetch('/admin/apis/force-save-google-places', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey })
+  });
+
+  showSuccess('Google Places API configured successfully!');
+  goToStep(2);
+}
+
+function skipGooglePlaces() {
+  showInfo('Using free Nominatim geocoding');
+  goToStep(2);
+}
+```
+
+#### Step 2: Addresses
+
+**Purpose**: Collect user's home, work, and cafe addresses using enhanced geocoding.
+
+**Requirements**:
+- **MUST auto-populate** using Google Places API (new) if configured
+- **MUST fallback** to Nominatim if Google Places not configured
+- **MUST NOT include** user's sample addresses as examples
+- **MUST validate** all addresses before proceeding
+- **MUST extract** state from geocoded coordinates
+- **MUST show** geocoding results for user verification
+
+**UI Structure**:
+```html
+<div class="step-2-addresses">
+  <h2>📍 Step 2: Your Locations</h2>
+
+  <div class="address-input">
+    <label>Home Address:</label>
+    <input type="text" id="home-address" placeholder="Enter your home address">
+    <button onclick="geocodeHome()">Find Location</button>
+    <div id="home-result" class="geocode-result"></div>
+  </div>
+
+  <div class="address-input">
+    <label>Work Address:</label>
+    <input type="text" id="work-address" placeholder="Enter your work address">
+    <button onclick="geocodeWork()">Find Location</button>
+    <div id="work-result" class="geocode-result"></div>
+  </div>
+
+  <div class="address-input">
+    <label>Cafe (Optional):</label>
+    <input type="text" id="cafe-address" placeholder="Enter your favorite cafe">
+    <button onclick="geocodeCafe()">Find Location</button>
+    <div id="cafe-result" class="geocode-result"></div>
+  </div>
+
+  <div class="detected-state" id="detected-state" style="display:none;">
+    <h3>Detected State: <span id="state-name"></span></h3>
+    <p>Transit authority: <span id="transit-authority"></span></p>
+  </div>
+
+  <div class="actions">
+    <button onclick="validateAddresses()">Continue →</button>
+  </div>
+</div>
+```
+
+**Geocoding Logic**:
+```javascript
+async function geocodeHome() {
+  const address = document.getElementById('home-address').value;
+  showLoading('Finding location...');
+
+  const response = await fetch('/admin/geocode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address })
+  });
+
+  const result = await response.json();
+
+  if (!result.success) {
+    showError('Could not find address. Please check and try again.');
+    return;
+  }
+
+  // Show result
+  document.getElementById('home-result').innerHTML = `
+    <strong>✓ Found:</strong> ${result.formattedAddress}<br>
+    <small>Coordinates: ${result.lat.toFixed(4)}, ${result.lon.toFixed(4)}</small><br>
+    <small>Source: ${result.source}</small>
+  `;
+
+  // Save to form state
+  homeLocation = result;
+
+  // Detect state from coordinates
+  detectState(result.lat, result.lon);
+}
+
+function detectState(lat, lon) {
+  // Detect Australian state from coordinates
+  const state = detectAustralianState(lat, lon);
+
+  document.getElementById('detected-state').style.display = 'block';
+  document.getElementById('state-name').textContent = state.name;
+  document.getElementById('transit-authority').textContent = state.authority;
+
+  detectedState = state.code; // VIC, NSW, QLD, etc.
+}
+```
+
+#### Step 3: Transit Authority Configuration
+
+**Purpose**: Automatically link to appropriate transit authority based on detected state.
+
+**Requirements**:
+- **MUST auto-detect** transit authority from state
+- **MUST use fallback timetables** initially (no API key required yet)
+- **MUST show** which authority was detected
+- **MUST display** what transit modes are available
+- **MUST prepare** for smart journey planning
+
+**UI Structure**:
+```html
+<div class="step-3-transit-authority">
+  <h2>🚂 Step 3: Transit Authority Detected</h2>
+
+  <div class="authority-detected">
+    <h3><span id="authority-icon"></span> <span id="authority-name"></span></h3>
+    <p>State: <span id="state-detected"></span></p>
+    <p>Available modes: <span id="available-modes"></span></p>
+  </div>
+
+  <div class="fallback-notice">
+    <p><strong>Using Fallback Timetables</strong></p>
+    <p>The system will use cached static timetables for initial journey planning.
+    You'll be prompted to add a real-time API key after setup to enable live updates.</p>
+  </div>
+
+  <div class="actions">
+    <button onclick="proceedToJourneyPlanning()">Continue to Journey Planning →</button>
+  </div>
+</div>
+```
+
+**State Detection Logic**:
+```javascript
+const TRANSIT_AUTHORITIES = {
+  'VIC': {
+    name: 'Transport for Victoria',
+    icon: '🚊',
+    modes: ['Metro Trains', 'Trams', 'Buses', 'V/Line'],
+    apiRequired: 'Transport Victoria OpenData API',
+    apiPortal: 'https://opendata.transport.vic.gov.au/'
+  },
+  'NSW': {
+    name: 'Transport for NSW',
+    icon: '🚇',
+    modes: ['Trains', 'Light Rail', 'Buses', 'Ferries'],
+    apiRequired: 'Transport for NSW Open Data',
+    apiPortal: 'https://opendata.transport.nsw.gov.au/'
+  },
+  'QLD': {
+    name: 'TransLink (Queensland)',
+    icon: '🚉',
+    modes: ['Trains', 'Buses', 'Ferries', 'Trams'],
+    apiRequired: 'TransLink GTFS',
+    apiPortal: 'https://www.data.qld.gov.au/'
+  },
+  // ... other states
+};
+
+function proceedToJourneyPlanning() {
+  const authority = TRANSIT_AUTHORITIES[detectedState];
+
+  // Initialize fallback timetables
+  initializeFallbackData(detectedState);
+
+  goToStep(4);
+}
+```
+
+#### Step 4: Smart Journey Planning
+
+**Purpose**: Intelligently calculate optimal journey including cafe stop, minimizing walking, considering busyness.
+
+**Requirements**:
+- **MUST find** closest transit stops to all locations (home, cafe, work)
+- **MUST minimize** walking distance at each transfer
+- **MUST include** cafe stop with business name
+- **MUST consider** cafe busyness times (avoid peak hours)
+- **MUST use** live transit status if available (fallback to static)
+- **MUST calculate** journey to arrive before specified start time
+- **MUST show** full journey visualization
+- **MUST allow** user to adjust journey preferences
+
+**UI Structure**:
+```html
+<div class="step-4-smart-journey">
+  <h2>🧠 Step 4: Smart Journey Planning</h2>
+
+  <div class="journey-config">
+    <label>Work Start Time:</label>
+    <input type="time" id="work-start-time" value="09:00">
+
+    <label>
+      <input type="checkbox" id="include-cafe" checked>
+      Include cafe stop
+    </label>
+
+    <div id="cafe-options" class="cafe-options">
+      <label>Cafe Name:</label>
+      <input type="text" id="cafe-name" readonly>
+
+      <label>How long do you spend at the cafe? (minutes)</label>
+      <input type="number" id="cafe-duration" value="10" min="5" max="60">
+
+      <div class="busyness-info">
+        <p>💡 <strong>Tip:</strong> System will analyze cafe busyness patterns
+        and suggest optimal times to avoid queues.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="journey-calculation">
+    <button onclick="calculateJourney()">Calculate Smart Journey</button>
+  </div>
+
+  <div id="journey-result" class="journey-visualization" style="display:none;">
+    <!-- Journey map and timeline will be rendered here -->
+  </div>
+
+  <div class="actions">
+    <button onclick="acceptJourney()">Accept Journey →</button>
+    <button onclick="recalculateJourney()" class="secondary">Recalculate</button>
+  </div>
+</div>
+```
+
+**Smart Journey Calculation**:
+```javascript
+async function calculateJourney() {
+  showLoading('Calculating optimal journey...');
+
+  const workStartTime = document.getElementById('work-start-time').value;
+  const includeCafe = document.getElementById('include-cafe').checked;
+  const cafeDuration = parseInt(document.getElementById('cafe-duration').value);
+
+  const request = {
+    homeLocation,
+    workLocation,
+    cafeLocation: includeCafe ? cafeLocation : null,
+    workStartTime,
+    cafeDuration,
+    transitAuthority: detectedState,
+    useFallbackData: true // Initially uses static timetables
+  };
+
+  const response = await fetch('/admin/smart-journey/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  });
+
+  const journey = await response.json();
+
+  if (!journey.success) {
+    showError('Could not calculate journey: ' + journey.error);
+    return;
+  }
+
+  // Display journey visualization
+  renderJourneyVisualization(journey);
+
+  // Save journey plan
+  calculatedJourney = journey;
+}
+
+function renderJourneyVisualization(journey) {
+  document.getElementById('journey-result').style.display = 'block';
+  document.getElementById('journey-result').innerHTML = `
+    <h3>Your Optimized Journey</h3>
+
+    <div class="journey-timeline">
+      ${journey.legs.map(leg => `
+        <div class="journey-leg">
+          <div class="leg-mode">${leg.mode}</div>
+          <div class="leg-details">
+            <strong>${leg.from}</strong> → <strong>${leg.to}</strong><br>
+            ${leg.route ? `Route: ${leg.route}<br>` : ''}
+            Duration: ${leg.duration} min<br>
+            ${leg.walking ? `Walking: ${leg.walkingDistance}m (${leg.walkingTime} min)` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="journey-summary">
+      <h4>Summary</h4>
+      <p><strong>Departure from home:</strong> ${journey.departureTime}</p>
+      <p><strong>Arrival at work:</strong> ${journey.arrivalTime}</p>
+      <p><strong>Total journey time:</strong> ${journey.totalDuration} min</p>
+      <p><strong>Total walking:</strong> ${journey.totalWalking}m (${journey.totalWalkingTime} min)</p>
+      ${journey.cafeBusyness ? `<p><strong>Cafe busyness:</strong> ${journey.cafeBusyness.level} - ${journey.cafeBusyness.note}</p>` : ''}
+    </div>
+
+    <div class="optimization-notes">
+      <h4>Optimizations Applied:</h4>
+      <ul>
+        ${journey.optimizations.map(opt => `<li>✓ ${opt}</li>`).join('')}
+      </ul>
+    </div>
+  `;
+}
+```
+
+**Smart Journey Planner Requirements**:
+```javascript
+// Smart journey planner MUST:
+// 1. Find closest stops to minimize walking
+// 2. Consider cafe busyness (Google Places API if available)
+// 3. Use live transit status (if API key provided, else fallback)
+// 4. Calculate backwards from work start time
+// 5. Include buffer time for delays
+// 6. Optimize route selection (fastest vs fewest changes)
+// 7. Provide alternative routes
+
+// Example optimization logic:
+function optimizeRoute(stops, preferences) {
+  // Minimize walking distance
+  const homeStop = findClosestStop(homeLocation, stops, 500); // Within 500m
+  const cafeStop = findClosestStop(cafeLocation, stops, 300); // Within 300m
+  const workStop = findClosestStop(workLocation, stops, 500);
+
+  // Check cafe busyness
+  const cafeBusyness = await checkBusyness(cafeLocation, departureTime);
+  if (cafeBusyness.level === 'high') {
+    // Adjust departure time to avoid peak
+    departureTime = cafeBusyness.suggestedTime;
+  }
+
+  // Find best route considering live status
+  const routes = await findRoutes(homeStop, cafeStop, workStop);
+  const bestRoute = routes
+    .filter(r => r.arrivalTime < workStartTime)
+    .sort((a, b) => a.totalWalking - b.totalWalking)[0]; // Minimize walking
+
+  return bestRoute;
+}
+```
+
+#### Step 5: BOM Weather Data
+
+**Purpose**: Link Bureau of Meteorology data to home address for weather display.
+
+**Requirements**:
+- **MUST use** home address coordinates
+- **MUST find** closest BOM weather station
+- **MUST fetch** current weather data
+- **MUST store** BOM station ID for dashboard
+- **MUST display** weather on device screen
+
+**UI Structure**:
+```html
+<div class="step-5-weather">
+  <h2>🌤️ Step 5: Weather Data</h2>
+
+  <div class="bom-setup">
+    <p>Linking Bureau of Meteorology (BOM) data to your home location...</p>
+
+    <div id="bom-result" class="bom-result">
+      <!-- Auto-filled after finding closest station -->
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="confirmWeather()">Continue →</button>
+  </div>
+</div>
+```
+
+**BOM Integration Logic**:
+```javascript
+async function setupBOMData() {
+  showLoading('Finding closest weather station...');
+
+  const response = await fetch('/admin/bom/find-station', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat: homeLocation.lat, lon: homeLocation.lon })
+  });
+
+  const result = await response.json();
+
+  document.getElementById('bom-result').innerHTML = `
+    <h4>✓ Weather Station Found</h4>
+    <p><strong>Station:</strong> ${result.stationName}</p>
+    <p><strong>Distance:</strong> ${result.distance.toFixed(1)} km from your home</p>
+    <p><strong>Current conditions:</strong> ${result.current.temp}°C, ${result.current.description}</p>
+  `;
+
+  bomStationID = result.stationID;
+}
+```
+
+#### Step 6: Transit Authority API Key (Optional)
+
+**Purpose**: Prompt for transit authority API key to enable live data (optional, uses fallback if skipped).
+
+**Requirements**:
+- **MUST show** which authority's API is needed
+- **MUST link** to appropriate API portal
+- **MUST allow skip** (continues with fallback data)
+- **MUST validate** if provided
+- **MUST enable** live data if validated
+
+**UI Structure**:
+```html
+<div class="step-6-transit-api">
+  <h2>🔑 Step 6: Real-Time Transit Data (Optional)</h2>
+
+  <div class="api-explanation">
+    <p>Your journey is currently using <strong>fallback static timetables</strong>.
+    To enable <strong>live departure times</strong> and real-time updates, add your
+    <strong>${transitAuthority.name}</strong> API key.</p>
+
+    <p>💡 <strong>Free Option:</strong> You can skip this and continue using cached
+    timetables. The system will still work, but won't have live delay/cancellation alerts.</p>
+  </div>
+
+  <div class="api-input">
+    <label>${transitAuthority.name} API Key:</label>
+    <input type="password" id="transit-api-key" placeholder="Enter API key">
+    <a href="${transitAuthority.apiPortal}" target="_blank">Get API Key</a>
+  </div>
+
+  <div class="actions">
+    <button onclick="validateTransitAPI()">Validate & Enable Live Data</button>
+    <button onclick="skipTransitAPI()" class="secondary">
+      Skip (Use Fallback Data)
+    </button>
+  </div>
+</div>
+```
+
+**API Validation Logic**:
+```javascript
+async function validateTransitAPI() {
+  const apiKey = document.getElementById('transit-api-key').value;
+
+  if (!apiKey) {
+    showError('Please enter an API key or click Skip');
+    return;
+  }
+
+  showLoading('Testing transit API...');
+
+  const response = await fetch('/admin/transit/validate-api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      state: detectedState,
+      apiKey
+    })
+  });
+
+  const result = await response.json();
+
+  if (!result.success) {
+    showError('Invalid API key: ' + result.error);
+    return;
+  }
+
+  showSuccess('Live transit data enabled!');
+  transitAPIConfigured = true;
+  goToStep(7);
+}
+
+function skipTransitAPI() {
+  showInfo('Continuing with fallback timetables');
+  transitAPIConfigured = false;
+  goToStep(7);
+}
+```
+
+#### Step 7: Device Selection
+
+**Purpose**: Select target e-ink device and configure output formatting.
+
+**Requirements**:
+- **MUST list** all supported devices
+- **MUST show** specifications for each
+- **MUST auto-adjust** all outputs to selected device
+- **MUST persist** device choice
+- **MUST update** preview to match device
+
+**UI Structure**:
+```html
+<div class="step-7-device">
+  <h2>📱 Step 7: Select Your E-Ink Device</h2>
+
+  <div class="device-selection">
+    <div class="device-option" onclick="selectDevice('trmnl-og')">
+      <input type="radio" name="device" value="trmnl-og">
+      <div class="device-details">
+        <h4>TRMNL OG (7.5")</h4>
+        <p>800×480 pixels, Landscape, ESP32</p>
+        <span class="badge compatible">✅ Compatible</span>
+      </div>
+    </div>
+
+    <div class="device-option" onclick="selectDevice('trmnl-x')">
+      <input type="radio" name="device" value="trmnl-x">
+      <div class="device-details">
+        <h4>TRMNL X (Newer Model)</h4>
+        <p>Different architecture</p>
+        <span class="badge incompatible">⚠️ Not Yet Compatible</span>
+      </div>
+    </div>
+
+    <div class="device-option" onclick="selectDevice('kindle-pw5')">
+      <input type="radio" name="device" value="kindle-pw5">
+      <div class="device-details">
+        <h4>Kindle Paperwhite 5 (6.8")</h4>
+        <p>1236×1648 pixels, Portrait, 4-bit grayscale</p>
+        <span class="badge compatible">✅ Compatible</span>
+      </div>
+    </div>
+
+    <!-- More device options -->
+  </div>
+
+  <div id="device-info" class="device-info-panel" style="display:none;">
+    <!-- Shows selected device specifications -->
+  </div>
+
+  <div class="actions">
+    <button onclick="completeSetup()">Complete Setup →</button>
+  </div>
+</div>
+```
+
+**Device Selection Logic**:
+```javascript
+function selectDevice(deviceID) {
+  const device = SUPPORTED_DEVICES[deviceID];
+
+  if (!device.compatible) {
+    showWarning(`${device.name} is not yet compatible. Please select another device.`);
+    return;
+  }
+
+  selectedDevice = deviceID;
+
+  // Show device info
+  document.getElementById('device-info').style.display = 'block';
+  document.getElementById('device-info').innerHTML = `
+    <h4>Selected: ${device.name}</h4>
+    <p><strong>Resolution:</strong> ${device.resolution.width}×${device.resolution.height}</p>
+    <p><strong>Orientation:</strong> ${device.orientation}</p>
+    <p><strong>Format:</strong> ${device.format}</p>
+    <p><strong>Refresh Method:</strong> ${device.refreshMethod}</p>
+  `;
+}
+```
+
+#### Step 8: Setup Complete
+
+**Purpose**: Save all configuration and transition to live dashboard.
+
+**Requirements**:
+- **MUST save** all configuration to preferences
+- **MUST display** QR code (if using TRMNL BYOS)
+- **MUST show** live logs as setup finalizes
+- **MUST transition** to dashboard automatically
+
+**UI Structure**:
+```html
+<div class="step-8-complete">
+  <h2>✅ Setup Complete!</h2>
+
+  <div class="completion-status">
+    <div class="status-item">
+      <span class="icon">🗺️</span>
+      <span class="label">Geocoding:</span>
+      <span class="value">${geocodingService}</span>
+    </div>
+
+    <div class="status-item">
+      <span class="icon">🚂</span>
+      <span class="label">Transit Authority:</span>
+      <span class="value">${transitAuthority}</span>
+    </div>
+
+    <div class="status-item">
+      <span class="icon">🧠</span>
+      <span class="label">Smart Journey:</span>
+      <span class="value">Calculated</span>
+    </div>
+
+    <div class="status-item">
+      <span class="icon">🌤️</span>
+      <span class="label">Weather:</span>
+      <span class="value">BOM ${bomStationName}</span>
+    </div>
+
+    <div class="status-item">
+      <span class="icon">📱</span>
+      <span class="label">Device:</span>
+      <span class="value">${selectedDeviceName}</span>
+    </div>
+  </div>
+
+  <div class="qr-code-panel" id="qr-code-panel" style="display:none;">
+    <h3>Device Setup QR Code</h3>
+    <img id="device-qr" alt="Device pairing QR code">
+    <p>Scan this QR code with your ${selectedDeviceName} to pair the device.</p>
+  </div>
+
+  <div class="live-logs-panel">
+    <h3>Setup Logs</h3>
+    <div id="live-logs" class="log-container">
+      <!-- Live logs appear here -->
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="goToDashboard()">View Live Dashboard →</button>
+  </div>
+</div>
+```
+
+### Live Dashboard (Post-Setup)
+
+**Purpose**: Provide comprehensive real-time monitoring and control interface.
+
+**Requirements**:
+- **MUST show** calculated journey with live updates
+- **MUST display** paired e-ink device status
+- **MUST list** all configured API keys with status
+- **MUST show** technical logs (live streaming)
+- **MUST include** architecture diagrams
+- **MUST display** legal and compliance notices
+- **MUST provide** donation page/link
+
+**Dashboard Structure**:
+```html
+<div class="live-dashboard">
+  <div class="dashboard-header">
+    <h1>PTV-TRMNL Live Dashboard</h1>
+    <div class="system-status">
+      <span class="status-indicator ${systemStatus}"></span>
+      <span>${systemStatusText}</span>
+    </div>
+  </div>
+
+  <!-- Journey Panel -->
+  <div class="dashboard-panel journey-panel">
+    <h2>🚊 Your Journey (Live)</h2>
+    <div id="live-journey">
+      <!-- Real-time journey updates -->
+    </div>
+  </div>
+
+  <!-- Device Panel -->
+  <div class="dashboard-panel device-panel">
+    <h2>📱 Paired Device</h2>
+    <div id="device-status">
+      <p><strong>Device:</strong> ${deviceName}</p>
+      <p><strong>Last Refresh:</strong> ${lastRefresh}</p>
+      <p><strong>Next Refresh:</strong> ${nextRefresh}</p>
+      <p><strong>Status:</strong> ${deviceStatus}</p>
+    </div>
+  </div>
+
+  <!-- API Keys Panel -->
+  <div class="dashboard-panel api-keys-panel">
+    <h2>🔑 Configured APIs</h2>
+    <div id="api-keys-list">
+      <!-- List all API keys with status -->
+    </div>
+  </div>
+
+  <!-- Technical Logs Panel -->
+  <div class="dashboard-panel logs-panel">
+    <h2>📜 System Logs (Live)</h2>
+    <div id="technical-logs" class="log-stream">
+      <!-- Live streaming logs -->
+    </div>
+  </div>
+
+  <!-- Architecture Panel -->
+  <div class="dashboard-panel architecture-panel">
+    <h2>🏗️ System Architecture</h2>
+    <div id="architecture-diagram">
+      <!-- SVG diagram showing data flow -->
+    </div>
+  </div>
+
+  <!-- Legal & Compliance Panel -->
+  <div class="dashboard-panel legal-panel">
+    <h2>⚖️ Legal & Compliance</h2>
+    <div id="legal-notices">
+      <h3>Data Sources:</h3>
+      <ul>
+        <li>Transport for Victoria - GTFS Realtime (OpenData License)</li>
+        <li>Bureau of Meteorology - Weather Data (CC BY)</li>
+        <li>Google Places API (New) - Terms of Service</li>
+      </ul>
+
+      <h3>Software License:</h3>
+      <p>PTV-TRMNL © 2026 Angus Bergman</p>
+      <p>Licensed under CC BY-NC 4.0</p>
+      <p><a href="https://creativecommons.org/licenses/by-nc/4.0/">
+        License Details</a></p>
+    </div>
+  </div>
+
+  <!-- Donations Panel -->
+  <div class="dashboard-panel donations-panel">
+    <h2>💝 Support This Project</h2>
+    <div id="donations">
+      <p>If you find this project useful, consider supporting its development:</p>
+      <a href="[DONATION_LINK]" class="donate-button" target="_blank">
+        Donate via [Platform]
+      </a>
+      <p><small>This project is provided free and open-source under CC BY-NC 4.0.
+      Donations help support ongoing development and server costs.</small></p>
+    </div>
+  </div>
+</div>
+```
+
+**Live Dashboard Features**:
+
+**1. Live Journey Updates**:
+```javascript
+// WebSocket or polling for real-time journey updates
+function updateLiveJourney() {
+  fetch('/admin/journey/live-status')
+    .then(res => res.json())
+    .then(journey => {
+      // Update journey panel with live data
+      document.getElementById('live-journey').innerHTML = renderJourney(journey);
+    });
+}
+
+setInterval(updateLiveJourney, 30000); // Update every 30 seconds
+```
+
+**2. API Key Status Display**:
+```javascript
+function renderAPIKeysList() {
+  return `
+    <div class="api-key-item ${googlePlacesConfigured ? 'active' : 'inactive'}">
+      <span class="api-icon">🗺️</span>
+      <span class="api-name">Google Places API (New)</span>
+      <span class="api-status">${googlePlacesConfigured ? '✓ Active' : '⚠️ Not Configured'}</span>
+      <span class="api-value">${googlePlacesConfigured ? maskAPIKey(googlePlacesKey) : 'Not set'}</span>
+    </div>
+
+    <div class="api-key-item ${transitAPIConfigured ? 'active' : 'inactive'}">
+      <span class="api-icon">🚂</span>
+      <span class="api-name">${transitAuthority.name}</span>
+      <span class="api-status">${transitAPIConfigured ? '✓ Active' : '⚠️ Using Fallback'}</span>
+      <span class="api-value">${transitAPIConfigured ? maskAPIKey(transitAPIKey) : 'Fallback data'}</span>
+    </div>
+
+    <div class="api-key-item ${bomConfigured ? 'active' : 'inactive'}">
+      <span class="api-icon">🌤️</span>
+      <span class="api-name">Bureau of Meteorology</span>
+      <span class="api-status">✓ Active</span>
+      <span class="api-value">Station ${bomStationID}</span>
+    </div>
+  `;
+}
+
+function maskAPIKey(key) {
+  if (key.length <= 8) return '****';
+  return key.substring(0, 4) + '...' + key.substring(key.length - 4);
+}
+```
+
+**3. Live Streaming Logs**:
+```javascript
+// Server-Sent Events for live logs
+const eventSource = new EventSource('/admin/logs/stream');
+
+eventSource.onmessage = function(event) {
+  const log = JSON.parse(event.data);
+  appendLog(log);
+};
+
+function appendLog(log) {
+  const logContainer = document.getElementById('technical-logs');
+  const logEntry = document.createElement('div');
+  logEntry.className = `log-entry log-${log.level}`;
+  logEntry.innerHTML = `
+    <span class="log-time">${log.timestamp}</span>
+    <span class="log-level">[${log.level.toUpperCase()}]</span>
+    <span class="log-message">${log.message}</span>
+  `;
+  logContainer.appendChild(logEntry);
+
+  // Auto-scroll to bottom
+  logContainer.scrollTop = logContainer.scrollHeight;
+
+  // Limit log entries (keep last 100)
+  while (logContainer.children.length > 100) {
+    logContainer.removeChild(logContainer.firstChild);
+  }
+}
+```
+
+**4. Architecture Diagram**:
+```html
+<svg viewBox="0 0 800 600" class="architecture-svg">
+  <!-- User/Browser -->
+  <rect x="50" y="50" width="150" height="80" class="component-browser"/>
+  <text x="125" y="95" text-anchor="middle">Browser</text>
+
+  <!-- Server -->
+  <rect x="325" y="50" width="150" height="80" class="component-server"/>
+  <text x="400" y="95" text-anchor="middle">Node.js Server</text>
+
+  <!-- APIs -->
+  <rect x="600" y="20" width="150" height="60" class="component-api"/>
+  <text x="675" y="55" text-anchor="middle">Google Places</text>
+
+  <rect x="600" y="100" width="150" height="60" class="component-api"/>
+  <text x="675" y="135" text-anchor="middle">Transport Victoria</text>
+
+  <rect x="600" y="180" width="150" height="60" class="component-api"/>
+  <text x="675" y="215" text-anchor="middle">BOM Weather</text>
+
+  <!-- Device -->
+  <rect x="325" y="200" width="150" height="80" class="component-device"/>
+  <text x="400" y="245" text-anchor="middle">E-Ink Device</text>
+
+  <!-- Arrows -->
+  <path d="M 200 90 L 325 90" class="data-flow"/>
+  <path d="M 475 90 L 600 50" class="data-flow"/>
+  <path d="M 475 90 L 600 130" class="data-flow"/>
+  <path d="M 475 90 L 600 210" class="data-flow"/>
+  <path d="M 400 130 L 400 200" class="data-flow"/>
+</svg>
+```
+
+### Implementation Notes
+
+**Prohibited Practices**:
+- **NEVER show sample addresses** as examples (no user data in placeholders)
+- **NEVER skip validation** - each step must verify before proceeding
+- **NEVER overlap panels** - one step at a time
+- **NEVER hardcode state** - always auto-detect from geocoding
+- **NEVER assume transit modes** - detect based on state
+- **NEVER force API keys** - always allow fallback option
+
+**Required Validations**:
+- Google Places API key must be tested before saving
+- Addresses must be successfully geocoded before proceeding
+- State must be detected before showing transit authority
+- Journey must be calculated before accepting
+- Transit API (if provided) must validate before enabling live data
+- Device must be selected before completing setup
+
+**Data Flow**:
+1. User enters Google Places API key → Validated → Saved immediately
+2. User enters addresses → Geocoded using best available service → State detected
+3. State detected → Transit authority auto-linked → Fallback data initialized
+4. Journey configured → Smart planner finds optimal route → Saved to preferences
+5. BOM station found → Weather data enabled
+6. Transit API (optional) → Validated if provided → Live data enabled
+7. Device selected → All outputs formatted for device
+8. Setup complete → Dashboard displays all live data
+
+**Caching & Performance**:
+- Cache geocoding results (addresses don't change)
+- Cache BOM station lookup (location doesn't change)
+- Cache fallback timetables (static data)
+- Real-time transit updates (refresh every 30s)
+- Weather updates (refresh every 10 min)
+- Journey recalculation (user-configurable, default 2 min)
+
 ---
 
-**Version**: 1.0.12
+**Version**: 1.0.22
 **Last Updated**: 2026-01-26
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
