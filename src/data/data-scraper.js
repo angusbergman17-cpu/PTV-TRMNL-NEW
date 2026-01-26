@@ -8,13 +8,13 @@
  */
 
 import dayjs from "dayjs";
-import config from "./config.js";
+import config from "../utils/config.js";
 import {
   getMetroTripUpdates,
   getMetroServiceAlerts,
   getTramTripUpdates,
   getTramServiceAlerts
-} from "./opendata.js";
+} from "../services/opendata.js";
 import { tryLoadStops, resolveOriginStationIds, buildTargetStopIdSet } from "./gtfs-static.js";
 
 // In‑memory cache to reduce upstream calls (and honour provider caching)
