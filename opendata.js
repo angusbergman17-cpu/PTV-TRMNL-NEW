@@ -9,11 +9,14 @@
  */
 
 import fetch from "node-fetch";
-import * as GtfsRealtimeBindings from "gtfs-realtime-bindings";
+import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
-/** Build URL - no query parameters needed with KeyId header authentication */
+/** Build URL - append path to base (base must end with /, path must not start with /) */
 function makeUrl(base, path) {
-  return new URL(path, base).toString();
+  // Ensure base ends with / and path doesn't start with /
+  const normalizedBase = base.endsWith('/') ? base : base + '/';
+  const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+  return normalizedBase + normalizedPath;
 }
 
 /**
@@ -35,16 +38,26 @@ function makeHeaders(apiKey) {
 
 async function fetchGtfsR({ base, path, apiKey, timeoutMs = 10000 }) {
   const url = makeUrl(base, path);
+  const headers = makeHeaders(apiKey);
+
+  console.log(`📡 Fetching: ${url}`);
+  console.log(`🔑 API Key: ${apiKey ? apiKey.substring(0, 8) + '...' : 'NOT PROVIDED'}`);
+  console.log(`📋 Headers:`, JSON.stringify(headers, null, 2));
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(url, { headers: makeHeaders(apiKey), signal: controller.signal });
+    const res = await fetch(url, { headers, signal: controller.signal });
+    console.log(`✅ Response: ${res.status} ${res.statusText}`);
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`OpenData ${path} ${res.status} ${res.statusText} :: ${text}`);
     }
     const arrayBuffer = await res.arrayBuffer();
+    console.log(`📦 Received ${arrayBuffer.byteLength} bytes of protobuf data`);
+
     const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
       new Uint8Array(arrayBuffer)
     );
