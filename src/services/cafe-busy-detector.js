@@ -9,8 +9,11 @@
 import fetch from 'node-fetch';
 
 class CafeBusyDetector {
-  constructor() {
-    // Peak time definitions (Melbourne time)
+  constructor(preferences = null) {
+    // Store preferences for timezone detection
+    this.preferences = preferences;
+
+    // Peak time definitions (local time, location-agnostic)
     this.PEAK_TIMES = [
       { start: 7, end: 9, name: 'Morning Rush', multiplier: 2.0 },
       { start: 12, end: 14, name: 'Lunch Rush', multiplier: 1.8 },
@@ -28,6 +31,24 @@ class CafeBusyDetector {
     // Cache for busy-ness data (5 minutes)
     this.busyCache = new Map();
     this.cacheDuration = 5 * 60 * 1000; // 5 minutes
+  }
+
+  /**
+   * Get timezone for Australian state (location-agnostic design)
+   * COMPLIANCE: DEVELOPMENT-RULES.md Section K
+   */
+  getTimezoneForState(state) {
+    const timezones = {
+      'VIC': 'Australia/Melbourne',
+      'NSW': 'Australia/Sydney',
+      'ACT': 'Australia/Sydney',
+      'QLD': 'Australia/Brisbane',
+      'SA': 'Australia/Adelaide',
+      'WA': 'Australia/Perth',
+      'TAS': 'Australia/Hobart',
+      'NT': 'Australia/Darwin'
+    };
+    return timezones[state] || 'Australia/Sydney';
   }
 
   /**
@@ -156,12 +177,18 @@ class CafeBusyDetector {
   /**
    * Get busy-ness based on time of day (fallback method)
    * Returns estimated busy-ness for current time
+   * COMPLIANCE: DEVELOPMENT-RULES.md - Location-agnostic design
    */
   getTimeBasedBusyness() {
+    // Get user's timezone from preferences
+    const prefs = this.preferences ? this.preferences.get() : {};
+    const state = prefs.state || 'VIC';
+    const timezone = this.getTimezoneForState(state);
+
     const now = new Date();
-    const melbourneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
-    const hour = melbourneTime.getHours();
-    const minute = melbourneTime.getMinutes();
+    const localTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    const hour = localTime.getHours();
+    const minute = localTime.getMinutes();
     const timeDecimal = hour + (minute / 60);
 
     // Check if we're in a peak period
@@ -187,7 +214,7 @@ class CafeBusyDetector {
         coffeeTime,
         source: 'time_based',
         details: {
-          currentTime: melbourneTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
+          currentTime: localTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
           isPeakTime: true,
           peakName: peakInfo.name,
           peakIntensity: Math.round(intensity * 100),
@@ -204,7 +231,7 @@ class CafeBusyDetector {
       coffeeTime: this.BASE_COFFEE_TIME,
       source: 'time_based',
       details: {
-        currentTime: melbourneTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
+        currentTime: localTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
         isPeakTime: false,
         peakName: 'Off-peak',
         peakIntensity: 0,
@@ -270,16 +297,22 @@ class CafeBusyDetector {
 
   /**
    * Get current peak time info (for display)
+   * COMPLIANCE: DEVELOPMENT-RULES.md - Location-agnostic design
    */
   getCurrentPeakInfo() {
+    // Get user's timezone from preferences
+    const prefs = this.preferences ? this.preferences.get() : {};
+    const state = prefs.state || 'VIC';
+    const timezone = this.getTimezoneForState(state);
+
     const now = new Date();
-    const melbourneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
-    const hour = melbourneTime.getHours();
+    const localTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    const hour = localTime.getHours();
 
     const peak = this.isPeakTime(hour);
 
     return {
-      currentTime: melbourneTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
+      currentTime: localTime.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }),
       isPeakTime: !!peak,
       peakName: peak?.name || 'Off-peak',
       nextPeak: this.getNextPeakTime(hour),

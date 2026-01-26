@@ -88,7 +88,7 @@ let isConfigured = false;
 const coffeeEngine = new CoffeeDecision();
 const weather = new WeatherBOM(preferences);
 const routePlanner = new RoutePlanner(preferences);
-const busyDetector = new CafeBusyDetector();
+const busyDetector = new CafeBusyDetector(preferences);
 const multiModalRouter = new MultiModalRouter();
 const smartPlanner = new SmartJourneyPlanner();
 
@@ -262,12 +262,16 @@ function requireConfiguration(req, res, next) {
  * Destinations are configurable via user preferences
  */
 function getFallbackTimetable() {
+  // Get user's timezone from preferences (location-agnostic design)
+  const prefs = preferences.get();
+  const state = prefs.state || 'VIC';
+  const timezone = getTimezoneForState(state);
+
   const now = new Date();
-  const localNow = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+  const localNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
   const currentMinutes = localNow.getHours() * 60 + localNow.getMinutes();
 
   // Get configured destinations from preferences, or use generic defaults
-  const prefs = preferences.get();
   const trainDest = prefs?.journey?.transitRoute?.mode1?.destinationStation?.name || 'City';
   const tramDest = prefs?.journey?.transitRoute?.mode2?.destinationStation?.name || 'City';
 
@@ -464,9 +468,12 @@ async function getData() {
 async function getRegionUpdates() {
   const data = await getData();
   const prefs = preferences.get();
+  const state = prefs.state || 'VIC';
+  const timezone = getTimezoneForState(state);
+
   const now = new Date();
   const timeFormatter = new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'Australia/Melbourne',
+    timeZone: timezone,
     hour: '2-digit', minute: '2-digit', hour12: false
   });
 
@@ -489,7 +496,7 @@ async function getRegionUpdates() {
   if (nextTrain) {
     const leaveInMins = Math.max(0, nextTrain.minutes - walkBuffer);
     leaveTime = new Date(now.getTime() + leaveInMins * 60000).toLocaleTimeString('en-AU', {
-      timeZone: 'Australia/Melbourne',
+      timeZone: timezone,
       hour: '2-digit', minute: '2-digit', hour12: false
     });
   }
@@ -1565,9 +1572,13 @@ app.post('/api/log', express.json(), (req, res) => {
 app.get('/api/partial', async (req, res) => {
   try {
     const data = await getData();
+    const prefs = preferences.get();
+    const state = prefs.state || 'VIC';
+    const timezone = getTimezoneForState(state);
+
     const now = new Date();
     const timeFormatter = new Intl.DateTimeFormat('en-AU', {
-      timeZone: 'Australia/Melbourne',
+      timeZone: timezone,
       hour: '2-digit', minute: '2-digit', hour12: false
     });
 
@@ -1588,11 +1599,15 @@ app.get('/api/partial', async (req, res) => {
 
 // Firmware config endpoint - tells device refresh intervals
 app.get('/api/config', (req, res) => {
+  const prefs = preferences.get();
+  const state = prefs.state || 'VIC';
+  const timezone = getTimezoneForState(state);
+
   res.json({
     partialRefreshMs: 60000,    // 1 minute partial refresh
     fullRefreshMs: 300000,      // 5 minute full refresh
     sleepBetweenMs: 55000,      // Sleep time between polls
-    timezone: 'Australia/Melbourne',
+    timezone: timezone,
     version: '1.0.0'
   });
 });
@@ -1609,7 +1624,11 @@ async function loadApiConfig() {
     const data = await fs.readFile(API_CONFIG_FILE, 'utf8');
     return JSON.parse(data);
   } catch (err) {
-    // Return default config if file doesn't exist
+    // Return default config if file doesn't exist (location-agnostic)
+    const prefs = preferences.get();
+    const state = prefs.state || 'VIC';
+    const timezone = getTimezoneForState(state);
+
     return {
       apis: {
         ptv_opendata: {
@@ -1623,7 +1642,7 @@ async function loadApiConfig() {
         }
       },
       server: {
-        timezone: "Australia/Melbourne",
+        timezone: timezone,
         refreshInterval: 30,
         fallbackEnabled: true
       },
