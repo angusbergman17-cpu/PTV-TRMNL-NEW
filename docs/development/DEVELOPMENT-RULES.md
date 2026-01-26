@@ -3,6 +3,8 @@
 **Last Updated**: 2026-01-26
 **Version**: 1.0.21
 
+**📋 [Complete Project Vision →](../../PROJECT-STATEMENT.md)** - Read the comprehensive project statement for context on goals, architecture, and user requirements.
+
 ---
 
 ## 🚨 CRITICAL: First Instance Rules

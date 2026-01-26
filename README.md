@@ -1,7 +1,9 @@
 # PTV-TRMNL - Smart Transit Dashboard for Australia
 **Never miss your train again.** A location-agnostic transit dashboard that works across all 8 Australian states, showing exactly when to leave home, whether you have time for coffee, and which transit to catch.
 
-Built for the [TRMNL](https://usetrmnl.com) BYOS e-ink display (800×480).
+Built for the [TRMNL](https://usetrmnl.com) BYOS e-ink display (800×480) with **20-second partial refresh** for real-time updates.
+
+**📋 [Complete Project Vision & Requirements →](PROJECT-STATEMENT.md)** - Read the comprehensive project statement for full details on goals, architecture, and implementation.
 
 **⚖️ License**: CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0) - Free for non-commercial use with attribution. See [LICENSE](LICENSE) for details.
 
