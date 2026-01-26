@@ -3,7 +3,7 @@
 Cross-platform tool for device firmware flashing and deployment setup.
 
 **Copyright © 2026 Angus Bergman**
-Licensed under MIT for open source distribution.
+Licensed under CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International License)
 
 ---
 
@@ -276,7 +276,9 @@ Ensure all changes comply with Development Rules v1.0.17.
 
 ## License
 
-MIT License - Copyright © 2026 Angus Bergman
+CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International License)
+Copyright © 2026 Angus Bergman
+https://creativecommons.org/licenses/by-nc/4.0/
 
 ---
 
