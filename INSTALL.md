@@ -3,6 +3,35 @@
 
 ---
 
+## 🚀 Quick Start: Automated Setup Wizard
+
+**NEW**: We now offer a cross-platform setup wizard that automates the entire installation process!
+
+```bash
+cd tools/setup-wizard
+node setup-wizard.js
+```
+
+The wizard handles:
+- ✅ Device selection and compatibility checking
+- ✅ GitHub fork guidance
+- ✅ Render deployment walkthrough
+- ✅ Environment variable configuration
+- ✅ Device firmware flashing instructions
+- ✅ Admin panel setup
+
+**Platform Support**: macOS, Windows, Linux
+
+👉 **[Setup Wizard Documentation →](tools/setup-wizard/README.md)**
+
+---
+
+## Manual Installation (Alternative)
+
+If you prefer to set up manually or the wizard doesn't work for your platform, follow the detailed steps below.
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)
