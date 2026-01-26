@@ -111,6 +111,11 @@ const smartPlanner = new SmartJourneyPlanner();
 // Initialize multi-tier geocoding service (global for route planner)
 // Check for API keys in preferences (saved via admin panel) or environment variables
 const prefs = preferences.get();
+
+// Set services as globals for admin endpoints
+global.smartJourneyPlanner = smartPlanner;
+global.weatherBOM = weather;
+
 global.geocodingService = new GeocodingService({
   googlePlacesKey: prefs.additionalAPIs?.google_places || process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACES_KEY,
   mapboxToken: prefs.additionalAPIs?.mapbox || process.env.MAPBOX_ACCESS_TOKEN || process.env.MAPBOX_TOKEN
