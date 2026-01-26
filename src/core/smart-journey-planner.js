@@ -10,8 +10,8 @@
 
 import fetch from 'node-fetch';
 import crypto from 'crypto';
-import CafeBusyDetector from './cafe-busy-detector.js';
-import fallbackTimetables from './fallback-timetables.js';
+import CafeBusyDetector from '../services/cafe-busy-detector.js';
+import fallbackTimetables from '../data/fallback-timetables.js';
 
 class SmartJourneyPlanner {
   constructor() {

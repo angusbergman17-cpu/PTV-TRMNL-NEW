@@ -11,6 +11,7 @@ Built for the [TRMNL](https://usetrmnl.com) e-ink display (800x480).
 **New to PTV-TRMNL?** Here's where to start:
 
 - **[DOCUMENTATION-INDEX.md](DOCUMENTATION-INDEX.md)** - Complete guide to all documentation
+- **[FILE-STRUCTURE.md](FILE-STRUCTURE.md)** - Repository organization & file locations
 - **[docs/guides/COMPLETE-BEGINNER-GUIDE.md](docs/guides/COMPLETE-BEGINNER-GUIDE.md)** - Step-by-step setup for beginners
 - **[docs/guides/OPENDATA-VIC-API-GUIDE.md](docs/guides/OPENDATA-VIC-API-GUIDE.md)** - Get your API credentials (Victoria)
 - **[docs/deployment/DEPLOYMENT-v2.5.0-COMPLETE.md](docs/deployment/DEPLOYMENT-v2.5.0-COMPLETE.md)** - Production deployment guide
@@ -172,6 +173,19 @@ The **server is the brain** - it calculates your leave time, checks coffee feasi
 
 **Need More Help?** See **[docs/guides/COMPLETE-BEGINNER-GUIDE.md](docs/guides/COMPLETE-BEGINNER-GUIDE.md)** for detailed step-by-step instructions.
 
+---
+
+## 📁 File Structure
+
+**Quick Navigation**:
+- **Source Code**: [`src/`](FILE-STRUCTURE.md#source-code-organization) - All application code organized by layer
+- **Documentation**: [`docs/`](FILE-STRUCTURE.md#documentation-organization) - Setup guides, API docs, development guides
+- **Tests**: [`tests/`](FILE-STRUCTURE.md#testing) - Test suite
+- **Specs**: [`specs/`](FILE-STRUCTURE.md#openapi-specs) - OpenAPI specifications
+- **Frontend**: [`public/admin.html`](public/admin.html) - Admin panel
+
+See **[FILE-STRUCTURE.md](FILE-STRUCTURE.md)** for complete directory organization.
+
 ### Step 4: Flash Your TRMNL Device
 
 1. Install [PlatformIO](https://platformio.org/install)
@@ -239,7 +253,7 @@ The **server is the brain** - it calculates your leave time, checks coffee feasi
 
 ### Core Server Components
 
-#### 1. `server.js` (Main Application Server)
+#### 1. `src/server.js` (Main Application Server)
 **Purpose**: Express.js server handling all HTTP requests and API endpoints
 
 **Key Functions**:
@@ -298,7 +312,7 @@ GET  /admin/dashboard-preview       # Dashboard preview
 
 ---
 
-#### 2. `preferences-manager.js` (User Configuration)
+#### 2. `src/data/preferences-manager.js` (User Configuration)
 **Purpose**: Manages persistent user preferences with JSON storage
 
 **Stores**:
@@ -342,7 +356,7 @@ GET  /admin/dashboard-preview       # Dashboard preview
 
 ---
 
-#### 3. `multi-modal-router.js` (Transit Search)
+#### 3. `src/core/multi-modal-router.js` (Transit Search)
 **Purpose**: Searches all PTV transit modes for best journey options
 
 **Supported Modes**:
@@ -377,7 +391,7 @@ buildPTVUrl(endpoint, params, apiKey, apiToken) {
 
 ---
 
-#### 4. `route-planner.js` (Journey Optimization)
+#### 4. `src/core/route-planner.js` (Journey Optimization)
 **Purpose**: Calculates optimal journey from home → coffee → work
 
 **Planning Algorithm**:
@@ -436,7 +450,7 @@ calculateWalkingTime(lat1, lon1, lat2, lon2) {
 
 ---
 
-#### 5. `cafe-busy-detector.js` (Cafe Traffic Analysis)
+#### 5. `src/services/cafe-busy-detector.js` (Cafe Traffic Analysis)
 **Purpose**: Estimates cafe busy-ness and adjusts coffee wait times
 
 **Detection Methods**:

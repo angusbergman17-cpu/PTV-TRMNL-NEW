@@ -1,6 +1,6 @@
 # PTV-TRMNL Documentation Index
-**Version**: 2.5.0
-**Last Updated**: 2026-01-25
+**Version**: 2.5.2 (Reorganized)
+**Last Updated**: 2026-01-26
 
 ---
 
@@ -20,8 +20,9 @@
 | Document | Purpose | Audience |
 |----------|---------|----------|
 | [README.md](README.md) | System overview, features, quick start | Everyone |
-| [VERSION-MANAGEMENT.md](VERSION-MANAGEMENT.md) | How versions are managed and updated | Developers |
-| [SYSTEM-ARCHITECTURE.md](SYSTEM-ARCHITECTURE.md) | Technical architecture and design | Developers |
+| [FILE-STRUCTURE.md](FILE-STRUCTURE.md) | Repository organization & file locations | Developers |
+| [docs/development/VERSION-MANAGEMENT.md](docs/development/VERSION-MANAGEMENT.md) | How versions are managed and updated | Developers |
+| [docs/development/SYSTEM-ARCHITECTURE.md](docs/development/SYSTEM-ARCHITECTURE.md) | Technical architecture and design | Developers |
 
 ---
 

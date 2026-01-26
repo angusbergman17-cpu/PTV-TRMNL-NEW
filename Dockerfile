@@ -36,4 +36,4 @@ ENV NODE_ENV=production \
     PORT=3000
 
 # Start application
-CMD ["node", "server.js"]
+CMD ["node", "src/server.js"]

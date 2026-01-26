@@ -8,7 +8,7 @@
  */
 
 import fetch from 'node-fetch';
-import CafeBusyDetector from './cafe-busy-detector.js';
+import CafeBusyDetector from '../services/cafe-busy-detector.js';
 
 class RoutePlanner {
   constructor(preferences = null) {
