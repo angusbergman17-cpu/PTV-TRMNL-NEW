@@ -605,9 +605,267 @@
         .autocomplete-item:last-child {
             border-bottom: none;
         }
+
+        /* Onboarding Overlay & Tutorial Styles */
+        .onboarding-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .onboarding-modal {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .onboarding-modal h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .onboarding-modal p {
+            font-size: 16px;
+            line-height: 1.6;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .onboarding-step-content {
+            min-height: 180px;
+        }
+
+        .onboarding-features {
+            list-style: none;
+            margin: 20px 0;
+        }
+
+        .onboarding-features li {
+            padding: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 15px;
+        }
+
+        .onboarding-features li:before {
+            content: "✓";
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            color: #667eea;
+            flex-shrink: 0;
+        }
+
+        .onboarding-progress {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin: 25px 0 20px;
+        }
+
+        .onboarding-progress-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: all 0.3s;
+        }
+
+        .onboarding-progress-dot.active {
+            width: 30px;
+            border-radius: 5px;
+            background: #667eea;
+        }
+
+        .onboarding-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            margin-top: 25px;
+        }
+
+        .btn-onboarding {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-onboarding-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-onboarding-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-onboarding-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-onboarding-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-onboarding-skip {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            padding: 12px 20px;
+        }
+
+        .btn-onboarding-skip:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Tutorial Highlight */
+        .tutorial-highlight {
+            position: relative;
+            z-index: 10000;
+            box-shadow: 0 0 0 4px #667eea, 0 0 0 9999px rgba(0, 0, 0, 0.75);
+            border-radius: 12px;
+        }
+
+        .tutorial-tooltip {
+            position: absolute;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            max-width: 300px;
+            z-index: 10001;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: tooltipPulse 0.4s ease-out;
+        }
+
+        @keyframes tooltipPulse {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .tutorial-tooltip:after {
+            content: "";
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+
+        .tutorial-tooltip.top:after {
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0 10px;
+            border-color: #764ba2 transparent transparent transparent;
+        }
+
+        .tutorial-tooltip.bottom:after {
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 0 10px 10px 10px;
+            border-color: transparent transparent #667eea transparent;
+        }
+
+        /* Show Tutorial Again Button */
+        .show-tutorial-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .show-tutorial-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
     </style>
 </head>
 <body>
+    <!-- Onboarding Overlay (shown on first visit) -->
+    <div id="onboarding-overlay" class="onboarding-overlay" style="display: none;">
+        <div class="onboarding-modal">
+            <div class="onboarding-step-content" id="onboarding-content">
+                <!-- Content will be dynamically inserted -->
+            </div>
+            <div class="onboarding-progress" id="onboarding-progress">
+                <div class="onboarding-progress-dot active"></div>
+                <div class="onboarding-progress-dot"></div>
+                <div class="onboarding-progress-dot"></div>
+                <div class="onboarding-progress-dot"></div>
+            </div>
+            <div class="onboarding-buttons">
+                <button class="btn-onboarding btn-onboarding-skip" id="onboarding-skip" onclick="skipOnboarding()">
+                    Skip Tutorial
+                </button>
+                <div style="display: flex; gap: 12px; flex: 1;">
+                    <button class="btn-onboarding btn-onboarding-secondary" id="onboarding-prev" onclick="prevOnboardingStep()" style="display: none;">
+                        ← Previous
+                    </button>
+                    <button class="btn-onboarding btn-onboarding-primary" id="onboarding-next" onclick="nextOnboardingStep()">
+                        Next →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Show Tutorial Again Button (hidden by default) -->
+    <button id="show-tutorial-btn" class="show-tutorial-btn" onclick="restartTutorial()" style="display: none;">
+        ? Show Tutorial
+    </button>
+
     <div class="container">
         <!-- Header -->
         <div class="header">
@@ -1590,6 +1848,194 @@
         const BASE_URL = window.location.origin;
         let refreshInterval;
 
+        // ==================== ONBOARDING SYSTEM ====================
+
+        const ONBOARDING_STEPS = [
+            {
+                title: "Welcome to PTV-TRMNL! 🚊",
+                content: `
+                    <p>Your intelligent transit display system for smart commute decisions.</p>
+                    <ul class="onboarding-features">
+                        <li>Real-time transit data from Transport Victoria</li>
+                        <li>Intelligent journey planning with live delays</li>
+                        <li>Coffee stop optimization based on transit times</li>
+                        <li>Weather-aware departure recommendations</li>
+                    </ul>
+                    <p style="margin-top: 15px; font-size: 14px; opacity: 0.8;">This quick tutorial will show you how to get started.</p>
+                `
+            },
+            {
+                title: "Step 1: Configure Your Journey 🏠",
+                content: `
+                    <p>Start by setting up your daily journey locations:</p>
+                    <ul class="onboarding-features">
+                        <li><strong>Home Address:</strong> Your starting point</li>
+                        <li><strong>Coffee Stop:</strong> Your favorite cafe (optional)</li>
+                        <li><strong>Work Address:</strong> Your destination</li>
+                    </ul>
+                    <p style="margin-top: 15px;">The system will auto-detect your state and find nearby transit stops.</p>
+                `,
+                highlightElement: "tab-setup",
+                scrollTo: "tab-setup"
+            },
+            {
+                title: "Step 2: Select Transit Stops 🚉",
+                content: `
+                    <p>After entering addresses, you'll choose your preferred transit stops:</p>
+                    <ul class="onboarding-features">
+                        <li>System finds stops near your locations</li>
+                        <li>Select departure and arrival stations</li>
+                        <li>Data validation ensures accuracy</li>
+                    </ul>
+                    <p style="margin-top: 15px;">PTV-TRMNL will then calculate smart departure times automatically.</p>
+                `
+            },
+            {
+                title: "Step 3: View Live Departures 🔴",
+                content: `
+                    <p>Once configured, enjoy real-time transit information:</p>
+                    <ul class="onboarding-features">
+                        <li>Auto-updates every 2 minutes</li>
+                        <li>Live delay and cancellation alerts</li>
+                        <li>Smart coffee stop recommendations</li>
+                        <li>Weather-aware departure times</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>Ready to get started?</strong> Let's configure your journey!</p>
+                `
+            }
+        ];
+
+        let currentOnboardingStep = 0;
+
+        function checkFirstVisit() {
+            const hasVisited = localStorage.getItem('ptv-trmnl-onboarding-completed');
+            if (!hasVisited) {
+                setTimeout(() => {
+                    startOnboarding();
+                }, 500);
+            } else {
+                // Show "Show Tutorial Again" button for returning users
+                document.getElementById('show-tutorial-btn').style.display = 'block';
+            }
+        }
+
+        function startOnboarding() {
+            currentOnboardingStep = 0;
+            document.getElementById('onboarding-overlay').style.display = 'flex';
+            updateOnboardingStep();
+        }
+
+        function updateOnboardingStep() {
+            const step = ONBOARDING_STEPS[currentOnboardingStep];
+            const content = document.getElementById('onboarding-content');
+            const prevBtn = document.getElementById('onboarding-prev');
+            const nextBtn = document.getElementById('onboarding-next');
+            const skipBtn = document.getElementById('onboarding-skip');
+
+            // Clear any previous highlights
+            removeAllHighlights();
+
+            // Update content
+            content.innerHTML = `
+                <h2>${step.title}</h2>
+                ${step.content}
+            `;
+
+            // Update progress dots
+            const dots = document.querySelectorAll('.onboarding-progress-dot');
+            dots.forEach((dot, index) => {
+                if (index === currentOnboardingStep) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+
+            // Update buttons
+            if (currentOnboardingStep === 0) {
+                prevBtn.style.display = 'none';
+                nextBtn.textContent = 'Next →';
+                skipBtn.style.display = 'block';
+            } else if (currentOnboardingStep === ONBOARDING_STEPS.length - 1) {
+                prevBtn.style.display = 'block';
+                nextBtn.textContent = 'Get Started! 🚀';
+                skipBtn.style.display = 'none';
+            } else {
+                prevBtn.style.display = 'block';
+                nextBtn.textContent = 'Next →';
+                skipBtn.style.display = 'block';
+            }
+
+            // Apply highlight if specified
+            if (step.highlightElement) {
+                setTimeout(() => {
+                    highlightElement(step.highlightElement);
+                }, 300);
+            }
+
+            // Scroll to element if specified
+            if (step.scrollTo) {
+                setTimeout(() => {
+                    const element = document.getElementById(step.scrollTo);
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 500);
+            }
+        }
+
+        function nextOnboardingStep() {
+            if (currentOnboardingStep < ONBOARDING_STEPS.length - 1) {
+                currentOnboardingStep++;
+                updateOnboardingStep();
+            } else {
+                completeOnboarding();
+            }
+        }
+
+        function prevOnboardingStep() {
+            if (currentOnboardingStep > 0) {
+                currentOnboardingStep--;
+                updateOnboardingStep();
+            }
+        }
+
+        function skipOnboarding() {
+            if (confirm('Are you sure you want to skip the tutorial? You can always restart it later from the "Show Tutorial" button.')) {
+                completeOnboarding();
+            }
+        }
+
+        function completeOnboarding() {
+            localStorage.setItem('ptv-trmnl-onboarding-completed', 'true');
+            document.getElementById('onboarding-overlay').style.display = 'none';
+            document.getElementById('show-tutorial-btn').style.display = 'block';
+            removeAllHighlights();
+
+            // Navigate to setup tab
+            showTab('setup');
+        }
+
+        function restartTutorial() {
+            localStorage.removeItem('ptv-trmnl-onboarding-completed');
+            startOnboarding();
+            document.getElementById('show-tutorial-btn').style.display = 'none';
+        }
+
+        function highlightElement(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.classList.add('tutorial-highlight');
+            }
+        }
+
+        function removeAllHighlights() {
+            const highlighted = document.querySelectorAll('.tutorial-highlight');
+            highlighted.forEach(el => el.classList.remove('tutorial-highlight'));
+        }
+
+        // ==================== END ONBOARDING SYSTEM ====================
+
         document.addEventListener('DOMContentLoaded', () => {
             updateClock();
             setInterval(updateClock, 1000);
@@ -1598,6 +2044,9 @@
             loadVersionInfo();
             loadAttributions();
             refreshInterval = setInterval(loadAllData, 30000);
+
+            // Check if this is first visit and show onboarding
+            checkFirstVisit();
         });
 
         // Load version control info
