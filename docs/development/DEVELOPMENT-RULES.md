@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-26
-**Version**: 1.0.17
+**Version**: 1.0.18
 
 ---
 
@@ -91,6 +91,74 @@
 ```
 
 **This rule ensures system-wide consistency and prevents breaking changes.**
+
+---
+
+## 📜 MANDATORY LICENSING
+
+**CRITICAL**: All original work created by Angus Bergman for PTV-TRMNL MUST use the following license:
+
+### ✅ REQUIRED LICENSE
+
+**CC BY-NC 4.0** (Creative Commons Attribution-NonCommercial 4.0 International License)
+
+**License URL**: https://creativecommons.org/licenses/by-nc/4.0/
+
+### 📝 License Header Template
+
+All source code files, scripts, documentation, and other original works MUST include this header:
+
+```
+Copyright (c) 2026 Angus Bergman
+Licensed under CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International License)
+https://creativecommons.org/licenses/by-nc/4.0/
+```
+
+### ❌ PROHIBITED LICENSES
+
+**DO NOT USE**:
+- MIT License
+- Apache License
+- GPL/LGPL
+- BSD License
+- Any other permissive or copyleft license
+
+### 🔍 License Scope
+
+**Applies to**:
+- All code written by Angus Bergman
+- All documentation written by Angus Bergman
+- All configuration files created for PTV-TRMNL
+- All design assets and layouts
+- All original documentation and guides
+
+**Does NOT apply to**:
+- Third-party libraries (retain their original licenses)
+- Open-source dependencies (retain their original licenses)
+- Data from external APIs (subject to API provider terms)
+- GTFS data (subject to Creative Commons licenses from transit authorities)
+
+### 📋 Verification Checklist
+
+Before committing any file, verify:
+
+1. ✅ Copyright notice includes "Copyright (c) 2026 Angus Bergman"
+2. ✅ License statement references CC BY-NC 4.0
+3. ✅ License URL is included: https://creativecommons.org/licenses/by-nc/4.0/
+4. ❌ NO references to MIT, Apache, GPL, or other licenses for original work
+5. ✅ Third-party code retains its original license attribution
+
+### 🚨 Enforcement
+
+**Licensing violations are CRITICAL compliance failures.**
+
+If incorrect licensing is discovered:
+1. **STOP all work immediately**
+2. **Identify all files** with incorrect licensing
+3. **Update license headers** to CC BY-NC 4.0
+4. **Commit correction** with message: "fix: Correct licensing to CC BY-NC 4.0"
+5. **Verify no other files** have incorrect licensing
+6. **Resume work** only after all licensing is corrected
 
 ---
 
