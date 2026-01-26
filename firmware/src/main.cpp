@@ -30,6 +30,12 @@ int logY = 50;
 const int logLineHeight = 25;
 const int maxLogEntries = 12;
 
+// Server-driven configuration (fetched on boot, updated from admin panel)
+unsigned long refreshInterval = DEFAULT_REFRESH_INTERVAL;  // Dynamic, from server
+unsigned long fullRefreshInterval = DEFAULT_FULL_REFRESH;
+int displayWidth = DISPLAY_WIDTH;
+int displayHeight = DISPLAY_HEIGHT;
+
 // Function declarations
 void initDisplay();
 void showSetupScreen();
@@ -37,6 +43,7 @@ void addLogEntry(const char* status, const char* message);
 void drawQRCode(int x, int y, const char* data);
 void showReadyScreen();
 void fetchAndDisplay();
+void fetchDeviceConfig();  // Fetch configuration from server
 
 void setup() {
     // ========================================
@@ -85,6 +92,9 @@ void setup() {
         Serial.println("Normal boot - showing ready screen");
         preferences.end();
         showReadyScreen();
+
+        // Fetch server-driven configuration (non-blocking, uses defaults if fails)
+        fetchDeviceConfig();
     }
 
     Serial.println("Setup complete - entering loop()");
@@ -94,13 +104,16 @@ void setup() {
 
 void loop() {
     // ========================================
-    // 20-SECOND REFRESH CYCLE
-    // Following DEVELOPMENT-RULES.md: NO blocking delays, NO freezing
+    // SERVER-DRIVEN REFRESH CYCLE
+    // Following DEVELOPMENT-RULES.md Section X: Firmware Flash Once Philosophy
+    // Refresh interval comes from server (/api/device-config)
+    // User can change in admin panel without reflashing device
     // ========================================
 
     static unsigned long lastRefresh = 0;
     static unsigned long setupScreenTime = millis();
     static bool showingSetupScreen = true;
+    static bool configFetched = false;
     unsigned long now = millis();
 
     // If showing setup screen, wait 30 seconds then transition to normal
@@ -110,6 +123,10 @@ void loop() {
             showReadyScreen();
             showingSetupScreen = false;
             lastRefresh = millis();
+
+            // Fetch server configuration after first boot complete
+            fetchDeviceConfig();
+            configFetched = true;
         } else {
             // Short delay to prevent busy loop
             delay(1000);
@@ -124,8 +141,8 @@ void loop() {
 
     unsigned long elapsed = now - lastRefresh;
 
-    // Wait until 20 seconds have passed
-    if (elapsed < PARTIAL_REFRESH_INTERVAL) {
+    // Wait until refresh interval has passed (server-driven, defaults to 20s)
+    if (elapsed < refreshInterval) {
         delay(1000); // Sleep 1 second at a time (non-blocking)
         return;
     }
@@ -133,7 +150,9 @@ void loop() {
     // Reset timer
     lastRefresh = millis();
 
-    Serial.println("\n=== 20s REFRESH ===");
+    Serial.print("\n=== ");
+    Serial.print(refreshInterval / 1000);
+    Serial.println("s REFRESH ===");
 
     // Check WiFi
     if (WiFi.status() != WL_CONNECTED) {
@@ -434,4 +453,85 @@ void fetchAndDisplay() {
     bbep.refresh(REFRESH_PARTIAL, true);
 
     Serial.println("Display updated");
+}
+
+void fetchDeviceConfig() {
+    // ========================================
+    // FETCH SERVER-DRIVEN CONFIGURATION
+    // Following DEVELOPMENT-RULES.md Section X: Firmware Flash Once Philosophy
+    // All settings (refresh intervals, resolution, etc.) come from server
+    // User can change settings in admin panel without reflashing device
+    // ========================================
+
+    Serial.println("Fetching device configuration from server...");
+
+    WiFiClientSecure *client = new WiFiClientSecure();
+    if (!client) {
+        Serial.println("ERROR: No memory for config fetch");
+        // Use defaults
+        return;
+    }
+
+    client->setInsecure();
+    HTTPClient http;
+    String url = String(SERVER_URL) + String(API_DEVICE_CONFIG_ENDPOINT);
+    http.setTimeout(CONFIG_FETCH_TIMEOUT);
+
+    if (!http.begin(*client, url)) {
+        Serial.println("ERROR: Config fetch - HTTP begin failed");
+        delete client;
+        // Use defaults
+        return;
+    }
+
+    int httpCode = http.GET();
+    if (httpCode != 200) {
+        Serial.print("ERROR: Config fetch - HTTP ");
+        Serial.println(httpCode);
+        http.end();
+        delete client;
+        // Use defaults
+        return;
+    }
+
+    String payload = http.getString();
+    http.end();
+    client->stop();
+    delete client;
+
+    // Parse JSON configuration
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+        Serial.print("ERROR: Config parse - ");
+        Serial.println(error.c_str());
+        // Use defaults
+        return;
+    }
+
+    // Extract configuration
+    if (doc.containsKey("refreshInterval")) {
+        refreshInterval = doc["refreshInterval"];
+        Serial.print("✓ Refresh interval: ");
+        Serial.print(refreshInterval / 1000);
+        Serial.println("s");
+    }
+
+    if (doc.containsKey("fullRefreshInterval")) {
+        fullRefreshInterval = doc["fullRefreshInterval"];
+        Serial.print("✓ Full refresh interval: ");
+        Serial.print(fullRefreshInterval / 60000);
+        Serial.println("m");
+    }
+
+    if (doc.containsKey("resolution")) {
+        displayWidth = doc["resolution"]["width"] | DISPLAY_WIDTH;
+        displayHeight = doc["resolution"]["height"] | DISPLAY_HEIGHT;
+        Serial.print("✓ Resolution: ");
+        Serial.print(displayWidth);
+        Serial.print("x");
+        Serial.println(displayHeight);
+    }
+
+    Serial.println("✓ Device configuration loaded from server");
 }

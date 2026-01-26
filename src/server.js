@@ -1673,7 +1673,7 @@ app.get('/api/partial', async (req, res) => {
   }
 });
 
-// Firmware config endpoint - tells device refresh intervals
+// Firmware config endpoint - tells device refresh intervals (legacy)
 app.get('/api/config', (req, res) => {
   const prefs = preferences.get();
   const state = prefs.state || 'VIC';
@@ -1685,6 +1685,62 @@ app.get('/api/config', (req, res) => {
     sleepBetweenMs: 18000,      // Sleep time between polls (20s cycle)
     timezone: timezone,
     version: '1.0.0'
+  });
+});
+
+// Device configuration endpoint - SERVER-DRIVEN SETTINGS
+// Following DEVELOPMENT-RULES.md Section X: Firmware Flash Once Philosophy
+// Returns all device settings so user can change them in admin panel without reflashing
+app.get('/api/device-config', (req, res) => {
+  const prefs = preferences.get();
+  const state = prefs.state || 'VIC';
+  const timezone = getTimezoneForState(state);
+
+  // Get refresh settings from preferences (or use defaults)
+  const refreshSettings = prefs.refreshSettings || {
+    displayRefresh: { interval: 20000 },  // 20 seconds default
+    journeyRecalc: { interval: 120000 },  // 2 minutes default
+    dataFetch: { interval: 30000 }        // 30 seconds default
+  };
+
+  // Get device settings
+  const device = prefs.device || { type: 'trmnl-og' };
+
+  // Device-specific resolution
+  const deviceResolutions = {
+    'trmnl-og': { width: 800, height: 480, orientation: 'landscape' },
+    'kindle-pw5': { width: 1236, height: 1648, orientation: 'portrait' },
+    'kindle-pw3': { width: 758, height: 1024, orientation: 'portrait' }
+  };
+
+  const resolution = deviceResolutions[device.type] || { width: 800, height: 480, orientation: 'landscape' };
+
+  res.json({
+    // Refresh intervals (user-customizable via admin panel)
+    refreshInterval: refreshSettings.displayRefresh.interval,
+    fullRefreshInterval: 600000,  // 10 minutes
+
+    // Device specifications
+    resolution: {
+      width: resolution.width,
+      height: resolution.height
+    },
+    orientation: resolution.orientation,
+
+    // Server info
+    timezone: timezone,
+    serverVersion: VERSION,
+
+    // Feature flags
+    features: {
+      partialRefresh: device.type === 'trmnl-og',
+      colorDisplay: false,
+      touchscreen: false
+    },
+
+    // Update info
+    lastConfigUpdate: new Date().toISOString(),
+    configVersion: '3.0.0'
   });
 });
 

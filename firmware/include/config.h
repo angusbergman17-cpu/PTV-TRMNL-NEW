@@ -12,17 +12,19 @@
 #define API_SETUP_ENDPOINT "/api/setup"
 #define API_DISPLAY_ENDPOINT "/api/display"
 #define API_LOG_ENDPOINT "/api/log"
+#define API_DEVICE_CONFIG_ENDPOINT "/api/device-config"  // Server-driven configuration
 
 // WiFi Configuration (will use WiFiManager for setup)
 #define WIFI_AP_NAME "PTV-TRMNL-Setup"
 #define WIFI_AP_PASSWORD "transport123"
 
 // Refresh Timing (milliseconds)
-// ⚠️ CRITICAL: 20-second partial refresh is HARDCODED requirement
-// Do NOT change without explicit user approval
-#define PARTIAL_REFRESH_INTERVAL 20000    // 20 seconds for partial updates (REQUIRED)
-#define FULL_REFRESH_INTERVAL 600000      // 10 minutes for full refresh
+// ⚠️ SERVER-DRIVEN: Refresh intervals are fetched from server on boot
+// Defaults used if server unreachable - user can customize via admin panel
+#define DEFAULT_REFRESH_INTERVAL 20000    // 20 seconds default (server can override)
+#define DEFAULT_FULL_REFRESH 600000       // 10 minutes default (server can override)
 #define WIFI_TIMEOUT 30000                // 30 seconds WiFi connection timeout
+#define CONFIG_FETCH_TIMEOUT 10000        // 10 seconds to fetch device config from server
 
 // Display Configuration (TRMNL 7.5" Waveshare)
 #define DISPLAY_WIDTH 800
