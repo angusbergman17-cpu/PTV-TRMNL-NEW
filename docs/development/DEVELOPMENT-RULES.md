@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-26
-**Version**: 1.0.15
+**Version**: 1.0.16
 
 ---
 
@@ -335,6 +335,92 @@ try {
 - **MUST** gracefully handle display refresh limits
 - **MUST** respect e-ink display constraints (ghosting, partial refresh)
 
+**TRMNL Device Variants - CRITICAL COMPATIBILITY INFORMATION**:
+
+**TRMNL OG (Original) - COMPATIBLE ✅**:
+```
+Hardware Specs:
+- Display: 7.5" e-ink display
+- Resolution: 800x480 pixels (landscape) / 480x800 (portrait)
+- Chip: ESP32 (verify specific variant before flashing)
+- Network: WiFi 2.4GHz
+- Platform: TRMNL BYOS (Bring Your Own Screen)
+- Firmware: Custom firmware compatible with ESP32
+- Status: FULLY SUPPORTED
+```
+
+**TRMNL X (Newer Model) - NOT YET COMPATIBLE ⚠️**:
+```
+Status: INCOMPATIBLE - DO NOT ATTEMPT TO FLASH
+Reason: Different hardware architecture
+Timeline: Support planned for future release
+Action: Users MUST verify device model during setup
+```
+
+**Device Selection Requirements**:
+- **MUST ask** user to specify: "TRMNL OG" or "TRMNL X" during setup
+- **MUST display warning** if TRMNL X is selected (not yet compatible)
+- **MUST verify** internal chip compatibility before firmware flash
+- **MUST prevent** flashing incompatible firmware to wrong device model
+
+**Chip Verification Before Flashing**:
+```javascript
+// Setup wizard MUST verify chip before firmware flash
+const COMPATIBLE_CHIPS = {
+  'trmnl-og': ['ESP32', 'ESP32-WROOM-32', 'ESP32-D0WD'],
+  'trmnl-x': [] // Not yet supported
+};
+
+function verifyChipCompatibility(deviceModel, detectedChip) {
+  const compatible = COMPATIBLE_CHIPS[deviceModel];
+
+  if (!compatible || compatible.length === 0) {
+    throw new Error(`${deviceModel} is not yet compatible. Only TRMNL OG is supported at this time.`);
+  }
+
+  if (!compatible.includes(detectedChip)) {
+    throw new Error(`Detected chip ${detectedChip} is not compatible with ${deviceModel}. Expected: ${compatible.join(', ')}`);
+  }
+
+  return true;
+}
+```
+
+**Setup Wizard Device Selection**:
+```html
+<div class="device-model-selection">
+  <h3>⚠️ CRITICAL: Select Your TRMNL Model</h3>
+  <p><strong>Important:</strong> Flashing the wrong firmware can damage your device.</p>
+
+  <label>
+    <input type="radio" name="trmnl-model" value="trmnl-og" required>
+    <strong>TRMNL OG (Original)</strong> - 7.5" display, ESP32 chip
+    <span class="compatibility-badge compatible">✅ Compatible</span>
+  </label>
+
+  <label>
+    <input type="radio" name="trmnl-model" value="trmnl-x">
+    <strong>TRMNL X (Newer Model)</strong>
+    <span class="compatibility-badge incompatible">⚠️ Not Yet Compatible</span>
+  </label>
+
+  <div class="warning-box" id="trmnl-x-warning" style="display: none;">
+    <strong>⚠️ TRMNL X Support Coming Soon</strong>
+    <p>The TRMNL X model uses different hardware architecture and is not yet supported.
+    Please check back for future updates, or use TRMNL OG for now.</p>
+  </div>
+
+  <div class="info-box">
+    <strong>How to identify your model:</strong>
+    <ul>
+      <li>Check the back of your device for model number</li>
+      <li>TRMNL OG: Original model, ESP32-based</li>
+      <li>TRMNL X: Newer model (if uncertain, contact TRMNL support)</li>
+    </ul>
+  </div>
+</div>
+```
+
 **Confirmed Compatibility Checklist (TRMNL OG Device - 7.5")**:
 ```
 Hardware Specs:
@@ -345,8 +431,11 @@ Hardware Specs:
 - Color Depth: 1-bit (black & white) or 3-color (depending on model)
 - Network: WiFi 2.4GHz
 - Platform: TRMNL BYOS (Bring Your Own Screen)
+- Chip: ESP32 (verify before flashing)
 
 Firmware Compliance:
+□ Device model verified as TRMNL OG (not TRMNL X)
+□ Internal chip verified as ESP32 compatible variant
 □ API endpoint returns valid TRMNL webhook format
 □ Image dimensions match display resolution
 □ No boot errors on device startup
@@ -361,6 +450,7 @@ Known Issues & Workarounds:
 - Boot Error: [Document if encountered]
 - Orientation Error: [Document if encountered]
 - Refresh Issues: [Document if encountered]
+- TRMNL X: Not yet compatible - do not attempt to flash
 ```
 
 **API Endpoint Requirements (TRMNL BYOS)**:
@@ -860,36 +950,72 @@ const nearbyStopsHome = await smartJourneyPlanner.findNearbyStops(
 // Live data endpoints check for API keys and fallback gracefully
 ```
 
-### S. Setup Enhancement - Google Places API Recommendation
+### S. Setup Enhancement - Google Places API (new) Recommendation
 
-**Principle**: While the system works with free Nominatim geocoding, **actively recommend Google Places API** during setup to ensure accurate address finding on first try.
+**CRITICAL**: This system uses **Google Places API (new)** - NOT the legacy Places API.
+
+**API Version Requirements**:
+- **MUST use**: Google Places API (new) - `https://places.googleapis.com/v1/`
+- **MUST NOT use**: Legacy Places API - `https://maps.googleapis.com/maps/api/place/`
+- **Authentication**: Header-based (`X-Goog-Api-Key`) instead of query parameter
+- **Endpoint**: `POST /v1/places:searchText` with JSON body
+- **Field Masking**: Required for cost optimization (`X-Goog-FieldMask` header)
+
+**Correct Implementation**:
+```javascript
+// CORRECT - Places API (new):
+const url = 'https://places.googleapis.com/v1/places:searchText';
+const response = await fetch(url, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Goog-Api-Key': apiKey,
+    'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location'
+  },
+  body: JSON.stringify({
+    textQuery: address,
+    languageCode: 'en',
+    regionCode: 'AU'
+  })
+});
+
+// WRONG - Legacy Places API (DO NOT USE):
+const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?key=${apiKey}`;
+```
+
+**Principle**: While the system works with free Nominatim geocoding, **actively recommend Google Places API (new)** during setup to ensure accurate address finding on first try.
 
 **Requirements**:
-- **MUST recommend** Google Places API key during setup (not just "optional")
+- **MUST recommend** Google Places API (new) key during setup (not just "optional")
 - **MUST explain benefit**: Accurate geocoding of specific buildings, cafes, businesses
 - **MUST provide** clear guidance on obtaining free API key ($200/month credit)
 - **MUST make key addition easy**: Checkbox + input field in setup wizard
 - **MUST save immediately**: API key takes effect without server restart
 - **MUST update geocoding service**: Re-initialize with new key instantly
+- **MUST use new API**: Places API (new) endpoints and authentication
 
 **Implementation**:
 ```javascript
-// Setup wizard - Recommend Google Places API
-<h3>Recommended: Google Places API Key</h3>
-<p><strong>Highly recommended for setup:</strong> Adding your Google Places API key
+// Setup wizard - Recommend Google Places API (new)
+<h3>Recommended: Google Places API (new)</h3>
+<p><strong>Highly recommended for setup:</strong> Adding your Google Places API (new) key
 now ensures the journey planner can accurately find your home, work, and cafe addresses.
-While the system works with free Nominatim geocoding, Google Places provides
+While the system works with free Nominatim geocoding, Google Places API (new) provides
 significantly better address recognition, especially for specific buildings,
 cafes, and businesses.</p>
 
-<p>💡 <strong>Tip:</strong> The Google Places API has a generous free tier
+<p>💡 <strong>Tip:</strong> The Google Places API (new) has a generous free tier
 ($200/month credit). Adding it during setup prevents address lookup failures
 and ensures your journey planner works correctly on first try.</p>
+
+<p>🔗 <strong>Get your API key:</strong>
+<a href="https://developers.google.com/maps/documentation/places/web-service/cloud-setup">
+Enable Places API (new) in Google Cloud Console</a></p>
 
 // Immediate effect after save
 await preferences.save();
 global.geocodingService = new GeocodingService({
-  googlePlacesKey: apiKey  // Re-initialize immediately
+  googlePlacesKey: apiKey  // Re-initialize immediately with new API
 });
 ```
 
@@ -1527,16 +1653,20 @@ const response = await fetch(url, {
 // Mapbox: Access token in query string
 ```
 
-### Google Places API Free Tier Protection
+### Google Places API (new) Free Tier Protection
 
-**CRITICAL**: Google Places API must NEVER exceed free tier limits.
+**CRITICAL**: Google Places API (new) must NEVER exceed free tier limits.
+
+**API Version**: Places API (new) - `https://places.googleapis.com/v1/`
+**NOT**: Legacy Places API - `https://maps.googleapis.com/maps/api/place/`
 
 **Free Tier Limits** (as of 2026-01-26):
 - **Monthly Credit**: $200 USD per project
-- **Place Details**: $0.017 per request = ~11,764 requests/month
-- **Place Search (Nearby)**: $0.032 per request = ~6,250 requests/month
-- **Geocoding API**: $0.005 per request = ~40,000 requests/month
-- **Places Autocomplete**: $0.002-$0.032 per session (Session-based)
+- **Text Search (new)**: $0.032 per request = ~6,250 requests/month
+- **Place Details (new)**: $0.017 per request = ~11,764 requests/month
+- **Nearby Search (new)**: $0.032 per request = ~6,250 requests/month
+- **Autocomplete (new)**: Session-based pricing
+- **Note**: Pricing subject to change - verify at Google Cloud Console
 
 **Mandatory Protections**:
 
