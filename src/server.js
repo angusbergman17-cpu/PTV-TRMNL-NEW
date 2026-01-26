@@ -2567,6 +2567,10 @@ app.get('/api/device-config', (req, res) => {
       trmnlWebhook: { interval: 900000, fixed: true }
     };
 
+    // Get partial refresh settings if enabled
+    const partialRefresh = refreshSettings.partialRefresh || null;
+    const enabledZones = preferences.getEnabledRefreshZones();
+
     res.json({
       success: true,
       device: deviceConfig.selectedDevice,
@@ -2575,7 +2579,21 @@ app.get('/api/device-config', (req, res) => {
       refreshInterval: refreshSettings.displayRefresh.interval,
       webhookEndpoint: '/api/screen',
       dashboardEndpoint: '/api/dashboard',
-      serverVersion: process.env.npm_package_version || '3.0.0'
+      serverVersion: process.env.npm_package_version || '3.0.0',
+
+      // Partial refresh configuration
+      partialRefresh: partialRefresh ? {
+        enabled: partialRefresh.enabled,
+        interval: partialRefresh.interval,
+        zones: enabledZones.map(zone => ({
+          id: zone.id,
+          name: zone.name,
+          refreshInterval: zone.refreshInterval,
+          coordinates: zone.coordinates
+        })),
+        fullRefreshInterval: partialRefresh.fullRefreshInterval,
+        smartCoalescing: partialRefresh.smartCoalescing
+      } : null
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -2598,6 +2616,82 @@ app.post('/admin/refresh-settings', async (req, res) => {
       success: true,
       message: 'Refresh settings updated successfully',
       settings: preferences.getRefreshSettings()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update partial refresh settings
+app.post('/admin/partial-refresh-settings', async (req, res) => {
+  try {
+    const { enabled, interval, zones, fullRefreshInterval, smartCoalescing } = req.body;
+
+    const partialRefreshSettings = {};
+    if (enabled !== undefined) partialRefreshSettings.enabled = enabled;
+    if (interval) partialRefreshSettings.interval = interval;
+    if (zones) partialRefreshSettings.zones = zones;
+    if (fullRefreshInterval) partialRefreshSettings.fullRefreshInterval = fullRefreshInterval;
+    if (smartCoalescing !== undefined) partialRefreshSettings.smartCoalescing = smartCoalescing;
+
+    await preferences.updatePartialRefreshSettings(partialRefreshSettings);
+
+    res.json({
+      success: true,
+      message: 'Partial refresh settings updated successfully',
+      settings: preferences.getPartialRefreshSettings()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get zones that need refreshing
+// Device firmware calls this to determine which zones to update
+app.get('/api/refresh-zones', (req, res) => {
+  try {
+    const { lastRefreshTimes } = req.query;
+    const parsedTimes = lastRefreshTimes ? JSON.parse(lastRefreshTimes) : {};
+
+    const partialRefresh = preferences.getPartialRefreshSettings();
+    if (!partialRefresh || !partialRefresh.enabled) {
+      return res.json({
+        success: true,
+        partialRefreshEnabled: false,
+        refreshAll: true,
+        zones: []
+      });
+    }
+
+    const zonesToRefresh = [];
+    const enabledZones = preferences.getEnabledRefreshZones();
+
+    for (const zone of enabledZones) {
+      const lastRefresh = parsedTimes[zone.id] || 0;
+      if (preferences.shouldRefreshZone(zone.id, lastRefresh)) {
+        zonesToRefresh.push({
+          id: zone.id,
+          name: zone.name,
+          coordinates: zone.coordinates,
+          refreshInterval: zone.refreshInterval
+        });
+      }
+    }
+
+    // Check if we should do full refresh instead
+    const shouldFullRefresh =
+      zonesToRefresh.length >= 3 ||  // Too many zones changed
+      (parsedTimes.fullRefresh && Date.now() - parsedTimes.fullRefresh >= partialRefresh.fullRefreshInterval);
+
+    res.json({
+      success: true,
+      partialRefreshEnabled: true,
+      refreshAll: shouldFullRefresh,
+      zones: shouldFullRefresh ? [] : zonesToRefresh,
+      fullRefreshRecommended: shouldFullRefresh,
+      nextFullRefresh: parsedTimes.fullRefresh
+        ? parsedTimes.fullRefresh + partialRefresh.fullRefreshInterval
+        : Date.now() + partialRefresh.fullRefreshInterval
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

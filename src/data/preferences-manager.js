@@ -175,6 +175,76 @@ class PreferencesManager {
           interval: 900000,  // 15 minutes (TRMNL platform requirement)
           fixed: true,       // Cannot be changed (platform limitation)
           note: 'TRMNL BYOS platform enforces 15-minute minimum'
+        },
+
+        // Partial Refresh Settings (E-ink zone updates)
+        // Enables fast updates of specific display areas without full refresh
+        partialRefresh: {
+          enabled: true,              // Enable partial refresh capability
+          interval: 20000,            // 20 seconds default for zone updates
+          minimum: 20000,             // Minimum 20 seconds (e-ink safety)
+          unit: 'seconds',
+
+          // Display zones that can be refreshed independently
+          zones: {
+            header: {
+              enabled: true,
+              name: 'Header Zone',
+              description: 'Time, date, weather icon',
+              refreshInterval: 60000,  // 1 minute (time updates)
+              coordinates: {           // Relative to display resolution
+                x: 0,
+                y: 0,
+                width: '100%',         // Full width
+                height: '15%'          // Top 15% of screen
+              }
+            },
+
+            transitInfo: {
+              enabled: true,
+              name: 'Transit Info Zone',
+              description: 'Next departure times, delays',
+              refreshInterval: 20000,  // 20 seconds (live transit data)
+              coordinates: {
+                x: 0,
+                y: '15%',
+                width: '100%',
+                height: '50%'          // Middle 50% of screen
+              }
+            },
+
+            coffeeDecision: {
+              enabled: true,
+              name: 'Coffee Decision Zone',
+              description: 'Coffee recommendation banner',
+              refreshInterval: 120000, // 2 minutes
+              coordinates: {
+                x: 0,
+                y: '65%',
+                width: '100%',
+                height: '20%'
+              }
+            },
+
+            footer: {
+              enabled: true,
+              name: 'Footer Zone',
+              description: 'Journey summary, walking times',
+              refreshInterval: 120000, // 2 minutes
+              coordinates: {
+                x: 0,
+                y: '85%',
+                width: '100%',
+                height: '15%'
+              }
+            }
+          },
+
+          // Optimization settings
+          fullRefreshInterval: 900000,    // Force full refresh every 15 minutes (reduce ghosting)
+          zoneChangeThreshold: 5,         // Minimum % change to trigger zone update
+          smartCoalescing: true,          // Combine adjacent zone updates
+          fallbackToFull: true            // Fall back to full refresh if multiple zones changed
         }
       },
 
@@ -425,6 +495,76 @@ class PreferencesManager {
     }
 
     return await this.updateSection('refreshSettings', refreshSettings);
+  }
+
+  /**
+   * Get partial refresh settings
+   */
+  getPartialRefreshSettings() {
+    const refreshSettings = this.getRefreshSettings();
+    return refreshSettings?.partialRefresh || null;
+  }
+
+  /**
+   * Update partial refresh settings
+   */
+  async updatePartialRefreshSettings(partialRefreshSettings) {
+    const refreshSettings = this.getRefreshSettings();
+    refreshSettings.partialRefresh = {
+      ...refreshSettings.partialRefresh,
+      ...partialRefreshSettings
+    };
+
+    // Validate minimum interval (20 seconds for e-ink safety)
+    if (refreshSettings.partialRefresh.interval) {
+      refreshSettings.partialRefresh.interval = Math.max(
+        refreshSettings.partialRefresh.interval,
+        20000  // 20 seconds minimum
+      );
+    }
+
+    return await this.updateSection('refreshSettings', refreshSettings);
+  }
+
+  /**
+   * Get enabled refresh zones
+   */
+  getEnabledRefreshZones() {
+    const partialRefresh = this.getPartialRefreshSettings();
+    if (!partialRefresh || !partialRefresh.enabled) {
+      return [];
+    }
+
+    const zones = [];
+    for (const [zoneId, zoneConfig] of Object.entries(partialRefresh.zones)) {
+      if (zoneConfig.enabled) {
+        zones.push({
+          id: zoneId,
+          ...zoneConfig
+        });
+      }
+    }
+
+    return zones;
+  }
+
+  /**
+   * Check if a zone should be refreshed based on interval
+   */
+  shouldRefreshZone(zoneId, lastRefreshTime) {
+    const partialRefresh = this.getPartialRefreshSettings();
+    if (!partialRefresh || !partialRefresh.enabled) {
+      return false;
+    }
+
+    const zone = partialRefresh.zones[zoneId];
+    if (!zone || !zone.enabled) {
+      return false;
+    }
+
+    const now = Date.now();
+    const timeSinceRefresh = now - lastRefreshTime;
+    return timeSinceRefresh >= zone.refreshInterval;
   }
 
   /**
