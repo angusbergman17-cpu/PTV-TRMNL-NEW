@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-26
-**Version**: 1.0.8
+**Version**: 1.0.9
 
 ---
 
@@ -319,7 +319,115 @@ try {
 }
 ```
 
-### P. User-First API Key Flow
+### P. Hardware Compatibility & Flashing Requirements
+
+**Purpose**: Ensure reliable hardware integration across device types while maintaining compatibility with official firmware standards.
+
+**Primary Target Device**: TRMNL (usetrmnl.com) e-ink display
+
+**Firmware Compliance**:
+- **MUST** comply with official TRMNL firmware specifications
+- **MUST** support standard TRMNL API webhook format
+- **MUST** handle orientation correctly (portrait/landscape)
+- **MUST** prevent boot errors and initialization failures
+- **MUST** gracefully handle display refresh limits
+- **MUST** respect e-ink display constraints (ghosting, partial refresh)
+
+**Confirmed Compatibility Checklist (TRMNL OG Device)**:
+```
+Hardware Specs:
+- Display: 2.9" e-ink (296x128 pixels)
+- Orientation: Portrait (default) / Landscape (configurable)
+- Refresh Rate: Max 1 per minute (e-ink limitation)
+- Color Depth: 1-bit (black & white)
+- Network: WiFi 2.4GHz
+
+Firmware Compliance:
+□ API endpoint returns valid TRMNL webhook format
+□ Image dimensions match display resolution
+□ No boot errors on device startup
+□ Orientation handled correctly in firmware
+□ Refresh rate respects e-ink limitations
+□ Display ghosting minimized
+□ Power management compatible
+□ WiFi connection stable
+□ OTA updates supported (if applicable)
+
+Known Issues & Workarounds:
+- Boot Error: [Document if encountered]
+- Orientation Error: [Document if encountered]
+- Refresh Issues: [Document if encountered]
+```
+
+**API Endpoint Requirements (TRMNL)**:
+```javascript
+// /api/screen endpoint MUST return:
+{
+  "image": "base64_encoded_bmp_image",  // Exact display dimensions
+  "orientation": "portrait",  // or "landscape"
+  "refresh_rate": 60  // seconds between refreshes (min 60 for e-ink)
+}
+
+// Image specifications:
+- Format: BMP or PNG
+- Dimensions: 296x128 (portrait) or 128x296 (landscape)
+- Color: 1-bit black & white
+- Encoding: Base64 (if transmitted as string)
+```
+
+**Future Device Compatibility (To Be Expanded)**:
+This section will be updated as additional e-ink displays are tested:
+- Waveshare e-Paper displays
+- Inkplate devices
+- Pimoroni Inky displays
+- Custom ESP32-based e-ink solutions
+
+**Documentation Requirements**:
+- Record device model and firmware version tested
+- Document any orientation or boot issues encountered
+- Provide workarounds for known hardware quirks
+- Link to official device documentation
+- Include flashing instructions if applicable
+
+**Testing Checklist (Before Hardware Deployment)**:
+1. Generate test image via `/api/screen`
+2. Verify image dimensions exactly match device
+3. Test orientation settings (portrait/landscape)
+4. Confirm refresh rate respects device limits
+5. Check for ghosting or display artifacts
+6. Verify WiFi connectivity stability
+7. Test power consumption/battery life (if applicable)
+8. Document any errors or warnings
+
+**Official TRMNL Resources**:
+- Website: https://usetrmnl.com/
+- Documentation: [Link to official docs if available]
+- API Specification: TRMNL webhook format
+- Community: [Link to forum/discord if exists]
+
+**Implementation Notes**:
+```javascript
+// Example: Checking device compatibility
+function validateTRMNLImage(imageData) {
+  const allowedDimensions = [
+    { width: 296, height: 128, orientation: 'portrait' },
+    { width: 128, height: 296, orientation: 'landscape' }
+  ];
+
+  // Validate dimensions match device
+  const valid = allowedDimensions.some(d =>
+    imageData.width === d.width && imageData.height === d.height
+  );
+
+  if (!valid) {
+    throw new Error(`Invalid dimensions for TRMNL device. Expected 296x128 or 128x296, got ${imageData.width}x${imageData.height}`);
+  }
+
+  return true;
+}
+```
+
+### Q. User-First API Key Flow
 - **Fallback data** allows setup WITHOUT API keys initially
 - **API keys requested AFTER** basic journey configuration
 - **Sequential credential gathering** (addresses → API keys → live data)
@@ -697,7 +805,7 @@ Before committing, verify:
 
 ---
 
-**Version**: 1.0.8
+**Version**: 1.0.9
 **Last Updated**: 2026-01-26
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
