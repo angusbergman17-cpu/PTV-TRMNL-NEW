@@ -16,7 +16,6 @@
 #include <ArduinoJson.h>
 #include <bb_epaper.h>
 #include <PNGdec.h>
-#include <esp_task_wdt.h>
 #include <esp_system.h>
 #include "../include/config.h"
 
@@ -93,10 +92,6 @@ void setup() {
     // Initialize display FIRST
     initDisplay();
     Serial.println("Display initialized");
-
-    // COMPLETELY DISABLE WATCHDOG - do not use it at all
-    esp_task_wdt_deinit();
-    Serial.println("Watchdog FULLY DISABLED");
 
     // Initialize preferences
     preferences.begin("trmnl", false);
@@ -301,7 +296,6 @@ void setup() {
 
     Serial.println("Setup complete - entering loop()");
     Serial.println("Dashboard should remain visible - NO REBOOTS");
-    Serial.println("Watchdog is DISABLED - no automatic reboots");
     Serial.println("WiFi is OFF - maximum available memory");
     delay(2000);  // Give time for serial to flush
 }
@@ -310,7 +304,6 @@ void loop() {
     // ========================================
     // OPERATION MODE: Stay alive, do NOTHING
     // ========================================
-    // Watchdog is DISABLED, WiFi is OFF
     // This is the absolute minimum code to stay alive
     // If it still reboots, the problem is hardware or power related
 
@@ -845,15 +838,9 @@ void showConfirmationPrompt() {
     bbep.setCursor(240, 350);
     bbep.print("(c) 2026 Angus Bergman");
 
-    // Feed watchdog before refresh
-    esp_task_wdt_reset();
-    esp_task_wdt_delete(NULL);
 
     bbep.refresh(REFRESH_FULL, true);
 
-    // Re-initialize watchdog
-    esp_task_wdt_init(30, true);
-    esp_task_wdt_add(NULL);
 }
 
 // Wait for button confirmation with timeout
@@ -906,8 +893,6 @@ bool waitForButtonConfirmation(int timeoutSeconds) {
             }
         }
 
-        // Feed watchdog
-        esp_task_wdt_reset();
         delay(100);
     }
 
@@ -936,7 +921,6 @@ void checkLongPressReset() {
 
                 ESP.restart();
             }
-            esp_task_wdt_reset();
             delay(100);
         }
     }
@@ -1277,9 +1261,6 @@ bool downloadBaseTemplate() {
 
     bbep.fillScreen(BBEP_WHITE);
 
-    // Disable watchdog during long drawing operation
-    esp_task_wdt_reset();
-    esp_task_wdt_delete(NULL);
 
     // Draw the decoded image from cache
     if (imageBpp == 1) {
@@ -1308,9 +1289,6 @@ bool downloadBaseTemplate() {
         }
     }
 
-    // Re-initialize watchdog (30 second timeout)
-    esp_task_wdt_init(30, true);
-    esp_task_wdt_add(NULL);
 
     // Only refresh if we're in operating phase
     if (setupComplete) {
@@ -1319,15 +1297,9 @@ bool downloadBaseTemplate() {
         showLog();
         delay(500);
 
-        // Disable watchdog during long refresh operation
-        esp_task_wdt_reset();
-        esp_task_wdt_delete(NULL);
 
         bbep.refresh(REFRESH_FULL, true);
 
-        // Re-initialize watchdog (30 second timeout)
-        esp_task_wdt_init(30, true);
-        esp_task_wdt_add(NULL);
 
         addLog("Template displayed!");
         templateDisplayed = true;
@@ -1350,9 +1322,6 @@ bool downloadBaseTemplate() {
 void restoreCachedImage() {
     if (!cachedImageBuffer) return;
 
-    // Disable watchdog during long drawing operation
-    esp_task_wdt_reset();
-    esp_task_wdt_delete(NULL);
 
     // Copy cached buffer to display
     if (imageBpp == 1) {
@@ -1381,9 +1350,6 @@ void restoreCachedImage() {
         }
     }
 
-    // Re-initialize watchdog (30 second timeout)
-    esp_task_wdt_init(30, true);
-    esp_task_wdt_add(NULL);
 }
 
 bool fetchAndDisplayRegionUpdates() {
@@ -1555,15 +1521,9 @@ bool fetchAndDisplayRegionUpdates() {
         }
         if (!templateDisplayed) showLog();
 
-        // Disable watchdog during long refresh operation
-        esp_task_wdt_reset();
-        esp_task_wdt_delete(NULL);
 
         bbep.refresh(REFRESH_FULL, true);
 
-        // Re-initialize watchdog
-        esp_task_wdt_init(30, true);
-        esp_task_wdt_add(NULL);
 
         templateDisplayed = true;
         showingLog = false;  // After first full refresh, stop showing log
@@ -1573,13 +1533,9 @@ bool fetchAndDisplayRegionUpdates() {
             addLog("Partial refresh");
             if (!templateDisplayed) showLog();
 
-            // Feed watchdog before refresh
-            esp_task_wdt_reset();
 
             bbep.refresh(REFRESH_PARTIAL, false);
 
-            // Feed watchdog after refresh
-            esp_task_wdt_reset();
 
             templateDisplayed = true;
             showingLog = false;  // After any refresh, stop showing log
