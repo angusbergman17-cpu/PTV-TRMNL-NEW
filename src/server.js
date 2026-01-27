@@ -637,18 +637,47 @@ app.get('/api/keepalive', (req, res) => {
 // Version control endpoint
 app.get('/api/version', (req, res) => {
   try {
-    const date = execSync('git log -1 --format="%ci"', { encoding: 'utf-8' }).trim().split(' ')[0];
+    // Load VERSION.json for comprehensive version info
+    const versionJsonPath = path.join(process.cwd(), 'VERSION.json');
+    let versionData = null;
+
+    try {
+      versionData = JSON.parse(readFileSync(versionJsonPath, 'utf-8'));
+    } catch (e) {
+      console.log('VERSION.json not found, using package.json version only');
+    }
+
+    const gitDate = execSync('git log -1 --format="%ci"', { encoding: 'utf-8' }).trim().split(' ')[0];
+    const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+
     res.json({
       version: `v${VERSION}`,
-      date,
-      build: execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+      date: gitDate,
+      build: gitHash,
+      system: versionData?.system || null,
+      components: versionData?.components || null,
+      backend: versionData?.backend || null,
+      firmware: versionData?.firmware || null
     });
   } catch (error) {
     // Fallback if not in a git repository
+    const versionJsonPath = path.join(process.cwd(), 'VERSION.json');
+    let versionData = null;
+
+    try {
+      versionData = JSON.parse(readFileSync(versionJsonPath, 'utf-8'));
+    } catch (e) {
+      // Ignore if VERSION.json doesn't exist
+    }
+
     res.json({
       version: `v${VERSION}`,
       date: new Date().toISOString().split('T')[0],
-      build: 'dev'
+      build: 'dev',
+      system: versionData?.system || null,
+      components: versionData?.components || null,
+      backend: versionData?.backend || null,
+      firmware: versionData?.firmware || null
     });
   }
 });

@@ -797,11 +797,28 @@
             }
         };
 
+        // Load version info
+        function loadVersionInfo() {
+            fetch('/api/version')
+                .then(r => r.json())
+                .then(v => {
+                    const version = v.components?.setupWizard?.version || 'v1.5.0';
+                    const systemVersion = v.system?.version || '1.0.0';
+                    document.getElementById('versionHash').textContent = `${version} (System ${systemVersion})`;
+                    document.getElementById('buildDate').textContent = v.date || new Date().toISOString().split('T')[0];
+                })
+                .catch(() => {
+                    document.getElementById('versionHash').textContent = 'v1.5.0';
+                    document.getElementById('buildDate').textContent = new Date().toISOString().split('T')[0];
+                });
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             setupAddressAutocomplete('home-address', 'home-suggestions');
             setupAddressAutocomplete('work-address', 'work-suggestions');
             setupAddressAutocomplete('cafe-address', 'cafe-suggestions');
+            loadVersionInfo();
         });
     </script>
 </body>

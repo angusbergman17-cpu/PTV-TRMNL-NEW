@@ -4921,7 +4921,91 @@ Explanation
 
 ---
 
-**Version**: 1.0.25
+**Version**: 1.0.26
 **Last Updated**: 2026-01-27
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
+
+## 1️⃣9️⃣ VERSION CONTROL & RELEASE MANAGEMENT
+
+**Purpose**: Maintain consistent, transparent version tracking across all system components for clear release management and user communication.
+
+---
+
+### Version Numbering Convention
+
+**MANDATORY**: All components MUST use Semantic Versioning 2.0.0
+
+**Format**: `MAJOR.MINOR.PATCH`
+
+**Increment Rules**:
+1. **MAJOR** version: Incompatible API changes, breaking changes, major system overhauls
+2. **MINOR** version: New features, significant improvements (backwards-compatible)
+3. **PATCH** version: Bug fixes, minor improvements, documentation updates (backwards-compatible)
+
+**Examples**:
+```
+v1.0.0 → v1.0.1  (Bug fix)
+v1.0.1 → v1.1.0  (New feature added)
+v1.1.0 → v2.0.0  (Breaking change)
+```
+
+---
+
+### Version Tracking File
+
+**Location**: `/VERSION.json` (project root)
+
+**MANDATORY UPDATES**:
+- Update VERSION.json for EVERY significant change
+- Commit VERSION.json with the related code changes
+- Add changelog entry for each version bump
+
+---
+
+### Public-Facing Version Display
+
+**REQUIREMENT**: ALL public-facing HTML files MUST display version information near licensing/attribution
+
+**Required Information**:
+1. Component version (e.g., "Smart Setup Wizard v3.2.0")
+2. System version (e.g., "System Version: 1.0.0")
+3. Last updated date
+4. Key backend component versions (for admin panels)
+
+---
+
+### API Version Endpoint
+
+**Endpoint**: `GET /api/version`
+
+**Usage**: Frontend pages load version dynamically from this endpoint
+
+---
+
+### When to Update Versions
+
+**MAJOR Version Bump** (X.0.0):
+- Breaking API changes, complete system redesign
+
+**MINOR Version Bump** (x.X.0):
+- New features, significant improvements (backwards-compatible)
+
+**PATCH Version Bump** (x.x.X):
+- Bug fixes, security patches, documentation updates
+
+---
+
+### Compliance Checklist
+
+Before committing code changes:
+
+- [ ] VERSION.json updated with new version
+- [ ] Changelog entry added to VERSION.json
+- [ ] Public HTML files display correct version (if changed)
+- [ ] /api/version endpoint returns updated data
+- [ ] Development Rules version incremented (if rules changed)
+- [ ] Commit message references version change
+- [ ] Version numbering follows Semantic Versioning 2.0.0
+
+---

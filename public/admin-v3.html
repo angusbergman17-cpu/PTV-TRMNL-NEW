@@ -707,6 +707,30 @@
             margin-top: 30px;
         }
 
+        .version-info {
+            text-align: center;
+            padding: 15px 20px;
+            color: var(--color-text-muted);
+            font-size: 0.85em;
+            background: rgba(15, 23, 42, 0.5);
+            border-top: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .version-info p {
+            margin: 5px 0;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: var(--color-accent-primary);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 0 5px;
+        }
+
         .checkbox-group {
             display: flex;
             align-items: center;
@@ -1256,6 +1280,19 @@
         <div class="copyright">
             <p>PTV-TRMNL © 2026 Angus Bergman</p>
             <p>Licensed under <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank">CC BY-NC 4.0</a></p>
+        </div>
+
+        <div class="version-info">
+            <p>
+                <strong>Smart Setup Wizard & Dashboard</strong>
+                <span class="version-badge">v3.2.0</span>
+            </p>
+            <p style="font-size: 0.9em; margin-top: 8px;">
+                System Version: 1.0.0 • Last Updated: 2026-01-27
+            </p>
+            <p style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">
+                Journey Planner v2.0.0 (Multi-Modal Routing) • Geocoding Service v1.2.0 (Auto-Population)
+            </p>
         </div>
     </div>
 
@@ -2623,12 +2660,44 @@
             }, 60000);
         }
 
+        // Load version info dynamically
+        function loadVersionInfo() {
+            fetch('/api/version')
+                .then(r => r.json())
+                .then(v => {
+                    // Update version display if elements exist
+                    const versionBadge = document.querySelector('.version-badge');
+                    const systemVersionSpan = document.querySelector('.version-info p:nth-child(2)');
+                    const componentsSpan = document.querySelector('.version-info p:nth-child(3)');
+
+                    if (versionBadge && v.components?.adminPanel) {
+                        versionBadge.textContent = `v${v.components.adminPanel.version}`;
+                    }
+
+                    if (systemVersionSpan && v.system) {
+                        systemVersionSpan.innerHTML = `System Version: ${v.system.version} • Last Updated: ${v.system.releaseDate}`;
+                    }
+
+                    if (componentsSpan && v.backend) {
+                        const jp = v.backend.journeyPlanner?.version || '2.0.0';
+                        const gc = v.backend.geocodingService?.version || '1.2.0';
+                        componentsSpan.innerHTML = `<span style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">Journey Planner v${jp} (Multi-Modal Routing) • Geocoding Service v${gc} (Auto-Population)</span>`;
+                    }
+                })
+                .catch(err => {
+                    console.log('Could not load version info:', err);
+                });
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async () => {
             updateProgress();
 
             // Load saved preferences from server (for dashboard access after page refresh)
             await loadPreferencesFromServer();
+
+            // Load version information
+            loadVersionInfo();
 
             // If we have a complete configuration, show option to go to dashboard
             if (setupData.calculatedJourney && setupData.selectedDevice) {

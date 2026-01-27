@@ -1,0 +1,84 @@
+{
+  "system": {
+    "version": "1.0.0",
+    "name": "PTV-TRMNL Smart Transit Display System",
+    "releaseDate": "2026-01-27",
+    "codename": "Foundation"
+  },
+  "components": {
+    "adminPanel": {
+      "version": "3.2.0",
+      "file": "admin-v3.html",
+      "description": "Smart Setup Wizard & Live Dashboard",
+      "lastUpdated": "2026-01-27"
+    },
+    "legacyAdmin": {
+      "version": "2.0.0",
+      "file": "admin.html",
+      "description": "Legacy Admin Panel",
+      "lastUpdated": "2026-01-27"
+    },
+    "setupWizard": {
+      "version": "1.5.0",
+      "file": "setup-wizard.html",
+      "description": "Initial Setup Wizard",
+      "lastUpdated": "2026-01-27"
+    },
+    "journeyDisplay": {
+      "version": "1.2.0",
+      "file": "journey-display.html",
+      "description": "Journey Visualization Interface",
+      "lastUpdated": "2026-01-27"
+    },
+    "dashboardTemplate": {
+      "version": "1.1.0",
+      "file": "dashboard-template.html",
+      "description": "Dashboard Template",
+      "lastUpdated": "2026-01-27"
+    }
+  },
+  "backend": {
+    "server": {
+      "version": "2.1.0",
+      "description": "Express.js API Server",
+      "lastUpdated": "2026-01-27"
+    },
+    "journeyPlanner": {
+      "version": "2.0.0",
+      "description": "Multi-Modal Journey Planner with Transfers",
+      "lastUpdated": "2026-01-27"
+    },
+    "geocodingService": {
+      "version": "1.2.0",
+      "description": "Multi-Tier Geocoding with Auto-Population",
+      "lastUpdated": "2026-01-27"
+    }
+  },
+  "firmware": {
+    "version": "5.9.0",
+    "description": "ESP32-C3 TRMNL Firmware",
+    "lastUpdated": "2026-01-27"
+  },
+  "versioningScheme": {
+    "type": "Semantic Versioning 2.0.0",
+    "format": "MAJOR.MINOR.PATCH",
+    "rules": {
+      "MAJOR": "Incompatible API changes, major feature overhauls",
+      "MINOR": "New features, significant improvements (backwards-compatible)",
+      "PATCH": "Bug fixes, minor improvements (backwards-compatible)"
+    }
+  },
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-01-27",
+      "changes": [
+        "Initial version tracking system",
+        "Complete data flow persistence (setup to dashboard)",
+        "Multi-modal routing with transit transfers",
+        "Auto-population of addresses using geolocation",
+        "Dark theme compliance with Development Rules"
+      ]
+    }
+  ]
+}
