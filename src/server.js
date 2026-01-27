@@ -419,6 +419,16 @@ async function loadDevices() {
   } catch (err) {
     if (err.code !== 'ENOENT') {
       console.error('⚠️  Error loading devices:', err.message);
+    } else {
+      // Vercel fallback: hardcoded device for serverless deployment
+      console.log("📦 Using fallback device registration (serverless mode)");
+      devices.set("94:a9:90:8d:28:d0", {
+        macAddress: "94:a9:90:8d:28:d0",
+        apiKey: "lvivfoczcv9oo8g8br6o5",
+        friendlyID: "94A990",
+        registeredAt: "2026-01-27T07:11:29.287Z",
+        lastSeen: new Date().toISOString()
+      });
     }
   }
 }
