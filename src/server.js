@@ -1967,8 +1967,14 @@ app.use('/assets', express.static(path.join(process.cwd(), 'public/assets')));
 // Serve all public files
 app.use(express.static(path.join(process.cwd(), 'public')));
 
-// Admin panel (smart setup wizard & live dashboard)
+// Admin panel - Staged Setup Wizard (Development Rules compliant)
+// Per DEVELOPMENT-RULES.md: "One Step at a Time" - Present only ONE task per screen
 app.get('/admin', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'admin-v3.html'));
+});
+
+// Single-page admin (alternative view)
+app.get('/admin/simple', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'admin.html'));
 });
 
