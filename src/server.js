@@ -1267,7 +1267,15 @@ app.get('/api/device/:token', async (req, res) => {
       trams: (mode1Type === 'TRAMS' ? mode1Data : mode2Data)?.slice(0, 3) || [],
       trains: (mode1Type === 'TRAINS' ? mode1Data : mode2Data)?.slice(0, 3) || [],
       tram_stop: mode1Type === 'TRAMS' ? mode1Name : mode2Name,
-      train_stop: mode1Type === 'TRAINS' ? mode1Name : mode2Name
+      train_stop: mode1Type === 'TRAINS' ? mode1Name : mode2Name,
+      // Journey data for v5.18+
+      home_address: (config.addresses?.home || 'Home').split(',')[0],
+      work_address: (config.addresses?.work || 'Work').split(',')[0],
+      leave_by: new Date(Date.now() + Math.max(0, ((mode1Data?.[0]?.minutes || 10) - 3)) * 60000).toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false }),
+      arrive_by: new Date(Date.now() + ((mode1Data?.[0]?.minutes || 10) + 8 + 3 + 5) * 60000).toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false }),
+      leg1_type: mode1Type === 'TRAMS' ? 'tram' : 'train',
+      leg2_type: mode2Type === 'TRAINS' ? 'train' : 'tram',
+      leg2_dest: transitRoute?.mode2?.destinationStation?.name || 'Parliament'
     });
   } catch (error) {
     console.error('Token device endpoint error:', error);
