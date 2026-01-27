@@ -29,6 +29,7 @@ import fallbackTimetables from './data/fallback-timetables.js';
 import { readFileSync } from 'fs';
 import nodemailer from 'nodemailer';
 import safeguards from './utils/deployment-safeguards.js';
+import { decodeConfigToken, encodeConfigToken, generateWebhookUrl } from './utils/config-token.js';
 
 // Setup error handlers early (before any async operations)
 safeguards.setupErrorHandlers();
@@ -1151,6 +1152,95 @@ app.get('/api/status', async (req, res) => {
       error: error.message,
       timestamp: new Date().toISOString()
     });
+  }
+});
+
+// Token-based device endpoint (config embedded in URL)
+// This allows zero-setup deployment - user gets a unique URL after setup wizard
+app.get('/api/device/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Decode config from token
+    const config = decodeConfigToken(token);
+    if (!config) {
+      return res.status(400).json({ error: 'Invalid config token' });
+    }
+
+    // Temporarily apply config for this request
+    const apiKey = config.api?.key || process.env.ODATA_API_KEY;
+    const transitRoute = config.journey?.transitRoute;
+    
+    // Get data using the decoded config
+    const data = await getData(apiKey);
+
+    // Get station names from decoded config
+    const mode1Name = transitRoute?.mode1?.originStation?.name || 'TRANSIT 1';
+    const mode2Name = transitRoute?.mode2?.originStation?.name || 'TRANSIT 2';
+    const mode1Type = transitRoute?.mode1?.type === 0 ? 'TRAINS' : 'TRAMS';
+    const mode2Type = transitRoute?.mode2?.type === 0 ? 'TRAINS' : 'TRAMS';
+
+    // Build TRMNL markup
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Australia/Melbourne' });
+
+    const markup = [
+      `**${timeStr}** | ${data.weather?.icon || '☁️'} ${data.weather?.temp || '--'}°C`,
+      '',
+      data.coffee?.canGet ? '☕ **YOU HAVE TIME FOR COFFEE!**' : '⚡ **NO COFFEE - GO DIRECT**',
+      '',
+      `**${mode1Name.toUpperCase()}** (${mode1Type})`,
+      data.trains?.length > 0 ? data.trains.slice(0, 2).map(t => `→ ${t.minutes} min`).join('\n') : '→ Checking...',
+      '',
+      `**${mode2Name.toUpperCase()}** (${mode2Type})`,
+      data.trams?.length > 0 ? data.trams.slice(0, 2).map(t => `→ ${t.minutes} min`).join('\n') : '→ Checking...',
+      '',
+      data.coffee?.subtext || '✓ Good service'
+    ];
+
+    res.json({
+      merge_variables: {
+        screen_text: markup.join('\n'),
+        device: 'trmnl-byos',
+        width: 800,
+        height: 480,
+        orientation: 'landscape'
+      }
+    });
+  } catch (error) {
+    console.error('Token device endpoint error:', error);
+    res.status(500).json({
+      merge_variables: {
+        screen_text: `⚠️ Error: ${error.message}`
+      }
+    });
+  }
+});
+
+// Generate webhook URL after setup completion
+app.post('/admin/generate-webhook', async (req, res) => {
+  try {
+    const prefs = preferences.get();
+    const baseUrl = req.headers.origin || `https://${req.headers.host}`;
+    
+    const webhookUrl = generateWebhookUrl(baseUrl, prefs);
+    
+    if (!webhookUrl) {
+      return res.status(500).json({ success: false, error: 'Failed to generate webhook URL' });
+    }
+
+    res.json({
+      success: true,
+      webhookUrl,
+      instructions: [
+        '1. Copy this webhook URL',
+        '2. In TRMNL app, create a new Private Plugin',
+        '3. Paste the webhook URL',
+        '4. Your device will start showing transit data!'
+      ]
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
