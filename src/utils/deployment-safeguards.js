@@ -1,4 +1,10 @@
 /**
+ * Copyright (c) 2026 Angus Bergman
+ * Licensed under CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International License)
+ * https://creativecommons.org/licenses/by-nc/4.0/
+ */
+
+/**
  * Deployment Safeguards
  * Production-ready error handling, monitoring, and failure mitigation
  *
@@ -51,7 +57,8 @@ export function log(level, message, meta = {}) {
 
   // File output (production only)
   if (logStream) {
-    logStream.write(logLine + '\n');
+    logStream.write(logLine + '
+');
   }
 }
 

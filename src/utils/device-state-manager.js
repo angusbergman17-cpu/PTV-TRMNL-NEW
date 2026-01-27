@@ -1,4 +1,10 @@
 /**
+ * Copyright (c) 2026 Angus Bergman
+ * Licensed under CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International License)
+ * https://creativecommons.org/licenses/by-nc/4.0/
+ */
+
+/**
  * Device State Manager - PTV-TRMNL
  * 
  * Tracks what the device is displaying, prevents crashes, and enables debugging.
