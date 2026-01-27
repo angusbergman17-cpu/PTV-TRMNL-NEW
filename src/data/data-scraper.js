@@ -199,14 +199,14 @@ export async function getSnapshot(apiKey) {
   }
 
   // Pull GTFS‑R feeds in parallel (Trip Updates + Service Alerts)
-  const mBase = config.feeds.metro.base;
-  const tBase = config.feeds.tram.base;
+  
+  
 
   const [metroTU, metroSA, tramTU, tramSA] = await Promise.all([
-    getMetroTripUpdates(apiKey, mBase).catch(e => (console.warn("Metro TU error:", e.message), null)),
-    getMetroServiceAlerts(apiKey, mBase).catch(e => (console.warn("Metro SA error:", e.message), null)),
-    getTramTripUpdates(apiKey, tBase).catch(e => (console.warn("Tram TU error:", e.message), null)),
-    getTramServiceAlerts(apiKey, tBase).catch(e => (console.warn("Tram SA error:", e.message), null))
+    getMetroTripUpdates(apiKey).catch(e => (console.warn("Metro TU error:", e.message), null)),
+    getMetroServiceAlerts(apiKey).catch(e => (console.warn("Metro SA error:", e.message), null)),
+    getTramTripUpdates(apiKey).catch(e => (console.warn("Tram TU error:", e.message), null)),
+    getTramServiceAlerts(apiKey).catch(e => (console.warn("Tram SA error:", e.message), null))
   ]);
 
   // Record feed timestamps
