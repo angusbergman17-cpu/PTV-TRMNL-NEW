@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-28
-**Version**: 1.0.29
+**Version**: 1.0.30
 
 **📋 [Complete Project Vision →](../../PROJECT-STATEMENT.md)** - Read the comprehensive project statement for context on goals, architecture, and user requirements.
 
@@ -5334,7 +5334,7 @@ Explanation
 
 ---
 
-**Version**: 1.0.29
+**Version**: 1.0.30
 **Last Updated**: 2026-01-28
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
@@ -5692,4 +5692,36 @@ grep -l 'Historical Notice' docs/guides/ docs/
 - **Below 70%**: F (Do not deploy)
 
 ---
+
+
+---
+
+## 2️⃣4️⃣ AUDIT PROCESS REFERENCE
+
+### Mandatory Audit Process
+
+**Document**: `docs/development/AUDIT-PROCESS.md`
+
+**Purpose**: Defines the standardized 9-phase process for conducting compliance audits.
+
+**When to Audit**:
+- Before MAJOR version releases
+- After significant refactoring
+- Quarterly (recommended)
+- When security concerns arise
+
+**Audit Phases**:
+1. **Preparation** - Gather context, establish baseline
+2. **Security Scan** - XSS vulnerabilities, input handling
+3. **Visual Design** - Color palette, design consistency
+4. **License Compliance** - CC BY-NC 4.0 headers
+5. **API Terminology** - No forbidden terms
+6. **Documentation Review** - Historical notices, accuracy
+7. **Syntax Validation** - Code validity
+8. **Remediation** - Fix identified issues
+9. **Reporting** - Document findings, update rules
+
+**Audit Reports**: Stored in `docs/reports/AUDIT-REPORT-YYYY-MM-DD.md`
+
+**Reference**: See `docs/development/AUDIT-PROCESS.md` for complete methodology.
 
