@@ -1,5 +1,7 @@
 # Transport Victoria Open Data API - Complete Setup Guide
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-01-27
+
+> ⚠️ **Historical Notice**: This guide documents the Transport Victoria Open Data API. The legacy "PTV Timetable API v3" (Developer ID + API Key with HMAC signing) is **deprecated** and should not be used in new development. The current system uses GTFS Realtime feeds with simple KeyID header authentication. See `docs/development/DEVELOPMENT-RULES.md` for authoritative guidance.
 
 ## For Victoria-Based Users
 
@@ -34,7 +36,7 @@ curl -H "KeyID: your-api-key-here" \
   https://opendata.transport.vic.gov.au/api/gtfs-realtime/metro-trains
 ```
 
-### For PTV Timetable API (v3)
+### ⛔ Legacy: PTV Timetable API (v3) - DEPRECATED
 - **Requires**: Developer ID **AND** API Key
 - **Signature**: HMAC-SHA1 signature required for every request
 - **Complexity**: High - requires URL signing

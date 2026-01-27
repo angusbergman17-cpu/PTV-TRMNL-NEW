@@ -1,5 +1,12 @@
 # 🎉 PROJECT COMPLETELY REBUILT - DEPLOYMENT GUIDE
 
+> ⚠️ **Note (2026-01-27)**: This guide documents an earlier architecture. The current system uses:
+> - **Environment Variable**: `TRANSPORT_VICTORIA_GTFS_KEY` (not PTV_DEV_ID/PTV_KEY)
+> - **API**: Transport Victoria Open Data GTFS Realtime feeds
+> - **Registration**: https://opendata.transport.vic.gov.au (self-service, no email required)
+> - See `docs/development/DEVELOPMENT-RULES.md` for current guidelines.
+
+
 ## ✅ What Was Built
 
 Your entire TRMNL your city PT project has been **completely rebuilt from scratch** based on your project context document, ensuring all API integrations work properly.
@@ -124,8 +131,7 @@ In Render dashboard → Environment:
 
 **For real-time train data** (highly recommended):
 ```
-PTV_DEV_ID = your_dev_id
-PTV_KEY = your_api_key
+TRANSPORT_VICTORIA_GTFS_KEY = your_api_key  # Get from opendata.transport.vic.gov.au
 ```
 
 **For weather** (optional):
@@ -145,7 +151,7 @@ WEATHER_KEY = your_openweather_key
 
 ### **PTV Timetable API** (For real-time train data)
 
-**Email to:** APIKeyRequest@ptv.vic.gov.au
+⛔ **DEPRECATED** - Register at https://opendata.transport.vic.gov.au instead
 
 **Subject:** PTV Timetable API – request for key
 
