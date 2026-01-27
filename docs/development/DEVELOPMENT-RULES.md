@@ -4717,7 +4717,211 @@ Always call refresh() after drawing operations
 
 ---
 
-**Version**: 1.0.24
+## 1️⃣8️⃣ RESOLVED ISSUES & SOLUTIONS
+
+**Purpose**: Document common issues and their verified solutions to prevent recurrence and assist future development.
+
+---
+
+### Issue #1: API Validation 404 Error
+
+**Date Resolved**: 2026-01-27
+**Severity**: Critical (blocks Transport Victoria API setup)
+
+**Symptoms**:
+- API validation fails with "404: Not Found" error
+- User cannot validate Transport Victoria API key in admin wizard
+- Error message: "API validation failed (404): Not Found"
+
+**Root Cause**:
+Using incorrect API endpoint URL. The Transport Victoria OpenData API has multiple endpoints, and using the wrong one results in 404 errors.
+
+**Incorrect Endpoints** (cause 404):
+```javascript
+// ❌ WRONG - These DO NOT WORK:
+'https://api.opendata.transport.vic.gov.au/v1/gtfsrt-metro-trains'
+'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro-trains/vehicle-positions'
+```
+
+**Correct Endpoint** (works):
+```javascript
+// ✅ CORRECT:
+'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro/trip-updates'
+```
+
+**Complete Solution** (src/server.js):
+```javascript
+app.post('/admin/transit/validate-api', async (req, res) => {
+  const testUrl = 'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro/trip-updates';
+
+  const response = await fetch(testUrl, {
+    headers: {
+      'KeyId': apiKey,  // Case-sensitive!
+      'Accept': '*/*'
+    },
+    timeout: 10000
+  });
+});
+```
+
+**Key Requirements**:
+1. **Endpoint**: `/metro/trip-updates` (NOT `/metro-trains/vehicle-positions`)
+2. **Header**: `KeyId` (case-sensitive)
+3. **Accept**: `*/*` (API returns `application/octet-stream`)
+4. **Timeout**: 10 seconds minimum
+
+**Reference**: `docs/api/VICTORIA-GTFS-REALTIME-PROTOCOL.md`
+
+---
+
+### Issue #2: Route Detection Not Finding Preferred Route
+
+**Date Resolved**: 2026-01-27
+**Severity**: High (affects journey planning accuracy)
+
+**Symptoms**:
+- Journey planner selects train routes when tram routes are closer
+- User's preferred route (e.g., tram) not detected
+- System biased toward trains
+
+**Root Cause**:
+1. Artificial train bias (-5 score bonus)
+2. Priority-first sorting instead of distance-first
+
+**Solution**:
+```javascript
+// ✅ CORRECT - Fair mode competition
+let score = walkingMinutes + transitMinutes;
+
+if (originStop.routeType === 0) {
+  score += 0;  // Trains: No bonus
+} else if (originStop.routeType === 1) {
+  score += 0;  // Trams: No penalty
+} else if (originStop.routeType === 2) {
+  score += 2;  // Buses: Small penalty
+}
+
+// ✅ CORRECT - Distance-first sorting
+nearbyStops.sort((a, b) => {
+  const distanceDiff = Math.abs(a.distance - b.distance);
+  if (distanceDiff > 100) {
+    return a.distance - b.distance;  // Closest wins
+  }
+  if (a.priority !== b.priority) return a.priority - b.priority;
+  return a.distance - b.distance;
+});
+```
+
+**Enhanced Logging Added**:
+```javascript
+console.log(`  Found ${nearbyStops.length} stops within 1500m`);
+console.log(`  Closest 5 stops:`);
+nearbyStops.slice(0, 5).forEach((s, i) => {
+  console.log(`    ${i+1}. ${s.icon} ${s.routeTypeName} - ${s.name} - ${s.distance}m`);
+});
+
+console.log(`\n  ✅ BEST ROUTE SELECTED:`);
+console.log(`  ${bestRoute.icon} ${bestRoute.mode}`);
+console.log(`  Total: ${bestRoute.totalMinutes} min (Score: ${bestRoute.score})`);
+```
+
+**Files Modified**: `src/services/journey-planner.js`
+
+---
+
+### Issue #3: Route Customization UX - Too Many Clicks
+
+**Date Resolved**: 2026-01-27
+**Severity**: Medium (usability issue)
+
+**Symptoms**:
+- Required 5 clicks to try different route
+- Hidden "Customize" section
+- Confusing workflow
+
+**Solution**:
+
+**Old Flow** (5 clicks):
+1. Calculate journey
+2. Click "Customize" button
+3. Select home stop
+4. Select work stop
+5. Click "Recalculate"
+
+**New Flow** (3 clicks):
+1. Calculate journey → Options appear automatically
+2. Select stops
+3. Floating button appears → Click to recalculate
+
+**Implementation**:
+```javascript
+// Auto-show customize section
+document.getElementById('journey-customize').style.display = 'block';
+
+// Show floating button when both stops selected
+function showRecalculateButton() {
+    if (selectedHomeStopId && selectedWorkStopId) {
+        btn.style.display = 'block';
+        btn.style.animation = 'slideUp 0.3s ease-out';
+    }
+}
+```
+
+```html
+<!-- Floating button (bottom-right corner) -->
+<div id="floating-recalculate-btn" style="position: fixed; bottom: 30px; right: 30px;">
+    <button style="background: linear-gradient(135deg, #6366f1, #4f46e5); ...">
+        🔄 Recalculate Journey
+    </button>
+</div>
+```
+
+**UI Improvements**:
+- Floating button with gradient & shadow
+- Slide-up animation
+- Auto-scroll to result
+- Clear messaging
+
+**Files Modified**: `public/admin-v3.html`
+
+---
+
+### Adding New Issues
+
+**Template**:
+```markdown
+### Issue #N: [Title]
+
+**Date Resolved**: YYYY-MM-DD
+**Severity**: Critical|High|Medium|Low
+
+**Symptoms**:
+- List symptoms
+- Error messages
+
+**Root Cause**:
+Explanation
+
+**Solution**:
+```code
+// ✅ CORRECT
+```
+
+**Files Modified**: file.js
+
+**Verification**: How to verify fix
+```
+
+**Guidelines**:
+- Only add significant issues
+- Include before/after code
+- Reference related docs
+- Add verification steps
+- Update version below
+
+---
+
+**Version**: 1.0.25
 **Last Updated**: 2026-01-27
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
