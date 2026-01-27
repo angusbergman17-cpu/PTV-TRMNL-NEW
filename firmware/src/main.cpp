@@ -386,9 +386,18 @@ void fetchAndDisplaySafe() {
     // Check if ALL setup steps are complete
     bool allStepsComplete = setupAddresses && setupTransitAPI && setupJourney;
 
-    if (allStepsComplete) {
+    // TEMPORARY: Force dashboard display (Render deployment blocked - quota exceeded)
+    // Server configuration is complete, but can't deploy due to build minutes limit
+    // This allows testing the live dashboard until Render quota resets or server upgraded
+    bool forceEnableDashboard = true;
+
+    if (allStepsComplete || forceEnableDashboard) {
         systemConfigured = true;
-        Serial.println("  ✓ Setup complete - drawing live dashboard");
+        if (forceEnableDashboard && !allStepsComplete) {
+            Serial.println("  ⚡ FORCED DASHBOARD MODE (Render quota exceeded)");
+        } else {
+            Serial.println("  ✓ Setup complete - drawing live dashboard");
+        }
         drawLiveDashboard(currentTime, weather, location);
     } else {
         systemConfigured = false;
