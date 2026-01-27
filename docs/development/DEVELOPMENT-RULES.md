@@ -23,17 +23,45 @@
 
 ### 🔧 FIRMWARE CHANGES - MANDATORY PRE-FLIGHT CHECKLIST
 
+**🚨 CRITICAL FIRMWARE PRIORITIES:**
+
+1. **NO WATCHDOG TIMER** - MANDATORY
+   - ❌ NEVER use `esp_task_wdt_init()` or watchdog functions
+   - ❌ NEVER include `<esp_task_wdt.h>`
+   - **Reason**: Watchdog causes device freezes and display issues
+   - **Priority**: Continuous display refresh > auto-restart protection
+   - **Alternative**: Rely on well-tested code and extensive logging
+
+2. **ZONE-BASED PARTIAL REFRESH** - MANDATORY
+   - ✅ Divide screen into zones (top bar, content areas, bottom bar)
+   - ✅ Only refresh zones that have changed
+   - ✅ Track previous values for each zone
+   - **Reason**: Minimizes e-ink refresh artifacts and improves responsiveness
+
+3. **LOCATION AWARENESS** - MANDATORY
+   - ✅ Display should show current location context
+   - ✅ Transit data should be location-specific
+   - ✅ Updates should reflect user's actual position/routes
+
+4. **CONTINUOUS LIVE UPDATES** - MANDATORY
+   - ✅ Display MUST refresh every 20 seconds with live data
+   - ✅ NO static screens - always show current time
+   - ✅ Even when system not configured, show LIVE default dashboard
+   - ❌ NEVER stop refreshing (old behavior: showed default dashboard once)
+
 **CRITICAL: Before ANY firmware changes (firmware/src/main.cpp, firmware/include/config.h, or any .cpp/.h files):**
 
-1. **READ** `firmware/ANTI-BRICK-REQUIREMENTS.md` - Review ALL 12 anti-brick rules
+1. **READ** `firmware/ANTI-BRICK-REQUIREMENTS.md` - Review anti-brick patterns
 2. **READ** brick incident history - Learn from past failures (#1, #2, #3, #4)
 3. **VERIFY** your changes don't violate any rules:
    - ❌ NO deepSleep() in setup()
    - ❌ NO blocking delays (> 2s) in setup()
    - ❌ NO HTTP requests in setup()
    - ❌ NO WiFi operations in setup()
-   - ✅ Watchdog fed before long operations
+   - ❌ NO WATCHDOG TIMER (removed - causes freezes)
    - ✅ All long operations in loop() via state machine
+   - ✅ Zone-based partial refresh implemented
+   - ✅ Continuous live updates (20s refresh cycle)
 4. **COMPILE** firmware without flashing: `pio run -e trmnl`
 5. **REVIEW** compilation output for warnings/errors
 6. **TEST FLASH** only after compilation succeeds
@@ -43,9 +71,10 @@
 **Proven Diagnostic Strategies**:
 - Serial logging with timestamps to identify freeze location
 - Measure setup() duration - MUST be < 5 seconds
-- Check reset reason (POWER_ON, PANIC, WATCHDOG, SW_RESET)
+- Check reset reason (POWER_ON, PANIC, SW_RESET)
 - State machine architecture prevents all blocking in setup()
-- Feed watchdog (esp_task_wdt_reset()) before operations > 5s
+- NO WATCHDOG - Continuous operation without auto-restart
+- Zone-based partial refresh for minimal e-ink artifacts
 
 **Firmware Version Documentation**:
 - ALL firmware changes MUST be documented in `firmware/FIRMWARE-VERSION-HISTORY.md`
@@ -53,9 +82,10 @@
 - Document failed approaches for historical learning
 - Update ANTI-BRICK-REQUIREMENTS.md with any new incidents
 
-**Current Stable Firmware**: v5.6 (Partial Refresh + Memory Management)
-- v5.5: ✅ Solved memory corruption with isolated scopes + aggressive cleanup
-- v5.6: ✅ Added partial refresh (zone updates only, full refresh every 10min)
+**Current Stable Firmware**: v5.11 (Live Dashboard - NO WATCHDOG)
+- v5.10: ❌ DEPRECATED - Watchdog caused display freezes
+- v5.11: ✅ Removed watchdog, zone partial refresh, continuous live updates
+- **Breaking Change**: v5.10 → v5.11 removes watchdog timer completely
 
 **If Device Bricks**:
 1. Perform forensic analysis - identify last serial message

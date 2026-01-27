@@ -1,8 +1,8 @@
 /**
- * PTV-TRMNL v5.10 - Watchdog + Anti-Brick Compliance
- * Adds critical watchdog timer to prevent device bricking
- * Shows time and status info while setup is in progress
- * Gracefully handles "system not configured" state
+ * PTV-TRMNL v5.11 - Live Dashboard with Zone Partial Refresh
+ * CRITICAL: NO WATCHDOG - Continuous refresh for live data
+ * Zone-based partial refresh for dynamic updates
+ * Shows live time, location awareness, and transit data
  *
  * Copyright (c) 2026 Angus Bergman
  * Licensed under CC BY-NC 4.0
@@ -16,11 +16,9 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <bb_epaper.h>
-#include <esp_task_wdt.h>
 #include "../include/config.h"
 
-// Watchdog timer configuration
-#define WDT_TIMEOUT 30  // 30 seconds (WiFi + HTTP can take up to 25s)
+// NO WATCHDOG TIMER - Priority: continuous refresh over auto-restart
 
 // Screen dimensions: 800 (width) x 480 (height) LANDSCAPE
 #define SCREEN_W 800
@@ -30,21 +28,26 @@ BBEPAPER bbep(EP75_800x480);
 Preferences preferences;
 
 unsigned long lastRefresh = 0;
-const unsigned long REFRESH_INTERVAL = 20000;
-const unsigned long FULL_REFRESH_INTERVAL = 600000;
+const unsigned long REFRESH_INTERVAL = 20000;  // 20s for dynamic updates
+const unsigned long FULL_REFRESH_INTERVAL = 600000;  // 10min full refresh
 unsigned long lastFullRefresh = 0;
 unsigned int refreshCount = 0;
 bool wifiConnected = false;
 bool deviceRegistered = false;
 bool firstDataLoaded = false;
 bool systemConfigured = false;
-bool defaultDashboardShown = false;  // Track if default dashboard was displayed
 
 String friendlyID = "";
 String apiKey = "";
 
+// Zone-based partial refresh tracking
 String prevTime = "";
 String prevWeather = "";
+String prevLocation = "";
+int prevTram1Min = -1;
+int prevTram2Min = -1;
+int prevTrain1Min = -1;
+int prevTrain2Min = -1;
 
 // Time tracking for default dashboard
 unsigned long bootTime = 0;
@@ -54,7 +57,8 @@ void showBootScreen();
 void connectWiFiSafe();
 void registerDeviceSafe();
 void fetchAndDisplaySafe();
-void drawSimpleDashboard(String currentTime, String weather);
+void drawSimpleDashboard(String currentTime, String weather, String location,
+                         int tram1Min, int tram2Min, int train1Min, int train2Min);
 void drawDefaultDashboard();
 String getEstimatedTime();
 
@@ -63,17 +67,13 @@ void setup() {
     delay(500);
 
     Serial.println("\n==============================");
-    Serial.println("PTV-TRMNL v5.10 - Watchdog + Anti-Brick");
-    Serial.println("800x480 Landscape - Shows status until configured");
+    Serial.println("PTV-TRMNL v5.11 - Live Dashboard");
+    Serial.println("Zone Partial Refresh - NO WATCHDOG");
+    Serial.println("800x480 Landscape - Continuous Updates");
     Serial.println("==============================\n");
 
-    // Initialize watchdog timer (CRITICAL - Anti-Brick Rule #12)
-    Serial.print("→ Init watchdog timer (");
-    Serial.print(WDT_TIMEOUT);
-    Serial.println("s timeout)...");
-    esp_task_wdt_init(WDT_TIMEOUT, true);
-    esp_task_wdt_add(NULL);
-    Serial.println("✓ Watchdog enabled");
+    // NO WATCHDOG - Priority: continuous display refresh
+    Serial.println("✓ Watchdog DISABLED for continuous refresh");
 
     bootTime = millis();
     preferences.begin("trmnl", false);
@@ -104,8 +104,7 @@ void setup() {
 }
 
 void loop() {
-    // Feed watchdog at start of every loop iteration (Anti-Brick Rule #12)
-    esp_task_wdt_reset();
+    // NO WATCHDOG - Continuous operation for live dashboard
 
     if (!wifiConnected) {
         connectWiFiSafe();
@@ -189,9 +188,6 @@ void showBootScreen() {
 void connectWiFiSafe() {
     Serial.println("→ Connecting WiFi...");
 
-    // Feed watchdog before long WiFi operation (can take 20-30s)
-    esp_task_wdt_reset();
-
     WiFiManager wm;
     wm.setConfigPortalTimeout(30);
     wm.setConnectTimeout(20);
@@ -209,9 +205,6 @@ void connectWiFiSafe() {
 
 void registerDeviceSafe() {
     Serial.println("→ Registering device...");
-
-    // Feed watchdog before HTTP operation (can take 10s)
-    esp_task_wdt_reset();
 
     WiFiClient client;
     HTTPClient http;
@@ -272,9 +265,6 @@ void registerDeviceSafe() {
 void fetchAndDisplaySafe() {
     Serial.println("→ Fetching...");
 
-    // Feed watchdog before HTTP operation (can take 10s)
-    esp_task_wdt_reset();
-
     String payload = "";
     {
         WiFiClientSecure *client = new WiFiClientSecure();
@@ -296,7 +286,7 @@ void fetchAndDisplaySafe() {
 
         http.addHeader("ID", friendlyID);
         http.addHeader("Access-Token", apiKey);
-        http.addHeader("FW-Version", "5.10");
+        http.addHeader("FW-Version", "5.11");
 
         int httpCode = http.GET();
         if (httpCode != 200) {
@@ -305,25 +295,17 @@ void fetchAndDisplaySafe() {
             http.end();
             delete client;
 
-            // HTTP 500 = System not configured
+            // HTTP 500 = System not configured - show live default dashboard
             if (httpCode == 500) {
                 systemConfigured = false;
-
-                // Show default dashboard ONCE, then stop refreshing
-                if (!defaultDashboardShown) {
-                    Serial.println("  System not configured - showing default dashboard (one-time)");
-                    drawDefaultDashboard();
-                    defaultDashboardShown = true;
-                } else {
-                    Serial.println("  System not configured - default dashboard already shown, skipping refresh");
-                }
+                Serial.println("  System not configured - showing LIVE default dashboard");
+                drawDefaultDashboard();  // Always refresh with live time
             }
             return;
         }
 
-        // System is configured, allow normal refreshes
+        // System is configured, show live data
         systemConfigured = true;
-        defaultDashboardShown = false;  // Reset flag when system is configured
 
         payload = http.getString();
         http.end();
@@ -336,6 +318,11 @@ void fetchAndDisplaySafe() {
 
     String currentTime = "00:00";
     String weather = "Clear";
+    String location = "MELBOURNE";
+    int tram1Min = 2;
+    int tram2Min = 5;
+    int train1Min = 3;
+    int train2Min = 7;
 
     {
         JsonDocument doc;
@@ -348,6 +335,20 @@ void fetchAndDisplaySafe() {
 
         currentTime = String(doc["current_time"] | "00:00");
         weather = String(doc["weather"] | "Clear");
+        location = String(doc["location"] | "MELBOURNE");
+
+        // Parse transit data if available
+        if (doc.containsKey("trams") && doc["trams"].is<JsonArray>()) {
+            JsonArray trams = doc["trams"];
+            if (trams.size() > 0) tram1Min = trams[0]["minutes"] | 2;
+            if (trams.size() > 1) tram2Min = trams[1]["minutes"] | 5;
+        }
+
+        if (doc.containsKey("trains") && doc["trains"].is<JsonArray>()) {
+            JsonArray trains = doc["trains"];
+            if (trains.size() > 0) train1Min = trains[0]["minutes"] | 3;
+            if (trains.size() > 1) train2Min = trains[1]["minutes"] | 7;
+        }
 
         doc.clear();
     }
@@ -356,13 +357,14 @@ void fetchAndDisplaySafe() {
     delay(300);
     yield();
 
-    drawSimpleDashboard(currentTime, weather);
+    drawSimpleDashboard(currentTime, weather, location, tram1Min, tram2Min, train1Min, train2Min);
 
     refreshCount++;
 }
 
-void drawSimpleDashboard(String currentTime, String weather) {
-    Serial.println("  Drawing dashboard (800x480 landscape)...");
+void drawSimpleDashboard(String currentTime, String weather, String location,
+                         int tram1Min, int tram2Min, int train1Min, int train2Min) {
+    Serial.println("  Drawing LIVE dashboard (zone partial refresh)...");
 
     unsigned long now = millis();
     bool needsFullRefresh = !firstDataLoaded ||
@@ -374,54 +376,62 @@ void drawSimpleDashboard(String currentTime, String weather) {
 
         bbep.fillScreen(BBEP_WHITE);
 
-        // === TOP BAR (Y: 0-60) ===
-        // Station name - top left
+        // === TOP BAR (Y: 0-60) - ZONE 1 ===
+        // Location - top left
         bbep.setFont(FONT_12x16);
         bbep.setCursor(20, 30);
-        bbep.print("MELBOURNE CENTRAL");
+        bbep.print(location.c_str());
 
         // Time - top right
         bbep.setFont(FONT_12x16);
         bbep.setCursor(650, 30);
         bbep.print(currentTime.c_str());
 
-        // === MIDDLE SECTION (Y: 80-400) ===
-        // Large time display
+        // === MIDDLE SECTION (Y: 80-400) - ZONES 2-5 ===
+        // Trams section - ZONE 2
         bbep.setFont(FONT_12x16);
         bbep.setCursor(50, 150);
-        bbep.print("Current Time:");
-        bbep.setCursor(50, 180);
-        bbep.print(currentTime.c_str());
-
-        // Trams section
-        bbep.setCursor(50, 250);
         bbep.print("TRAMS");
         bbep.setFont(FONT_8x8);
-        bbep.setCursor(60, 280);
-        bbep.print("Route 58 - 2 min");
-        bbep.setCursor(60, 300);
-        bbep.print("Route 96 - 5 min");
+        bbep.setCursor(60, 180);
+        bbep.print("Route 58 - ");
+        bbep.print(tram1Min);
+        bbep.print(" min");
+        bbep.setCursor(60, 200);
+        bbep.print("Route 96 - ");
+        bbep.print(tram2Min);
+        bbep.print(" min");
 
-        // Trains section
+        // Trains section - ZONE 3
         bbep.setFont(FONT_12x16);
-        bbep.setCursor(400, 250);
+        bbep.setCursor(400, 150);
         bbep.print("TRAINS");
         bbep.setFont(FONT_8x8);
-        bbep.setCursor(410, 280);
-        bbep.print("City Loop - 3 min");
-        bbep.setCursor(410, 300);
-        bbep.print("Parliament - 7 min");
+        bbep.setCursor(410, 180);
+        bbep.print("City Loop - ");
+        bbep.print(train1Min);
+        bbep.print(" min");
+        bbep.setCursor(410, 200);
+        bbep.print("Parliament - ");
+        bbep.print(train2Min);
+        bbep.print(" min");
 
-        // === BOTTOM BAR (Y: 420-480) ===
+        // Large time display - ZONE 4
+        bbep.setFont(FONT_12x16);
+        bbep.setCursor(250, 300);
+        bbep.print("TIME: ");
+        bbep.print(currentTime.c_str());
+
+        // === BOTTOM BAR (Y: 420-480) - ZONE 5 ===
         bbep.setFont(FONT_8x8);
         bbep.setCursor(20, 450);
         bbep.print("Weather: ");
         bbep.print(weather.c_str());
 
         bbep.setCursor(650, 450);
-        bbep.print("PTV-TRMNL v5.8");
+        bbep.print("v5.11 Live");
 
-        Serial.println("  All text placed horizontally");
+        Serial.println("  Zone layout complete (5 zones)");
         Serial.println("  Coordinates: X(0-800) Y(0-480)");
 
         bbep.refresh(REFRESH_FULL, true);
@@ -429,38 +439,102 @@ void drawSimpleDashboard(String currentTime, String weather) {
         firstDataLoaded = true;
 
     } else {
-        Serial.println("  → PARTIAL REFRESH");
+        Serial.println("  → ZONE PARTIAL REFRESH");
+        bool anyUpdates = false;
 
-        // Update time (top right)
+        // ZONE 1 - Top right time
         if (currentTime != prevTime) {
+            Serial.println("    Zone 1: Time update");
             bbep.fillRect(650, 15, 130, 30, BBEP_WHITE);
             bbep.setFont(FONT_12x16);
             bbep.setCursor(650, 30);
             bbep.print(currentTime.c_str());
+
+            // Also update ZONE 4 - Large time
+            Serial.println("    Zone 4: Large time update");
+            bbep.fillRect(250, 285, 300, 30, BBEP_WHITE);
+            bbep.setFont(FONT_12x16);
+            bbep.setCursor(250, 300);
+            bbep.print("TIME: ");
+            bbep.print(currentTime.c_str());
+            anyUpdates = true;
         }
 
-        // Update weather (bottom left)
+        // ZONE 1 - Top left location
+        if (location != prevLocation) {
+            Serial.println("    Zone 1: Location update");
+            bbep.fillRect(20, 15, 300, 30, BBEP_WHITE);
+            bbep.setFont(FONT_12x16);
+            bbep.setCursor(20, 30);
+            bbep.print(location.c_str());
+            anyUpdates = true;
+        }
+
+        // ZONE 2 - Tram times
+        if (tram1Min != prevTram1Min || tram2Min != prevTram2Min) {
+            Serial.println("    Zone 2: Tram times update");
+            bbep.fillRect(60, 165, 300, 50, BBEP_WHITE);
+            bbep.setFont(FONT_8x8);
+            bbep.setCursor(60, 180);
+            bbep.print("Route 58 - ");
+            bbep.print(tram1Min);
+            bbep.print(" min");
+            bbep.setCursor(60, 200);
+            bbep.print("Route 96 - ");
+            bbep.print(tram2Min);
+            bbep.print(" min");
+            anyUpdates = true;
+        }
+
+        // ZONE 3 - Train times
+        if (train1Min != prevTrain1Min || train2Min != prevTrain2Min) {
+            Serial.println("    Zone 3: Train times update");
+            bbep.fillRect(410, 165, 350, 50, BBEP_WHITE);
+            bbep.setFont(FONT_8x8);
+            bbep.setCursor(410, 180);
+            bbep.print("City Loop - ");
+            bbep.print(train1Min);
+            bbep.print(" min");
+            bbep.setCursor(410, 200);
+            bbep.print("Parliament - ");
+            bbep.print(train2Min);
+            bbep.print(" min");
+            anyUpdates = true;
+        }
+
+        // ZONE 5 - Weather (bottom left)
         if (weather != prevWeather) {
+            Serial.println("    Zone 5: Weather update");
             bbep.fillRect(90, 435, 200, 30, BBEP_WHITE);
             bbep.setFont(FONT_8x8);
             bbep.setCursor(90, 450);
             bbep.print(weather.c_str());
+            anyUpdates = true;
         }
 
-        bbep.refresh(REFRESH_PARTIAL, true);
+        if (anyUpdates) {
+            bbep.refresh(REFRESH_PARTIAL, true);
+        } else {
+            Serial.println("    No changes - skipping refresh");
+        }
     }
 
     prevTime = currentTime;
     prevWeather = weather;
+    prevLocation = location;
+    prevTram1Min = tram1Min;
+    prevTram2Min = tram2Min;
+    prevTrain1Min = train1Min;
+    prevTrain2Min = train2Min;
 
     Serial.print("✓ Display updated (");
-    Serial.print(needsFullRefresh ? "FULL" : "PARTIAL");
+    Serial.print(needsFullRefresh ? "FULL" : "ZONE PARTIAL");
     Serial.print(", #");
     Serial.print(refreshCount);
     Serial.println(")");
 
     yield();
-    delay(1000);
+    delay(500);
     yield();
 }
 
@@ -476,70 +550,101 @@ String getEstimatedTime() {
 }
 
 // Draw default dashboard when system is not configured
-// This is shown ONCE and never refreshed until setup is complete
+// LIVE REFRESH - Updates every 20s with current time
 void drawDefaultDashboard() {
-    Serial.println("  Drawing DEFAULT dashboard (setup in progress)...");
-    Serial.println("  → FULL REFRESH (One-time - no updates until configured)");
+    Serial.println("  Drawing LIVE default dashboard (setup in progress)...");
 
-    bbep.fillScreen(BBEP_WHITE);
+    String currentTime = getEstimatedTime();
+    unsigned long now = millis();
+    bool needsFullRefresh = !firstDataLoaded ||
+                           (now - lastFullRefresh >= FULL_REFRESH_INTERVAL);
+
+    if (needsFullRefresh) {
+        Serial.println("  → FULL REFRESH");
+
+        bbep.fillScreen(BBEP_WHITE);
 
         // === TOP BAR (Y: 0-60) ===
-        // Title - centered
+        // Title - left
         bbep.setFont(FONT_12x16);
-        bbep.setCursor(300, 30);
+        bbep.setCursor(20, 30);
         bbep.print("PTV-TRMNL");
+
+        // Live time - right
+        bbep.setCursor(650, 30);
+        bbep.print(currentTime.c_str());
 
         // === MIDDLE SECTION (Y: 80-400) ===
         // Status message
         bbep.setFont(FONT_12x16);
-        bbep.setCursor(200, 150);
+        bbep.setCursor(200, 120);
         bbep.print("SETUP IN PROGRESS");
+
+        // Large time display
+        bbep.setCursor(250, 200);
+        bbep.print("TIME: ");
+        bbep.print(currentTime.c_str());
 
         // Information bars
         bbep.setFont(FONT_8x8);
 
-        // Bar 1 - Device ID
-        bbep.setCursor(150, 220);
+        // Device ID
+        bbep.setCursor(150, 280);
         bbep.print("Device: ");
         bbep.print(friendlyID.c_str());
 
-        // Bar 2 - WiFi Status
-        bbep.setCursor(150, 250);
+        // WiFi Status
+        bbep.setCursor(150, 310);
         bbep.print("WiFi: Connected");
 
-        // Bar 3 - Status
-        bbep.setCursor(150, 280);
-        bbep.print("Status: Waiting for configuration");
-
         // Instructions
-        bbep.setCursor(100, 340);
-        bbep.print("Complete setup at admin page");
-
-        bbep.setCursor(150, 370);
-        bbep.print("(see server URL in console)");
+        bbep.setCursor(100, 360);
+        bbep.print("Complete setup at:");
+        bbep.setCursor(100, 380);
+        bbep.print("https://ptv-trmnl-new.onrender.com/admin");
 
         // === BOTTOM BAR (Y: 420-480) ===
         bbep.setFont(FONT_8x8);
         bbep.setCursor(20, 450);
-        bbep.print("Firmware: v5.9");
+        bbep.print("Firmware: v5.11");
 
         bbep.setCursor(300, 450);
-        bbep.print("Setup mode - Screen static");
+        bbep.print("LIVE - Updates every 20s");
 
         bbep.setCursor(650, 450);
-        bbep.print("No refresh");
+        bbep.print("Zone refresh");
 
-    Serial.println("  Default dashboard laid out horizontally");
-    Serial.println("  Coordinates: X(0-800) Y(0-480)");
-    Serial.println("  Note: Screen will remain static until setup is complete");
+        Serial.println("  Default dashboard with LIVE time");
 
-    bbep.refresh(REFRESH_FULL, true);
-    lastFullRefresh = millis();
-    firstDataLoaded = true;
+        bbep.refresh(REFRESH_FULL, true);
+        lastFullRefresh = now;
+        firstDataLoaded = true;
 
-    Serial.println("✓ Default dashboard displayed (one-time)");
+    } else {
+        Serial.println("  → ZONE PARTIAL REFRESH (time updates)");
+
+        // Update time - top right (Zone 1)
+        if (currentTime != prevTime) {
+            bbep.fillRect(650, 15, 130, 30, BBEP_WHITE);
+            bbep.setFont(FONT_12x16);
+            bbep.setCursor(650, 30);
+            bbep.print(currentTime.c_str());
+
+            // Update large time (Zone 2)
+            bbep.fillRect(250, 185, 300, 30, BBEP_WHITE);
+            bbep.setCursor(250, 200);
+            bbep.print("TIME: ");
+            bbep.print(currentTime.c_str());
+
+            bbep.refresh(REFRESH_PARTIAL, true);
+        }
+    }
+
+    prevTime = currentTime;
+
+    Serial.println("✓ LIVE default dashboard updated");
 
     yield();
-    delay(1000);
+    delay(500);
     yield();
 }
