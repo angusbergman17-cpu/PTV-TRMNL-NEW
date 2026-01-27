@@ -1723,6 +1723,7 @@ app.get('/api/display', async (req, res) => {
   }
 
   // Check setup progress for unified setup screen (v5.15+)
+  // These flags tell the firmware whether to show setup screen or live dashboard
   const setupAddresses = Boolean(prefs?.journey?.homeAddress && prefs?.journey?.workAddress);
   const setupTransitAPI = Boolean(prefs?.apis?.transport?.apiKey || prefs?.apis?.transport?.devId);
   const setupJourney = Boolean(prefs?.journey?.transitRoute?.mode1?.departure);
