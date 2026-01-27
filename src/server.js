@@ -1241,6 +1241,7 @@ app.get('/api/device/:token', async (req, res) => {
       '',
       data.coffee?.subtext || '✓ Good service'
     ];
+
     // Get Melbourne time for firmware
     const melbTime = new Date().toLocaleTimeString('en-AU', { 
       hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Australia/Melbourne' 
@@ -1267,7 +1268,6 @@ app.get('/api/device/:token', async (req, res) => {
       trains: (mode1Type === 'TRAINS' ? mode1Data : mode2Data)?.slice(0, 3) || [],
       tram_stop: mode1Type === 'TRAMS' ? mode1Name : mode2Name,
       train_stop: mode1Type === 'TRAINS' ? mode1Name : mode2Name
-    });
     });
   } catch (error) {
     console.error('Token device endpoint error:', error);
