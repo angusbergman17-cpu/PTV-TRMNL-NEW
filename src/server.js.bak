@@ -1241,33 +1241,15 @@ app.get('/api/device/:token', async (req, res) => {
       '',
       data.coffee?.subtext || '✓ Good service'
     ];
-    // Get Melbourne time for firmware
-    const melbTime = new Date().toLocaleTimeString('en-AU', { 
-      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Australia/Melbourne' 
-    });
 
     res.json({
-      // For TRMNL web display
       merge_variables: {
         screen_text: markup.join('\n'),
         device: 'trmnl-byos',
         width: 800,
         height: 480,
         orientation: 'landscape'
-      },
-      // For firmware parsing (flat structure)
-      current_time: melbTime,
-      weather: data.weather?.condition || 'Clear',
-      location: (config.addresses?.home || 'South Yarra').split(',')[0],
-      setup_addresses: true,
-      setup_transit_api: !!apiKey,
-      setup_journey: !!transitRoute,
-      coffee_decision: data.coffee?.canGet ? 'GET COFFEE' : 'NO COFFEE',
-      trams: (mode1Type === 'TRAMS' ? mode1Data : mode2Data)?.slice(0, 3) || [],
-      trains: (mode1Type === 'TRAINS' ? mode1Data : mode2Data)?.slice(0, 3) || [],
-      tram_stop: mode1Type === 'TRAMS' ? mode1Name : mode2Name,
-      train_stop: mode1Type === 'TRAINS' ? mode1Name : mode2Name
-    });
+      }
     });
   } catch (error) {
     console.error('Token device endpoint error:', error);
