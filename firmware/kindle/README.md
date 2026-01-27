@@ -226,7 +226,8 @@ GET /api/kindle/image?model={device}&mac={mac_address}
 ## License
 
 Copyright (c) 2026 Angus Bergman
-MIT License
+Licensed under CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0)
+See LICENSE file for full terms.
 
 ---
 

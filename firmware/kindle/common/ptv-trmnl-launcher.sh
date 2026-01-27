@@ -4,7 +4,7 @@
 # Designed for use with WinterBreak jailbreak + KUAL
 #
 # Copyright (c) 2026 Angus Bergman
-# Licensed under MIT License
+# Licensed under CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0)
 #
 # This script fetches and displays transit dashboard images
 # from your PTV-TRMNL server on jailbroken Kindle devices.
