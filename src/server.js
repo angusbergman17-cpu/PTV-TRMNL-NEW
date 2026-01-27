@@ -6284,6 +6284,7 @@ app.get('/preview', requireConfiguration, (req, res) => {
     <head>
       <title>PTV-TRMNL E-ink Preview</title>
       <meta charset="UTF-8">
+      <meta http-equiv="refresh" content="20">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         * {
@@ -6691,6 +6692,27 @@ app.get('/preview', requireConfiguration, (req, res) => {
           </ul>
         </div>
       </div>
+      
+      <script>
+        // Live dashboard refresh every 20 seconds
+        let countdown = 20;
+        const countdownEl = document.createElement('div');
+        countdownEl.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); color: #10b981; padding: 10px 15px; border-radius: 8px; font-family: monospace; font-size: 14px; z-index: 9999;';
+        countdownEl.innerHTML = '🔄 Live: <span id="cd">20</span>s';
+        document.body.appendChild(countdownEl);
+        
+        setInterval(() => {
+          countdown--;
+          document.getElementById('cd').textContent = countdown;
+          if (countdown <= 0) {
+            countdown = 20;
+            const iframe = document.getElementById('live-dashboard');
+            if (iframe) {
+              iframe.src = iframe.src.split('?')[0] + '?t=' + Date.now() + '&width=' + iframe.src.match(/width=(\d+)/)?.[1] + '&height=' + iframe.src.match(/height=(\d+)/)?.[1];
+            }
+          }
+        }, 1000);
+      </script>
     </body>
     </html>
   `);
