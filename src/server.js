@@ -1844,7 +1844,7 @@ app.get('/api/display', async (req, res) => {
     }
   }
 
-  if (!deviceFound) {
+  if (!deviceFound && !process.env.VERCEL) {
     return res.status(500).json({
       status: 500,
       error: 'Device not found'
