@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-27
-**Version**: 1.0.26
+**Version**: 1.0.28
 
 **📋 [Complete Project Vision →](../../PROJECT-STATEMENT.md)** - Read the comprehensive project statement for context on goals, architecture, and user requirements.
 
@@ -2532,6 +2532,128 @@ https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW
 
 
 ## 5️⃣ CODE STANDARDS
+
+### AB. Vercel Free Tier Compliance (MANDATORY)
+
+**Purpose**: Ensure the system NEVER exceeds Vercel Hobby (free) tier limits.
+
+**Vercel Hobby Tier Limits** (as of 2026):
+- **Serverless Function Execution**: 100 GB-hours/month
+- **Edge Function Execution**: 500,000 invocations/month
+- **Bandwidth**: 100 GB/month
+- **Build Execution**: 6,000 minutes/month
+- **Serverless Function Duration**: 10 seconds max (default)
+- **Edge Function Duration**: 25ms CPU time
+- **Concurrent Builds**: 1
+
+**CRITICAL Compliance Rules**:
+
+**1. Function Execution Time**:
+```javascript
+// ✅ CORRECT - Fast response, under 10s limit:
+app.get('/api/device/:token', async (req, res) => {
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(408).json({ error: 'Timeout' });
+    }
+  }, 9000);  // 9s safety margin
+  
+  try {
+    const data = await fetchData();  // MUST be fast
+    clearTimeout(timeout);
+    res.json(data);
+  } catch (e) {
+    clearTimeout(timeout);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ❌ WRONG - Long-running operations:
+app.get('/api/slow', async (req, res) => {
+  await heavyComputation();  // May exceed 10s limit
+  res.json(result);
+});
+```
+
+**2. Minimize API Calls**:
+```javascript
+// ✅ CORRECT - Cache aggressively:
+const CACHE_TTL = 30000;  // 30 seconds
+let cachedData = null;
+let cacheTime = 0;
+
+async function getData(apiKey) {
+  if (cachedData && Date.now() - cacheTime < CACHE_TTL) {
+    return cachedData;  // Return cached, no API call
+  }
+  cachedData = await fetchFromAPI(apiKey);
+  cacheTime = Date.now();
+  return cachedData;
+}
+```
+
+**3. Optimize Response Size**:
+```javascript
+// ✅ CORRECT - Minimal response for e-ink:
+res.json({
+  merge_variables: {
+    screen_text: compactText,  // Only what device needs
+  }
+});
+
+// ❌ WRONG - Large payloads:
+res.json({
+  fullDataDump: massiveObject,  // Wastes bandwidth
+  debug: allLogs,
+  history: lastMonth
+});
+```
+
+**4. No Background Jobs**:
+```javascript
+// ❌ PROHIBITED on Vercel:
+setInterval(() => pollAPI(), 60000);  // No persistent processes
+cron.schedule('* * * * *', task);     // No cron in serverless
+
+// ✅ CORRECT - Request-driven only:
+// All work happens in response to incoming requests
+// Device polls every 20s, triggering fresh data fetch
+```
+
+**5. Build Time Optimization**:
+```json
+// vercel.json - Optimize builds:
+{
+  "buildCommand": null,  // No build step needed for Node.js
+  "outputDirectory": null,
+  "installCommand": "npm install --production"
+}
+```
+
+**Free Tier Budget Calculator**:
+```
+Device polling every 20 seconds:
+- 3 requests/minute × 60 min × 24 hours = 4,320 requests/day
+- 4,320 × 30 days = 129,600 requests/month
+- Each request ~100ms = 12,960 seconds = 3.6 GB-hours/month
+- WELL UNDER 100 GB-hours limit ✅
+
+Bandwidth (1KB response average):
+- 129,600 requests × 1KB = 129.6 MB/month
+- WELL UNDER 100 GB limit ✅
+```
+
+**Monitoring & Alerts**:
+- Check Vercel dashboard weekly for usage
+- Set up usage alerts at 50% and 80% thresholds
+- If approaching limits, increase cache TTL
+
+**If Limits Exceeded**:
+1. Increase cache duration (30s → 60s → 120s)
+2. Reduce response payload size
+3. Consider Vercel Pro ($20/month) or self-host
+
+**This rule ensures the system remains FREE for all users on Vercel Hobby tier.**
 ### AA. Zero-Config Serverless Architecture (🚨 CRITICAL)
 
 **Principle**: The system MUST work without requiring users to manually configure server-side environment variables for API keys.
@@ -5168,7 +5290,7 @@ Explanation
 
 ---
 
-**Version**: 1.0.26
+**Version**: 1.0.28
 **Last Updated**: 2026-01-27
 **Maintained By**: Angus Bergman
 **License**: CC BY-NC 4.0 (matches project license)
