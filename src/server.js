@@ -1909,58 +1909,8 @@ app.get('/api/config', (req, res) => {
 // Device configuration endpoint - SERVER-DRIVEN SETTINGS
 // Following DEVELOPMENT-RULES.md Section X: Firmware Flash Once Philosophy
 // Returns all device settings so user can change them in admin panel without reflashing
-app.get('/api/device-config', (req, res) => {
-  const prefs = preferences.get();
-  const state = prefs.state || 'VIC';
-  const timezone = getTimezoneForState(state);
-
-  // Get refresh settings from preferences (or use defaults)
-  const refreshSettings = prefs.refreshSettings || {
-    displayRefresh: { interval: 20000 },  // 20 seconds default
-    journeyRecalc: { interval: 120000 },  // 2 minutes default
-    dataFetch: { interval: 30000 }        // 30 seconds default
-  };
-
-  // Get device settings
-  const device = prefs.device || { type: 'trmnl-og' };
-
-  // Device-specific resolution
-  const deviceResolutions = {
-    'trmnl-og': { width: 800, height: 480, orientation: 'landscape' },
-    'kindle-pw5': { width: 1236, height: 1648, orientation: 'portrait' },
-    'kindle-pw3': { width: 758, height: 1024, orientation: 'portrait' }
-  };
-
-  const resolution = deviceResolutions[device.type] || { width: 800, height: 480, orientation: 'landscape' };
-
-  res.json({
-    // Refresh intervals (user-customizable via admin panel)
-    refreshInterval: refreshSettings.displayRefresh.interval,
-    fullRefreshInterval: 600000,  // 10 minutes
-
-    // Device specifications
-    resolution: {
-      width: resolution.width,
-      height: resolution.height
-    },
-    orientation: resolution.orientation,
-
-    // Server info
-    timezone: timezone,
-    serverVersion: VERSION,
-
-    // Feature flags
-    features: {
-      partialRefresh: device.type === 'trmnl-og',
-      colorDisplay: false,
-      touchscreen: false
-    },
-
-    // Update info
-    lastConfigUpdate: new Date().toISOString(),
-    configVersion: '3.0.0'
-  });
-});
+// Supports: TRMNL BYOS, Kindle Paperwhite 3/4/5, Kindle Basic, Kindle 11
+// NOTE: Second definition at ~line 3256 provides extended config - keeping both for compatibility
 
 /* =========================================================
    ADMIN PANEL ROUTES
@@ -3253,14 +3203,90 @@ function getTransitAuthorityForState(state) {
 }
 
 // Get device configuration for firmware (Development Rules v1.0.15 Section X)
+// Supports: TRMNL BYOS, Kindle Paperwhite 3/4/5, Kindle Basic, Kindle 11
 app.get('/api/device-config', (req, res) => {
   try {
     const prefs = preferences.get();
+
+    // All supported device specifications
+    const DEVICE_SPECS = {
+      'trmnl-byos': {
+        name: 'TRMNL BYOS (7.5")',
+        resolution: { width: 800, height: 480 },
+        orientation: 'landscape',
+        ppi: 117,
+        colorDepth: '1-bit',
+        refreshMethod: 'webhook',
+        partialRefreshSupported: true,
+        firmwarePath: '/firmware/src/main.cpp',
+        jailbreakRequired: false
+      },
+      'kindle-pw3': {
+        name: 'Kindle Paperwhite 3 (6")',
+        resolution: { width: 1072, height: 1448 },
+        orientation: 'portrait',
+        ppi: 300,
+        colorDepth: '4-bit grayscale',
+        refreshMethod: 'trmnl_extension',
+        partialRefreshSupported: false,
+        firmwarePath: '/firmware/kindle/kindle-pw3/',
+        jailbreakRequired: true
+      },
+      'kindle-pw4': {
+        name: 'Kindle Paperwhite 4 (6")',
+        resolution: { width: 1072, height: 1448 },
+        orientation: 'portrait',
+        ppi: 300,
+        colorDepth: '4-bit grayscale',
+        refreshMethod: 'trmnl_extension',
+        partialRefreshSupported: false,
+        firmwarePath: '/firmware/kindle/kindle-pw4/',
+        jailbreakRequired: true
+      },
+      'kindle-pw5': {
+        name: 'Kindle Paperwhite 5 (6.8")',
+        resolution: { width: 1236, height: 1648 },
+        orientation: 'portrait',
+        ppi: 300,
+        colorDepth: '4-bit grayscale',
+        refreshMethod: 'trmnl_extension',
+        partialRefreshSupported: false,
+        firmwarePath: '/firmware/kindle/kindle-pw5/',
+        jailbreakRequired: true
+      },
+      'kindle-basic-10': {
+        name: 'Kindle Basic (10th gen)',
+        resolution: { width: 600, height: 800 },
+        orientation: 'portrait',
+        ppi: 167,
+        colorDepth: '4-bit grayscale',
+        refreshMethod: 'trmnl_extension',
+        partialRefreshSupported: false,
+        firmwarePath: '/firmware/kindle/kindle-basic-10/',
+        jailbreakRequired: true
+      },
+      'kindle-11': {
+        name: 'Kindle (11th gen)',
+        resolution: { width: 1072, height: 1448 },
+        orientation: 'portrait',
+        ppi: 300,
+        colorDepth: '4-bit grayscale',
+        refreshMethod: 'trmnl_extension',
+        partialRefreshSupported: false,
+        firmwarePath: '/firmware/kindle/kindle-11/',
+        jailbreakRequired: true
+      }
+    };
+
     const deviceConfig = prefs.deviceConfig || {
       selectedDevice: 'trmnl-byos',
       resolution: { width: 800, height: 480 },
       orientation: 'landscape'
     };
+
+    const selectedDevice = deviceConfig.selectedDevice || 'trmnl-byos';
+    const deviceSpec = DEVICE_SPECS[selectedDevice] || DEVICE_SPECS['trmnl-byos'];
+
     const refreshSettings = prefs.refreshSettings || {
       displayRefresh: { interval: 900000, unit: 'minutes' },
       journeyRecalc: { interval: 120000, unit: 'minutes' },
@@ -3270,20 +3296,31 @@ app.get('/api/device-config', (req, res) => {
 
     // Get partial refresh settings if enabled
     const partialRefresh = refreshSettings.partialRefresh || null;
-    const enabledZones = preferences.getEnabledRefreshZones();
+    const enabledZones = preferences.getEnabledRefreshZones ? preferences.getEnabledRefreshZones() : [];
+
+    // Determine correct endpoint based on device type
+    const isKindle = selectedDevice.startsWith('kindle-');
+    const webhookEndpoint = isKindle ? '/api/kindle/image' : '/api/screen';
 
     res.json({
       success: true,
-      device: deviceConfig.selectedDevice,
-      resolution: deviceConfig.resolution,
-      orientation: deviceConfig.orientation,
+      device: selectedDevice,
+      deviceName: deviceSpec.name,
+      resolution: deviceSpec.resolution,
+      orientation: deviceSpec.orientation,
+      ppi: deviceSpec.ppi,
+      colorDepth: deviceSpec.colorDepth,
+      refreshMethod: deviceSpec.refreshMethod,
+      jailbreakRequired: deviceSpec.jailbreakRequired,
+      firmwarePath: deviceSpec.firmwarePath,
       refreshInterval: refreshSettings.displayRefresh.interval,
-      webhookEndpoint: '/api/screen',
+      webhookEndpoint: webhookEndpoint,
       dashboardEndpoint: '/api/dashboard',
+      kindleImageEndpoint: isKindle ? `/api/kindle/image?model=${selectedDevice}` : null,
       serverVersion: process.env.npm_package_version || '3.0.0',
 
-      // Partial refresh configuration
-      partialRefresh: partialRefresh ? {
+      // Partial refresh configuration (TRMNL only)
+      partialRefresh: deviceSpec.partialRefreshSupported && partialRefresh ? {
         enabled: partialRefresh.enabled,
         interval: partialRefresh.interval,
         zones: enabledZones.map(zone => ({
@@ -3294,7 +3331,13 @@ app.get('/api/device-config', (req, res) => {
         })),
         fullRefreshInterval: partialRefresh.fullRefreshInterval,
         smartCoalescing: partialRefresh.smartCoalescing
-      } : null
+      } : null,
+
+      // All available devices for setup wizard
+      availableDevices: Object.keys(DEVICE_SPECS).map(key => ({
+        id: key,
+        ...DEVICE_SPECS[key]
+      }))
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -1528,10 +1528,13 @@
                         <label class="form-label">📱 Select Your Device *</label>
                         <select id="setup-device-select" class="form-input" onchange="updateDeviceInfo()" required>
                             <option value="trmnl-byos" selected>TRMNL BYOS (7.5" - 800×480 landscape)</option>
-                            <option value="kindle-pw3">Kindle Paperwhite 3/4 (6" - 758×1024 portrait)</option>
-                            <option value="kindle-pw4">Kindle Paperwhite 4 (6" - 758×1024 portrait)</option>
-                            <option value="kindle-pw5">Kindle Paperwhite 5 (6.8" - 1236×1648 portrait)</option>
-                            <option value="kindle-4">Kindle 4 (6" - 600×800 portrait)</option>
+                            <optgroup label="Kindle Devices (Jailbreak Required)">
+                                <option value="kindle-pw3">Kindle Paperwhite 3 (6" - 1072×1448 portrait)</option>
+                                <option value="kindle-pw4">Kindle Paperwhite 4 (6" - 1072×1448 portrait)</option>
+                                <option value="kindle-pw5">Kindle Paperwhite 5 (6.8" - 1236×1648 portrait)</option>
+                                <option value="kindle-basic-10">Kindle Basic 10th gen (6" - 600×800 portrait)</option>
+                                <option value="kindle-11">Kindle 11th gen (6" - 1072×1448 portrait)</option>
+                            </optgroup>
                         </select>
 
                         <!-- TRMNL Model Selection (OG vs X) - appears only for TRMNL BYOS -->
@@ -4851,11 +4854,12 @@
 
             // E-ink wear factors (Development Rules v1.0.15 Section Y)
             const wearFactors = {
-                'trmnl-byos': 0.3,     // Partial refresh = lower wear
-                'kindle-pw5': 0.5,     // Carta 1200 = moderate wear
-                'kindle-pw3': 0.7,     // Carta = higher wear
-                'kindle-pw4': 0.7,
-                'kindle-4': 1.0        // Pearl = highest wear
+                'trmnl-byos': 0.3,       // Partial refresh = lower wear
+                'kindle-pw5': 0.5,       // Carta 1200 = moderate wear
+                'kindle-pw3': 0.7,       // Carta = higher wear
+                'kindle-pw4': 0.7,       // Carta 1100 = higher wear
+                'kindle-basic-10': 1.0,  // Pearl = highest wear
+                'kindle-11': 0.5         // Carta 1200 = moderate wear
             };
 
             const dailyRefreshes = (24 * 60) / displayValue;
@@ -5894,35 +5898,60 @@
                     orientation: 'Landscape',
                     display: '7.5" E-ink',
                     chip: 'ESP32',
-                    icon: '📺'
+                    ppi: 117,
+                    icon: '📺',
+                    jailbreakRequired: false,
+                    firmwarePath: '/firmware/src/main.cpp'
                 },
                 'kindle-pw3': {
-                    name: 'Kindle Paperwhite 3/4',
-                    resolution: '758×1024 pixels',
+                    name: 'Kindle Paperwhite 3',
+                    resolution: '1072×1448 pixels',
                     orientation: 'Portrait',
                     display: '6" E-ink (Carta)',
-                    icon: '📖'
+                    ppi: 300,
+                    icon: '📖',
+                    jailbreakRequired: true,
+                    firmwarePath: '/firmware/kindle/kindle-pw3/'
                 },
                 'kindle-pw4': {
                     name: 'Kindle Paperwhite 4',
-                    resolution: '758×1024 pixels',
+                    resolution: '1072×1448 pixels',
                     orientation: 'Portrait',
-                    display: '6" E-ink (Carta)',
-                    icon: '📖'
+                    display: '6" E-ink (Carta 1100)',
+                    ppi: 300,
+                    icon: '📖',
+                    jailbreakRequired: true,
+                    firmwarePath: '/firmware/kindle/kindle-pw4/'
                 },
                 'kindle-pw5': {
                     name: 'Kindle Paperwhite 5',
                     resolution: '1236×1648 pixels',
                     orientation: 'Portrait',
                     display: '6.8" E-ink (Carta 1200)',
-                    icon: '📖'
+                    ppi: 300,
+                    icon: '📖',
+                    jailbreakRequired: true,
+                    firmwarePath: '/firmware/kindle/kindle-pw5/'
                 },
-                'kindle-4': {
-                    name: 'Kindle 4 (Non-Touch)',
+                'kindle-basic-10': {
+                    name: 'Kindle Basic (10th gen)',
                     resolution: '600×800 pixels',
                     orientation: 'Portrait',
                     display: '6" E-ink (Pearl)',
-                    icon: '📕'
+                    ppi: 167,
+                    icon: '📕',
+                    jailbreakRequired: true,
+                    firmwarePath: '/firmware/kindle/kindle-basic-10/'
+                },
+                'kindle-11': {
+                    name: 'Kindle (11th gen)',
+                    resolution: '1072×1448 pixels',
+                    orientation: 'Portrait',
+                    display: '6" E-ink (Carta 1200)',
+                    ppi: 300,
+                    icon: '📖',
+                    jailbreakRequired: true,
+                    firmwarePath: '/firmware/kindle/kindle-11/'
                 }
             };
 
@@ -5933,16 +5962,34 @@
                     <div style="font-size: 12px; opacity: 0.85;">
                         Resolution: ${spec.resolution}<br>
                         Orientation: ${spec.orientation}<br>
-                        Display: ${spec.display}`;
+                        Display: ${spec.display}<br>
+                        PPI: ${spec.ppi}`;
 
             if (spec.chip) {
                 infoHTML += `<br>Chip: ${spec.chip}`;
             }
 
-            infoHTML += `
-                    </div>
-                </div>
-            `;
+            infoHTML += `</div>`;
+
+            // Add jailbreak warning for Kindle devices
+            if (spec.jailbreakRequired) {
+                infoHTML += `
+                    <div style="margin-top: 10px; padding: 10px; background: rgba(234, 88, 12, 0.15); border: 1px solid rgba(234, 88, 12, 0.4); border-radius: 6px;">
+                        <div style="font-weight: 600; font-size: 12px; color: #f97316; margin-bottom: 5px;">
+                            ⚠️ Jailbreak Required (WinterBreak)
+                        </div>
+                        <div style="font-size: 11px; opacity: 0.9; line-height: 1.5;">
+                            Requires Kindle firmware 5.18.0 or earlier.<br>
+                            Install KUAL + TRMNL extension after jailbreak.<br>
+                            <a href="https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW/tree/main/firmware/kindle"
+                               target="_blank" style="color: #60a5fa; text-decoration: underline;">
+                               View Installation Guide →
+                            </a>
+                        </div>
+                    </div>`;
+            }
+
+            infoHTML += `</div>`;
 
             deviceInfo.innerHTML = infoHTML;
         }
@@ -6012,13 +6059,14 @@
             progressText.textContent = 'Validating addresses...';
 
             try {
-                // Get device specifications
+                // Get device specifications (correct resolutions per Development Rules)
                 const deviceResolutions = {
                     'trmnl-byos': { width: 800, height: 480, orientation: 'landscape' },
-                    'kindle-pw3': { width: 758, height: 1024, orientation: 'portrait' },
-                    'kindle-pw4': { width: 758, height: 1024, orientation: 'portrait' },
+                    'kindle-pw3': { width: 1072, height: 1448, orientation: 'portrait' },
+                    'kindle-pw4': { width: 1072, height: 1448, orientation: 'portrait' },
                     'kindle-pw5': { width: 1236, height: 1648, orientation: 'portrait' },
-                    'kindle-4': { width: 600, height: 800, orientation: 'portrait' }
+                    'kindle-basic-10': { width: 600, height: 800, orientation: 'portrait' },
+                    'kindle-11': { width: 1072, height: 1448, orientation: 'portrait' }
                 };
 
                 const deviceSpec = deviceResolutions[selectedDevice];
