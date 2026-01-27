@@ -1192,10 +1192,17 @@ app.get('/api/device/:token', async (req, res) => {
     preferences.setTemporary(tempPrefs);
     
     // Get data using the decoded config
-    const data = await getData(apiKey);
+    let data = await getData(apiKey);
     
     // Clear temporary preferences
     preferences.clearTemporary();
+    
+    // If real-time data is empty, use fallback timetable
+    if ((!data.trains || data.trains.length === 0) && (!data.trams || data.trams.length === 0)) {
+      console.log('Zero-config: Real-time data empty, using fallback timetable');
+      const fallback = getFallbackTimetable();
+      data = { ...data, trains: fallback.trains, trams: fallback.trams };
+    }
 
     // Get station names from decoded config
     const mode1Name = transitRoute?.mode1?.originStation?.name || 'TRANSIT 1';
