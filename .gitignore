@@ -22,5 +22,4 @@ Thumbs.db
 .cache/
 
 # Persistent storage
-devices.json
 cache/
