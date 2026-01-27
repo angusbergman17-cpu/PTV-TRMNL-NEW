@@ -417,7 +417,7 @@ async function loadDevices() {
     devicesArray.forEach(device => devices.set(device.macAddress, device));
     console.log(`✅ Loaded ${devices.size} device(s) from storage`);
   } catch (err) {
-    if (err.code !== 'ENOENT') {
+    if (err.code !== "ENOENT" && err.code !== "EACCES" && !process.env.VERCEL) {
       console.error('⚠️  Error loading devices:', err.message);
     } else {
       // Vercel fallback: hardcoded device for serverless deployment
