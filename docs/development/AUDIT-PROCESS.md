@@ -377,7 +377,8 @@ This document defines the standardized process for conducting compliance audits 
 
 1. **Create Audit Report**
    - Use template: `docs/reports/AUDIT-REPORT-TEMPLATE.md`
-   - Save as: `docs/reports/AUDIT-REPORT-YYYY-MM-DD.md`
+   - Save as: `docs/audits/AUDIT-{SEQ}-{YYYYMMDD}-{HHMM}.md`
+   - Update: `docs/audits/AUDIT-INDEX.md` with new entry
    - Include all findings, remediations, and verification
 
 2. **Update Development Rules** (if new patterns found)

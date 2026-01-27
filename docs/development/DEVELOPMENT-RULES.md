@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-28
-**Version**: 1.0.30
+**Version**: 1.0.31
 
 **📋 [Complete Project Vision →](../../PROJECT-STATEMENT.md)** - Read the comprehensive project statement for context on goals, architecture, and user requirements.
 
@@ -5721,7 +5721,9 @@ grep -l 'Historical Notice' docs/guides/ docs/
 8. **Remediation** - Fix identified issues
 9. **Reporting** - Document findings, update rules
 
-**Audit Reports**: Stored in `docs/reports/AUDIT-REPORT-YYYY-MM-DD.md`
+**Audit Reports**: Stored in `docs/audits/AUDIT-{SEQ}-{YYYYMMDD}-{HHMM}.md`
+
+**Audit Index**: `docs/audits/AUDIT-INDEX.md` - Registry of all audits with version tracking
 
 **Reference**: See `docs/development/AUDIT-PROCESS.md` for complete methodology.
 
