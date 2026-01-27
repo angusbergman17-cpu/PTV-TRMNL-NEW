@@ -1305,6 +1305,14 @@
          * Licensed under CC BY-NC 4.0
          */
 
+        // XSS Sanitization utility - escapes HTML special characters
+        function sanitize(str) {
+            if (str === null || str === undefined) return '';
+            if (typeof str !== 'string') str = String(str);
+            const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'};
+            return str.replace(/[&<>"'`=/]/g, c => map[c]);
+        }
+
         // Global state
         let currentStep = 1;
         const totalSteps = 8;
@@ -1593,7 +1601,7 @@
                 // Display result
                 const resultDiv = document.getElementById(resultId);
                 resultDiv.innerHTML = `
-                    <strong>✓ Found:</strong> ${result.formattedAddress}<br>
+                    <strong>✓ Found:</strong> ${sanitize(result.formattedAddress)}<br>
                     <small>Coordinates: ${result.lat.toFixed(4)}, ${result.lon.toFixed(4)}</small><br>
                     <small>Source: ${result.source}</small>
                 `;
@@ -1667,7 +1675,7 @@
                 // Display result
                 const resultDiv = document.getElementById('home-result');
                 resultDiv.innerHTML = `
-                    <strong>✓ Auto-detected:</strong> ${result.formattedAddress}<br>
+                    <strong>✓ Auto-detected:</strong> ${sanitize(result.formattedAddress)}<br>
                     <small>Coordinates: ${result.lat.toFixed(4)}, ${result.lon.toFixed(4)}</small><br>
                     <small>Source: ${result.source}</small>
                 `;
@@ -1764,7 +1772,7 @@
             if (setupData.cafeLocation) {
                 document.getElementById('cafe-info').style.display = 'block';
                 document.getElementById('cafe-address-display').innerHTML = `
-                    <strong>Cafe:</strong> ${setupData.cafeLocation.formattedAddress}<br>
+                    <strong>Cafe:</strong> ${sanitize(setupData.cafeLocation.formattedAddress)}<br>
                     <small>Source: ${setupData.cafeLocation.source}</small>
                 `;
                 document.getElementById('journey-no-cafe-note').style.display = 'none';
@@ -1971,7 +1979,7 @@
                     <div style="display: flex; align-items: center; flex: 1;">
                         <span class="stop-icon">${stop.icon}</span>
                         <div class="stop-info">
-                            <div class="stop-name">${stop.name}</div>
+                            <div class="stop-name">${sanitize(stop.name)}</div>
                             <div class="stop-details">${stop.distance}m away • ${stop.walkingMinutes} min walk • ${stop.mode}</div>
                         </div>
                     </div>
@@ -1988,7 +1996,7 @@
                     <div style="display: flex; align-items: center; flex: 1;">
                         <span class="stop-icon">${stop.icon}</span>
                         <div class="stop-info">
-                            <div class="stop-name">${stop.name}</div>
+                            <div class="stop-name">${sanitize(stop.name)}</div>
                             <div class="stop-details">${stop.distance}m away • ${stop.walkingMinutes} min walk • ${stop.mode}</div>
                         </div>
                     </div>
@@ -2336,7 +2344,7 @@
             const device = SUPPORTED_DEVICES[deviceId];
 
             if (!device.compatible) {
-                showError(`${device.name} is not yet compatible. Please select another device.`);
+                showError(`${sanitize(device.name)} is not yet compatible. Please select another device.`);
                 return;
             }
 
@@ -2349,7 +2357,7 @@
             const infoDiv = document.getElementById('device-info');
             infoDiv.style.display = 'block';
             infoDiv.innerHTML = `
-                <h4>Selected: ${device.name}</h4>
+                <h4>Selected: ${sanitize(device.name)}</h4>
                 <p><strong>Resolution:</strong> ${device.resolution.width}×${device.resolution.height}</p>
                 <p><strong>Orientation:</strong> ${device.orientation}</p>
                 <p><strong>Format:</strong> ${device.format}</p>
@@ -2424,7 +2432,7 @@
                     <div><span style="font-weight: 600;">🔑 Real-time Data:</span> ${setupData.transitAPIKey ? 'Enabled' : 'Using Fallback'}</div>
                     <div><span style="font-weight: 600;">🧠 Smart Journey:</span> Calculated</div>
                     <div><span style="font-weight: 600;">🌤️ Weather:</span> ${setupData.bomStation ? 'BOM ' + setupData.bomStation.stationName : 'Not configured'}</div>
-                    <div><span style="font-weight: 600;">📱 Device:</span> ${device.name}</div>
+                    <div><span style="font-weight: 600;">📱 Device:</span> ${sanitize(device.name)}</div>
                 </div>
             `;
         }
@@ -2588,7 +2596,7 @@
             const nextRefresh = new Date(now.getTime() + 15 * 60 * 1000); // 15 min
 
             statusDiv.innerHTML = `
-                <p><strong>Device:</strong> ${device.name}</p>
+                <p><strong>Device:</strong> ${sanitize(device.name)}</p>
                 <p><strong>Resolution:</strong> ${device.resolution.width}×${device.resolution.height}</p>
                 <p><strong>Last Refresh:</strong> ${now.toLocaleTimeString()}</p>
                 <p><strong>Next Refresh:</strong> ${nextRefresh.toLocaleTimeString()}</p>
