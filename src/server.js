@@ -1656,6 +1656,26 @@ app.get('/api/setup', async (req, res) => {
   });
 });
 
+// Version check endpoint for deployment verification
+app.get('/api/version', (req, res) => {
+  const prefs = preferences.get();
+  const setupAddresses = Boolean(prefs?.journey?.homeAddress && prefs?.journey?.workAddress);
+  const setupTransitAPI = Boolean(prefs?.apis?.transport?.apiKey);
+  const setupJourney = Boolean(prefs?.journey?.transitRoute?.mode1?.departure);
+
+  res.json({
+    version: '2.6.0',
+    deployment: 'v5.15-setup-flags',
+    timestamp: new Date().toISOString(),
+    setupFlagsEnabled: true,
+    setupStatus: {
+      addresses: setupAddresses,
+      transitAPI: setupTransitAPI,
+      journey: setupJourney
+    }
+  });
+});
+
 // Display content endpoint (compatible with custom firmware v5.9+)
 app.get('/api/display', async (req, res) => {
   const friendlyID = req.headers.id || req.headers['ID'];
@@ -1728,11 +1748,14 @@ app.get('/api/display', async (req, res) => {
   const setupTransitAPI = Boolean(prefs?.apis?.transport?.apiKey || prefs?.apis?.transport?.devId);
   const setupJourney = Boolean(prefs?.journey?.transitRoute?.mode1?.departure);
 
+  // Log setup flags for debugging (v5.15 deployment verification)
+  console.log(`[${friendlyID}] Setup flags: addresses=${setupAddresses}, api=${setupTransitAPI}, journey=${setupJourney}`);
+
   // Get location if available
   const location = prefs?.journey?.currentContext?.location || 'Melbourne Central';
 
   // Return display content with firmware-compatible fields
-  res.json({
+  const response = {
     status: 0,
     screen_url: `https://${req.get('host')}/api/screen`,
     dashboard_url: `https://${req.get('host')}/api/dashboard`,
@@ -1744,11 +1767,13 @@ app.get('/api/display', async (req, res) => {
     current_time: currentTime,
     weather: weatherText,
     location: location,
-    // Setup progress flags (v5.15+)
+    // Setup progress flags (v5.15+) - CRITICAL FOR UNIFIED SETUP SCREEN
     setup_addresses: setupAddresses,
     setup_transit_api: setupTransitAPI,
     setup_journey: setupJourney
-  });
+  };
+
+  res.json(response);
 });
 
 // ========== KINDLE DEVICE SUPPORT ==========

@@ -1,7 +1,7 @@
 # PTV-TRMNL Development Rules
 **MANDATORY COMPLIANCE DOCUMENT**
 **Last Updated**: 2026-01-27
-**Version**: 1.0.24
+**Version**: 1.0.26
 
 **📋 [Complete Project Vision →](../../PROJECT-STATEMENT.md)** - Read the comprehensive project statement for context on goals, architecture, and user requirements.
 
@@ -82,10 +82,12 @@
 - Document failed approaches for historical learning
 - Update ANTI-BRICK-REQUIREMENTS.md with any new incidents
 
-**Current Stable Firmware**: v5.11 (Live Dashboard - NO WATCHDOG)
+**Current Stable Firmware**: v5.15-NoQR (Unified Setup - NO WATCHDOG, NO QR)
 - v5.10: ❌ DEPRECATED - Watchdog caused display freezes
 - v5.11: ✅ Removed watchdog, zone partial refresh, continuous live updates
-- **Breaking Change**: v5.10 → v5.11 removes watchdog timer completely
+- v5.15: ❌ DEPRECATED - QR code caused memory access crashes (boot loop)
+- v5.15-NoQR: ✅ CURRENT - Unified setup, NTP time, setup progress, NO QR code
+- **Breaking Change**: v5.15 QR code feature removed due to unresolvable crashes
 
 **If Device Bricks**:
 1. Perform forensic analysis - identify last serial message
@@ -93,6 +95,148 @@
 3. Document as new incident in ANTI-BRICK-REQUIREMENTS.md
 4. Create new rule if pattern not covered
 5. Test fix with serial monitoring before declaring success
+
+**HARD RECOVERY PROCEDURE** (Device Frozen/Stuck in Bootloader):
+
+**Symptoms**:
+- Device displays frozen screen (e.g., stuck at specific time like "17:35")
+- No serial output when monitoring
+- Device boots into bootloader mode (`boot:0x6 DOWNLOAD(USB/UART0/1)`)
+- Application firmware won't start
+
+**Recovery Steps** (MANDATORY - PROVEN TO WORK 2026-01-27):
+
+1. **Physical Power Cycle** (CRITICAL FIRST STEP)
+   ```bash
+   # ⚠️ CRITICAL: DO NOT hold BOOT button during power cycle
+   # ⚠️ Just plug device straight into computer - no buttons pressed
+
+   # Unplug USB cable from device
+   # Wait 10 seconds
+   # Replug USB cable (NO BOOT BUTTON PRESSED)
+   ```
+
+   **⚠️ REMINDER: Device should boot into APPLICATION mode, NOT bootloader mode**
+   - If you see `waiting for download` in serial output → WRONG (bootloader mode)
+   - If you see `PTV-TRMNL v5.x` in serial output → CORRECT (application mode)
+   - Bootloader mode blocks application from running
+
+2. **Verify Serial Communication**
+   ```bash
+   python3 -c "
+   import serial
+   import time
+   ser = serial.Serial('/dev/cu.usbmodem14101', 115200, timeout=1)
+   time.sleep(2)
+   for i in range(10):
+       if ser.in_waiting > 0:
+           print(ser.readline().decode('utf-8', errors='ignore'))
+       time.sleep(0.5)
+   ser.close()
+   "
+   ```
+
+3. **If Still No Output: Full Flash Erase**
+   ```bash
+   # Erase all flash (takes ~30 seconds)
+   python3 -m esptool --port /dev/cu.usbmodem14101 erase_flash
+
+   # Flash working baseline firmware
+   cd /Users/angusbergman/PTV-TRMNL-NEW/firmware
+   pio run -t upload -e trmnl
+
+   # Wait 10 seconds
+   # Physical power cycle (unplug/replug)
+   ```
+
+4. **Restore from Working Baseline**
+   ```bash
+   # v5.8/v5.9 is proven working baseline from git
+   cd /Users/angusbergman/PTV-TRMNL-NEW
+   git show e9644a1:firmware/src/main.cpp > /tmp/main_v5.9.cpp
+   cp /tmp/main_v5.9.cpp firmware/src/main.cpp
+
+   cd firmware
+   pio run -e trmnl
+   pio run -t upload -e trmnl
+
+   # Physical power cycle after flash
+   ```
+
+5. **Monitor for Successful Boot**
+   ```bash
+   python3 /Users/angusbergman/PTV-TRMNL-NEW/firmware/tools/live-monitor.py
+   # Should see: "PTV-TRMNL v5.8/v5.9 - FIXED"
+   # Should see: "Setup complete"
+   ```
+
+**Root Cause Prevention**:
+- ❌ NEVER use zone wipe functions with delays during partial refresh
+- ❌ NEVER use fillRect with rapid black/white flashing
+- ❌ NEVER do complex e-ink operations during partial refresh
+- ✅ Use full refresh only when debugging display issues
+- ✅ Keep refresh intervals ≥ 20 seconds
+- ✅ Always test with serial monitoring after ANY display code changes
+
+**Automated Recovery Tools** (Created 2026-01-27):
+- `/Users/angusbergman/PTV-TRMNL-NEW/firmware/tools/watchdog-flash.sh` - Auto-reflash on detected freeze
+- `/Users/angusbergman/PTV-TRMNL-NEW/firmware/tools/live-monitor.py` - Real-time serial monitoring
+- `/Users/angusbergman/PTV-TRMNL-NEW/firmware/tools/continuous-monitor.sh` - Continuous monitoring with auto-recovery
+
+**Why Physical Power Cycle is MANDATORY**:
+- ESP32-C3 can enter bootloader mode if GPIO9 is held low during boot
+- Power cycle ensures all pins reset to proper state
+- USB reset via DTR/RTS is insufficient if device is in deep freeze
+- Full power removal clears all internal state registers
+
+**QR CODE CRASH INCIDENT** (2026-01-27 - RESOLVED):
+
+**Symptoms**:
+- Boot loop with `Guru Meditation Error: Load access fault`
+- Crash during QR code rendering to e-ink display
+- Memory access violation at low address (0x0000232e)
+- Device reboots continuously, never completes setup screen
+
+**Root Cause**:
+- ricmoo/QRCode library v0.0.1 causes memory access fault during rendering
+- 625 successive `drawLine()` calls (25x25 modules) overwhelm e-ink controller
+- Combination of stack-allocated QR buffer + intensive SPI operations
+- bb_epaper v2.0.3 may have undocumented operation density limits
+
+**Solution Applied**:
+- ✅ Removed QR code feature entirely from v5.15
+- ✅ Created v5.15-NoQR with text-based admin URL display
+- ✅ Device stable, no crashes, all other features intact
+
+**MANDATORY QR CODE RULES** (If attempting future implementation):
+
+1. **❌ NEVER use ricmoo/QRCode library on ESP32-C3**
+   - Known to cause memory access faults
+   - Boot loop guaranteed with e-ink displays
+
+2. **✅ MUST use server-side QR generation**
+   - Server generates QR as PNG image
+   - Device fetches and displays PNG
+   - Use PNGdec library for rendering
+   - No on-device QR generation
+
+3. **❌ NEVER use stack-allocated buffers for QR code**
+   - Use heap allocation with `malloc()`
+   - Check allocation success before use
+   - Free memory after rendering
+
+4. **❌ NEVER render QR using successive drawLine calls**
+   - Batch into single buffer operation
+   - Render to temporary buffer first
+   - Blit buffer to display in one write
+
+5. **✅ MUST test QR on actual hardware for 10+ boot cycles**
+   - No simulator testing acceptable
+   - Monitor serial output during entire render
+   - Verify heap and stack usage
+   - Keep v5.8 or v5.15-NoQR as recovery firmware
+
+**Full Report**: `/firmware/QR-CODE-CRASH-REPORT.md`
 
 ### 📝 SELF-AMENDING REQUIREMENT
 

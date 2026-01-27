@@ -17,6 +17,7 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <bb_epaper.h>
+#include <qrcode.h>
 #include "../include/config.h"
 
 // Screen dimensions: 800 (width) x 480 (height) LANDSCAPE
@@ -60,14 +61,15 @@ void fetchAndDisplaySafe();
 void drawUnifiedSetupScreen();
 void drawLiveDashboard(String currentTime, String weather, String location);
 String getEstimatedTime();
+void drawQRCode(int x, int y, int scale, const char* url);
 
 void setup() {
     Serial.begin(115200);
     delay(500);
 
     Serial.println("\n==============================");
-    Serial.println("PTV-TRMNL v5.15-NoQR");
-    Serial.println("Unified Setup (No QR) + Live Updates");
+    Serial.println("PTV-TRMNL v5.15 - Unified Setup");
+    Serial.println("QR Code + Decision Log + Live Updates");
     Serial.println("==============================\n");
 
     bootTime = millis();
@@ -91,46 +93,6 @@ void setup() {
 
     Serial.println("→ Init display...");
     initDisplay();
-
-    // Draw immediate boot screen to refresh e-ink
-    Serial.println("→ Drawing boot screen...");
-    bbep.fillScreen(BBEP_WHITE);
-
-    // Header
-    bbep.setFont(FONT_12x16);
-    bbep.setCursor(20, 30);
-    bbep.print("PTV-TRMNL v5.15-NoQR");
-
-    // Main status message
-    bbep.setFont(FONT_8x8);
-    bbep.setCursor(20, 100);
-    bbep.print("STARTING UP...");
-
-    // Device ID if available
-    if (friendlyID.length() > 0) {
-        bbep.setCursor(20, 140);
-        bbep.print("Device ID: ");
-        bbep.print(friendlyID.c_str());
-    }
-
-    // WiFi status
-    bbep.setCursor(20, 180);
-    bbep.print("Connecting to WiFi...");
-
-    // Setup portal instructions
-    bbep.setCursor(20, 240);
-    bbep.print("If WiFi setup needed:");
-    bbep.setCursor(20, 260);
-    bbep.print("  1. Connect to: PTV-TRMNL-Setup");
-    bbep.setCursor(20, 280);
-    bbep.print("  2. Open: 192.168.4.1");
-
-    // Progress indicator
-    bbep.setCursor(20, 340);
-    bbep.print("Please wait...");
-
-    bbep.refresh(REFRESH_FULL, true);
-    Serial.println("✓ Boot screen displayed");
 
     Serial.println("✓ Setup complete - entering main loop\n");
 }
@@ -399,7 +361,61 @@ void fetchAndDisplaySafe() {
     refreshCount++;
 }
 
-// QR code function removed - caused memory access crashes
+// Draw QR code at specified position
+void drawQRCode(int startX, int startY, int scale, const char* url) {
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(2)];
+    // Version 2 (25x25), ECC_LOW (0) - fits our URL properly
+    qrcode_initText(&qrcode, qrcodeData, 2, 0, url);
+
+    Serial.print("  QR version: 2, size: ");
+    Serial.print(qrcode.size);
+    Serial.print(", scale: ");
+    Serial.println(scale);
+    Serial.print("  URL length: ");
+    Serial.println(strlen(url));
+
+    // Clear area with white background (including larger border)
+    int border = 6 * scale;  // Larger border for better isolation
+    int totalSize = (qrcode.size * scale) + (border * 2);
+
+    // Clear in multiple passes to ensure clean slate
+    bbep.fillRect(startX - border, startY - border, totalSize, totalSize, BBEP_WHITE);
+    delay(50);  // Allow buffer to settle
+    yield();
+
+    // Draw black modules using drawLine for consistent rendering
+    for (uint8_t y = 0; y < qrcode.size; y++) {
+        for (uint8_t x = 0; x < qrcode.size; x++) {
+            if (qrcode_getModule(&qrcode, x, y)) {
+                // Calculate module position
+                int moduleX = startX + (x * scale);
+                int moduleY = startY + (y * scale);
+
+                // Draw module as filled square using horizontal lines
+                for (int line = 0; line < scale; line++) {
+                    int y1 = moduleY + line;
+                    int x1 = moduleX;
+                    int x2 = moduleX + scale - 1;
+                    bbep.drawLine(x1, y1, x2, y1, BBEP_BLACK);
+                }
+            }
+        }
+
+        // Yield CPU every few rows
+        if (y % 7 == 0) {
+            yield();
+        }
+    }
+
+    Serial.print("  QR code drawn: ");
+    Serial.print(qrcode.size);
+    Serial.print("x");
+    Serial.print(qrcode.size);
+    Serial.print(" modules at scale ");
+    Serial.println(scale);
+}
+
 // Zone wiping removed - using full refreshes only to prevent freezing
 
 // Unified setup screen with QR code, decision log, and device info
@@ -421,48 +437,41 @@ void drawUnifiedSetupScreen() {
         bbep.setCursor(650, 30);
         bbep.print(getEstimatedTime().c_str());
 
-        // === LEFT COLUMN: ADMIN URL (X: 20-300) ===
-        // QR code removed - caused memory crashes
-        // Display admin URL as text instead
+        // === LEFT COLUMN: QR CODE + URL (X: 20-240) ===
+        // QR code position - centered in left column
+        int qrX = 50;  // Add space for border
+        int qrY = 90;
+        int qrScale = 6;  // Version 2 = 25x25 modules, scale 6 = 150px
 
+        // Build admin URL - simplified for QR code
         String adminURL = String(SERVER_URL) + "/admin";
-        adminURL.replace("https://", "");  // Remove protocol for display
+        adminURL.replace("https://", "");  // Remove protocol for shorter QR code
 
-        Serial.print("  Admin URL: ");
+        Serial.print("  QR Code URL: ");
         Serial.println(adminURL);
 
-        // "To Configure" header
-        bbep.setFont(FONT_12x16);
-        bbep.setCursor(20, 100);
-        bbep.print("TO CONFIGURE:");
+        // Draw QR code
+        drawQRCode(qrX, qrY, qrScale, adminURL.c_str());
 
-        // "Visit:" text
+        // Delay to ensure QR code buffer is ready for e-ink
+        delay(200);
+        yield();
+
+        // "Scan to Configure" text - BELOW QR code (v2 scale 6 = 150px + border)
         bbep.setFont(FONT_8x8);
-        bbep.setCursor(20, 140);
-        bbep.print("Visit admin panel:");
+        bbep.setCursor(40, qrY + 190);
+        bbep.print("Scan to Configure");
 
-        // Display URL - split into lines if needed
-        bbep.setFont(FONT_12x16);
-        if (adminURL.length() > 22) {
-            // Split URL across multiple lines
-            bbep.setCursor(20, 180);
-            bbep.print(adminURL.substring(0, 22).c_str());
-            bbep.setCursor(20, 210);
-            bbep.print(adminURL.substring(22).c_str());
+        // URL text - already has https:// removed
+        bbep.setCursor(30, qrY + 210);
+        bbep.print("or visit:");
+        bbep.setCursor(20, qrY + 225);
+        if (adminURL.length() > 20) {
+            bbep.print(adminURL.substring(0, 20).c_str());
+            bbep.setCursor(20, qrY + 240);
+            bbep.print(adminURL.substring(20).c_str());
         } else {
-            bbep.setCursor(20, 180);
             bbep.print(adminURL.c_str());
-        }
-
-        // Device ID below URL
-        bbep.setFont(FONT_8x8);
-        bbep.setCursor(20, 260);
-        bbep.print("Device ID:");
-        bbep.setCursor(20, 280);
-        if (friendlyID.length() > 0) {
-            bbep.print(friendlyID.c_str());
-        } else {
-            bbep.print(WiFi.macAddress().c_str());
         }
 
         // === RIGHT COLUMN: DEVICE INFO + DECISION LOG (X: 280-780) ===
