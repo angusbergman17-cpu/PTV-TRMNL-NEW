@@ -2148,31 +2148,43 @@ app.post('/admin/transit/validate-api', async (req, res) => {
     // Test API key with simple request
     // For VIC, test with Transport Victoria OpenData API
     if (state === 'VIC') {
-      // Use correct OpenData API URL format
-      const testUrl = 'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro-trains/vehicle-positions';
+      // Use CORRECT endpoint from Development Rules / VICTORIA-GTFS-REALTIME-PROTOCOL.md
+      // VERIFIED WORKING: /metro/trip-updates (NOT /metro-trains/vehicle-positions)
+      const testUrl = 'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/metro/trip-updates';
+
+      console.log(`Testing Transport Victoria API with key: ${apiKey.substring(0, 8)}...`);
+
       const response = await fetch(testUrl, {
         headers: {
-          'KeyId': apiKey,
-          'Accept': 'application/x-protobuf'
+          'KeyId': apiKey,  // Case-sensitive! Must be 'KeyId'
+          'Accept': '*/*'   // Accept any content type (API returns application/octet-stream)
         },
         timeout: 10000
       });
 
+      console.log(`API response: ${response.status} ${response.statusText}`);
+
       if (!response.ok) {
-        const statusText = response.statusText || 'Unknown error';
-        throw new Error(`API validation failed (${response.status}): ${statusText}. Check your API key at https://discover.data.vic.gov.au/`);
+        const statusText = response.statusText || 'Not Found';
+        throw new Error(`API validation failed (${response.status}): ${statusText}. Check your API key at https://opendata.transport.vic.gov.au/`);
       }
 
-      // Check if we got protobuf data (correct format)
+      // Check if we got protobuf data (binary content)
       const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('protobuf')) {
-        throw new Error('API key accepted but received unexpected data format. API may be misconfigured.');
+      console.log(`Content-Type: ${contentType}`);
+
+      // OpenData API returns 'application/octet-stream' for protobuf
+      if (contentType && !contentType.includes('octet-stream') && !contentType.includes('protobuf')) {
+        console.warn(`Unexpected content-type: ${contentType}, but continuing...`);
       }
 
+      // Success - API key is valid
       res.json({
         success: true,
         message: 'Transport Victoria API key validated successfully',
-        apiUrl: 'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/'
+        apiUrl: 'https://api.opendata.transport.vic.gov.au/opendata/public-transport/gtfs/realtime/v1/',
+        endpoint: 'metro/trip-updates',
+        authentication: 'KeyId header'
       });
     } else {
       // For other states, assume valid (implement state-specific validation as needed)

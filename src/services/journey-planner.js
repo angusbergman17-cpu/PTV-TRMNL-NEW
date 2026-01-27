@@ -299,9 +299,10 @@ class JourneyPlanner {
       });
 
     // Log closest stops for debugging
-    console.log(`  Closest 3 stops:`);
-    nearbyStops.slice(0, 3).forEach(s => {
-      console.log(`    ${s.icon} ${s.name} - ${s.distance}m (${s.walkingMinutes} min walk)`);
+    console.log(`  Found ${nearbyStops.length} stops within ${this.MAX_WALKING_DISTANCE}m`);
+    console.log(`  Closest 5 stops:`);
+    nearbyStops.slice(0, 5).forEach((s, i) => {
+      console.log(`    ${i+1}. ${s.icon} ${s.routeTypeName} - ${s.name} - ${s.distance}m (${s.walkingMinutes} min walk)`);
     });
 
     return nearbyStops;
@@ -333,9 +334,12 @@ class JourneyPlanner {
 
     const bestRoute = allRoutes[0];
 
-    console.log(`  Best route: ${bestRoute.icon} ${bestRoute.originStop.name} → ${bestRoute.destinationStop.name}`);
-    console.log(`    Transit: ~${bestRoute.transitMinutes} min`);
-    console.log(`    Walking: ${bestRoute.originStop.walkingMinutes + bestRoute.destinationStop.walkingMinutes} min total`);
+    console.log(`\n  ✅ BEST ROUTE SELECTED:`);
+    console.log(`  ${bestRoute.icon} ${bestRoute.mode}`);
+    console.log(`  Origin: ${bestRoute.originStop.name} (${bestRoute.originStop.walkingMinutes} min walk)`);
+    console.log(`  Destination: ${bestRoute.destinationStop.name} (${bestRoute.destinationStop.walkingMinutes} min walk)`);
+    console.log(`  Transit: ~${bestRoute.transitMinutes} min`);
+    console.log(`  Total: ${bestRoute.totalMinutes} min (Score: ${bestRoute.score})`);
 
     if (includeAlternatives) {
       // Return alternatives (next 4 best routes, different from the best)
@@ -345,7 +349,10 @@ class JourneyPlanner {
                alt.destinationStop.id !== bestRoute.destinationStop.id;
       });
 
-      console.log(`  Found ${alternatives.length} alternative routes`);
+      console.log(`\n  📋 ALTERNATIVE ROUTES (${alternatives.length} found):`);
+      alternatives.forEach((alt, i) => {
+        console.log(`  ${i+1}. ${alt.icon} ${alt.mode}: ${alt.originStop.name} → ${alt.destinationStop.name} (${alt.totalMinutes} min, Score: ${alt.score})`);
+      });
 
       return {
         bestRoute,
