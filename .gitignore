@@ -23,3 +23,5 @@ Thumbs.db
 
 # Persistent storage
 cache/
+user-preferences.json
+devices.json
