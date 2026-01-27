@@ -1,0 +1,267 @@
+{
+  "addresses": {
+    "home": "Melbourne Central Station, Melbourne VIC 3000",
+    "cafe": "",
+    "cafeName": "",
+    "work": "Parliament Station, Melbourne VIC 3002"
+  },
+  "manualWalkingTimes": {
+    "homeToStation": 2,
+    "stationToCafe": 0,
+    "cafeToStation": 0,
+    "stationToWork": 1,
+    "useManualTimes": false
+  },
+  "addressFlags": {
+    "homeFound": true,
+    "cafeFound": true,
+    "workFound": true
+  },
+  "journey": {
+    "homeAddress": "Melbourne Central Station, Melbourne VIC 3000",
+    "workAddress": "Parliament Station, Melbourne VIC 3002",
+    "arrivalTime": "09:00",
+    "preferredTransitModes": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "maxWalkingDistance": 2000,
+    "coffeeEnabled": false,
+    "defaultCafeTime": 3,
+    "cafeLocation": "before-transit-1",
+    "transitRoute": {
+      "numberOfModes": 1,
+      "mode1": {
+        "type": 0,
+        "departure": "08:51",
+        "arrival": "08:55",
+        "originStation": {
+          "name": "Melbourne Central",
+          "id": "1181",
+          "lat": -37.8102,
+          "lon": 144.9628,
+          "state": "VIC"
+        },
+        "destinationStation": {
+          "name": "Parliament",
+          "id": "1120",
+          "lat": -37.811,
+          "lon": 144.973,
+          "state": "VIC"
+        },
+        "estimatedDuration": 2,
+        "mode": "Train"
+      },
+      "mode2": {
+        "type": null,
+        "originStation": {
+          "name": "",
+          "id": null,
+          "lat": null,
+          "lon": null
+        },
+        "destinationStation": {
+          "name": "",
+          "id": null,
+          "lat": null,
+          "lon": null
+        },
+        "estimatedDuration": null
+      },
+      "mode3": {
+        "type": null,
+        "originStation": {
+          "name": "",
+          "id": null,
+          "lat": null,
+          "lon": null
+        },
+        "destinationStation": {
+          "name": "",
+          "id": null,
+          "lat": null,
+          "lon": null
+        },
+        "estimatedDuration": null
+      },
+      "mode4": {
+        "type": null,
+        "originStation": {
+          "name": "",
+          "id": null,
+          "lat": null,
+          "lon": null
+        },
+        "destinationStation": {
+          "name": "",
+          "id": null,
+          "lat": null,
+          "lon": null
+        },
+        "estimatedDuration": null
+      }
+    },
+    "walkingSpeed": "normal"
+  },
+  "api": {
+    "key": "ce606b90-9ffb-43e8-bcd7-0c2bd0498367",
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJVdk9pUk5OVDZyU1dycEN3d2ZtMUZlY1RsYXczbkVEbF95VFlTZGJpMmdjIiwiaWF0IjoxNzY5NDE4OTI2fQ.pyeGdolRXnviaI2g4ftZcAS1cZa7oVykqEeQgXnKzKk",
+    "baseUrl": "https://opendata.transport.vic.gov.au"
+  },
+  "apis": {
+    "transport": {
+      "apiKey": "ce606b90-9ffb-43e8-bcd7-0c2bd0498367"
+    },
+    "google": {
+      "apiKey": "AIzaSyA9WYpRfLtBiEQfvTD-ac4ImHBohHsv3yQ"
+    }
+  },
+  "display": {
+    "use24HourTime": true,
+    "showWalkingTimes": true,
+    "showBusyness": true,
+    "colorCoding": true
+  },
+  "deviceConfig": {
+    "selectedDevice": "trmnl-byos",
+    "trmnlModel": "trmnl-og",
+    "resolution": {
+      "width": 800,
+      "height": 480
+    },
+    "orientation": "landscape"
+  },
+  "refreshSettings": {
+    "displayRefresh": {
+      "interval": 900000,
+      "minimum": 900000,
+      "unit": "minutes"
+    },
+    "journeyRecalc": {
+      "interval": 120000,
+      "minimum": 60000,
+      "unit": "minutes"
+    },
+    "dataFetch": {
+      "interval": 30000,
+      "minimum": 10000,
+      "unit": "seconds"
+    },
+    "trmnlWebhook": {
+      "interval": 900000,
+      "fixed": true,
+      "note": "TRMNL BYOS platform enforces 15-minute minimum"
+    },
+    "partialRefresh": {
+      "enabled": true,
+      "interval": 20000,
+      "minimum": 20000,
+      "unit": "seconds",
+      "zones": {
+        "header": {
+          "enabled": true,
+          "name": "Header Zone",
+          "description": "Time, date, weather icon",
+          "refreshInterval": 60000,
+          "coordinates": {
+            "x": 0,
+            "y": 0,
+            "width": "100%",
+            "height": "15%"
+          }
+        },
+        "transitInfo": {
+          "enabled": true,
+          "name": "Transit Info Zone",
+          "description": "Next departure times, delays",
+          "refreshInterval": 20000,
+          "coordinates": {
+            "x": 0,
+            "y": "15%",
+            "width": "100%",
+            "height": "50%"
+          }
+        },
+        "coffeeDecision": {
+          "enabled": true,
+          "name": "Coffee Decision Zone",
+          "description": "Coffee recommendation banner",
+          "refreshInterval": 120000,
+          "coordinates": {
+            "x": 0,
+            "y": "65%",
+            "width": "100%",
+            "height": "20%"
+          }
+        },
+        "footer": {
+          "enabled": true,
+          "name": "Footer Zone",
+          "description": "Journey summary, walking times",
+          "refreshInterval": 120000,
+          "coordinates": {
+            "x": 0,
+            "y": "85%",
+            "width": "100%",
+            "height": "15%"
+          }
+        }
+      },
+      "fullRefreshInterval": 900000,
+      "zoneChangeThreshold": 5,
+      "smartCoalescing": true,
+      "fallbackToFull": true
+    }
+  },
+  "meta": {
+    "version": "1.0",
+    "created": "2026-01-25T08:27:25.210Z",
+    "lastModified": "2026-01-26T13:28:58.069Z"
+  },
+  "profiles": {
+    "activeProfileId": "default",
+    "profiles": {
+      "default": {
+        "id": "default",
+        "name": "Default Journey",
+        "enabled": true,
+        "schedule": {
+          "type": "all",
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "effectiveFrom": null,
+          "effectiveUntil": null
+        },
+        "journeyConfig": null
+      }
+    }
+  },
+  "additionalAPIs": {
+    "google_places": "AIzaSyA9WYpRfLtBiEQfvTD-ac4ImHBohHsv3yQ",
+    "mapbox": null,
+    "rss_feeds": []
+  },
+  "location": {
+    "state": "VIC",
+    "stateCode": "VIC",
+    "stateName": "Victoria",
+    "city": "Melbourne",
+    "transitAuthority": "VIC",
+    "authorityName": "Transport Victoria",
+    "centerLat": -37.8136,
+    "centerLon": 144.9631,
+    "timezone": "Australia/Melbourne"
+  },
+  "system_configured": true,
+  "arrivalTime": "09:00",
+  "walkingSpeed": "normal"
+}
