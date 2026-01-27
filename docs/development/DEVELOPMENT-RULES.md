@@ -2530,7 +2530,80 @@ https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW
 
 ---
 
+
 ## 5️⃣ CODE STANDARDS
+### AA. Zero-Config Serverless Architecture (🚨 CRITICAL)
+
+**Principle**: The system MUST work without requiring users to manually configure server-side environment variables for API keys.
+
+**ABSOLUTE REQUIREMENT**: 
+Users must NEVER need to:
+- Manually enter API keys in server environment variables (Vercel, Render, etc.)
+- Configure server-side secrets for the system to function
+- Touch deployment configuration after initial setup
+
+**How It Works**:
+API keys are embedded in the device's personalized endpoint URL (config token), NOT stored on the server.
+
+**Architecture**:
+```
+┌─────────────────┐     ┌─────────────────────────────────────────────────┐
+│   SETUP WIZARD  │────▶│   Personalized URL with embedded config token   │
+│   (Admin Panel) │     │   /api/device/eyJhIjp7ImhvbWUiOiIxIENsYXJhLi4uIn0│
+└─────────────────┘     └─────────────────────────────────────────────────┘
+                                              │
+                                              ▼
+┌─────────────────┐     ┌─────────────────────────────────────────────────┐
+│   DEVICE        │────▶│   Server extracts API keys FROM REQUEST URL     │
+│   (Firmware)    │     │   NOT from environment variables                │
+└─────────────────┘     └─────────────────────────────────────────────────┘
+```
+
+**Config Token Structure**:
+```javascript
+// Token is base64url-encoded JSON containing:
+{
+  "a": { /* addresses */ },
+  "j": { /* journey config */ },
+  "k": "api-key-here",        // Transport Victoria API key
+  "g": "google-places-key",   // Google Places API key
+  "s": "VIC"                  // State
+}
+
+// Server decodes token from URL and uses embedded keys:
+app.get('/api/device/:token', async (req, res) => {
+  const config = decodeConfigToken(req.params.token);
+  const apiKey = config.api.key;  // ✅ From request, NOT process.env
+  const data = await fetchTransitData(apiKey);
+  // ...
+});
+```
+
+**❌ PROHIBITED Implementation**:
+```javascript
+// WRONG - Requires server environment variables:
+const apiKey = process.env.ODATA_API_KEY;  // ❌ User must configure server
+const data = await fetchData(apiKey);
+```
+
+**✅ REQUIRED Implementation**:
+```javascript
+// CORRECT - Keys embedded in device URL:
+const config = decodeConfigToken(req.params.token);
+const apiKey = config.api?.key || '';  // ✅ From request URL
+const data = await fetchData(apiKey);
+```
+
+**Benefits**:
+1. **Zero-config deployment**: Deploy to Vercel/Render with NO environment variables
+2. **Self-contained devices**: Each device has its own embedded config
+3. **No server secrets**: Server is stateless, config travels with request
+4. **Easy scaling**: Add more devices without touching server config
+5. **Privacy**: API keys stay with the device owner, not shared server
+
+**This is a FUNDAMENTAL architectural requirement. Any change that requires users to configure server environment variables for the system to function is a VIOLATION of development rules.**
+
+---
 
 ### File Naming & Structure
 
