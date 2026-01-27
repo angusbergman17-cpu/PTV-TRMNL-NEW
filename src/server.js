@@ -423,10 +423,11 @@ async function saveDevices() {
 /**
  * Fetch fresh data from all sources
  */
-async function fetchData() {
+async function fetchData(providedApiKey = null) {
   try {
     // Use ODATA_API_KEY (UUID format) for OpenData Transport Victoria API
-    const apiKey = process.env.ODATA_API_KEY;
+    const apiKey = providedApiKey || process.env.ODATA_API_KEY;
+    if (!apiKey) { console.warn("No API key"); throw new Error("No API key"); }
     const snapshot = await getSnapshot(apiKey);
 
     // Transform snapshot into format for renderer
@@ -503,15 +504,15 @@ async function fetchData() {
 /**
  * Get cached or fresh data
  */
-async function getData() {
+async function getData(providedApiKey = null) {
   const now = Date.now();
   if (cachedData && (now - lastUpdate) < CACHE_MS) {
     return cachedData;
   }
 
-  cachedData = await fetchData();
-  lastUpdate = now;
-  return cachedData;
+  const data = await fetchData(providedApiKey);
+  if (!providedApiKey) { cachedData = data; lastUpdate = now; }
+  return data;
 }
 
 /**
@@ -1177,6 +1178,10 @@ app.get('/api/device/:token', async (req, res) => {
     // Get station names from decoded config
     const mode1Name = transitRoute?.mode1?.originStation?.name || 'TRANSIT 1';
     const mode2Name = transitRoute?.mode2?.originStation?.name || 'TRANSIT 2';
+    // Get correct data based on mode type (0=train, 1=tram)
+    const mode1Data = transitRoute?.mode1?.type === 0 ? data.trains : data.trams;
+    const mode2Data = transitRoute?.mode2?.type === 0 ? data.trains : data.trams;
+
     const mode1Type = transitRoute?.mode1?.type === 0 ? 'TRAINS' : 'TRAMS';
     const mode2Type = transitRoute?.mode2?.type === 0 ? 'TRAINS' : 'TRAMS';
 
@@ -1190,10 +1195,10 @@ app.get('/api/device/:token', async (req, res) => {
       data.coffee?.canGet ? '☕ **YOU HAVE TIME FOR COFFEE!**' : '⚡ **NO COFFEE - GO DIRECT**',
       '',
       `**${mode1Name.toUpperCase()}** (${mode1Type})`,
-      data.trains?.length > 0 ? data.trains.slice(0, 2).map(t => `→ ${t.minutes} min`).join('\n') : '→ Checking...',
+      mode1Data?.length > 0 ? mode1Data.slice(0, 2).map(t => `→ ${t.minutes} min`).join('\n') : '→ Checking...',
       '',
       `**${mode2Name.toUpperCase()}** (${mode2Type})`,
-      data.trams?.length > 0 ? data.trams.slice(0, 2).map(t => `→ ${t.minutes} min`).join('\n') : '→ Checking...',
+      mode2Data?.length > 0 ? mode2Data.slice(0, 2).map(t => `→ ${t.minutes} min`).join('\n') : '→ Checking...',
       '',
       data.coffee?.subtext || '✓ Good service'
     ];
