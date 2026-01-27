@@ -6,8 +6,8 @@
       <stop offset="100%" style="stop-color:#4338ca;stop-opacity:0.8" />
     </radialGradient>
     <radialGradient id="layer1Grad">
-      <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:0.3" />
-      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:0.1" />
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#4f46e5;stop-opacity:0.1" />
     </radialGradient>
     <radialGradient id="layer2Grad">
       <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.3" />
@@ -141,7 +141,7 @@
   </g>
 
   <!-- Layer 1: Device & UI (Inner circle) -->
-  <circle cx="700" cy="720" r="220" fill="url(#layer1Grad)" stroke="#8b5cf6" stroke-width="3" opacity="0.6"/>
+  <circle cx="700" cy="720" r="220" fill="url(#layer1Grad)" stroke="#6366f1" stroke-width="3" opacity="0.6"/>
   <text x="700" y="520" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="600" fill="#a78bfa" text-anchor="middle">
     LAYER 1: Devices &amp; Interface
   </text>
@@ -149,7 +149,7 @@
   <!-- Device components -->
   <!-- TRMNL Device -->
   <g transform="translate(560, 610)">
-    <rect x="0" y="0" width="140" height="80" rx="8" fill="#1e293b" stroke="#8b5cf6" stroke-width="2" filter="url(#glow)"/>
+    <rect x="0" y="0" width="140" height="80" rx="8" fill="#1e293b" stroke="#6366f1" stroke-width="2" filter="url(#glow)"/>
     <text x="70" y="28" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="600" fill="#a78bfa" text-anchor="middle">📟 E-Ink</text>
     <text x="70" y="48" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">7.5" 800×480</text>
     <text x="70" y="64" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">Partial refresh</text>
@@ -157,7 +157,7 @@
 
   <!-- Admin Panel -->
   <g transform="translate(560, 780)">
-    <rect x="0" y="0" width="140" height="80" rx="8" fill="#1e293b" stroke="#8b5cf6" stroke-width="2"/>
+    <rect x="0" y="0" width="140" height="80" rx="8" fill="#1e293b" stroke="#6366f1" stroke-width="2"/>
     <text x="70" y="28" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="600" fill="#a78bfa" text-anchor="middle">💻 Admin</text>
     <text x="70" y="48" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">Web interface</text>
     <text x="70" y="64" font-family="Inter, system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">Configuration</text>
@@ -177,8 +177,8 @@
 
   <!-- Connection lines (showing data flow) -->
   <!-- Core to Layer 1 -->
-  <line x1="700" y1="640" x2="630" y2="610" stroke="#8b5cf6" stroke-width="2" opacity="0.6" stroke-dasharray="4,2"/>
-  <line x1="700" y1="800" x2="630" y2="820" stroke="#8b5cf6" stroke-width="2" opacity="0.6" stroke-dasharray="4,2"/>
+  <line x1="700" y1="640" x2="630" y2="610" stroke="#6366f1" stroke-width="2" opacity="0.6" stroke-dasharray="4,2"/>
+  <line x1="700" y1="800" x2="630" y2="820" stroke="#6366f1" stroke-width="2" opacity="0.6" stroke-dasharray="4,2"/>
 
   <!-- Layer 1 to Layer 2 -->
   <line x1="560" y1="650" x2="470" y2="510" stroke="#10b981" stroke-width="2" opacity="0.4" stroke-dasharray="4,2"/>
@@ -203,7 +203,7 @@
     </text>
 
     <!-- Layer 1 -->
-    <circle cx="10" cy="50" r="8" fill="#8b5cf6"/>
+    <circle cx="10" cy="50" r="8" fill="#6366f1"/>
     <text x="25" y="55" font-family="Inter, system-ui, sans-serif" font-size="12" fill="#94a3b8">
       Layer 1: Device firmware &amp; user interface
     </text>

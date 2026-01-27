@@ -1,5 +1,10 @@
 /**
  * Deployment Safeguards
+ *
+ * Copyright (c) 2026 Angus Bergman
+ * Licensed under CC BY-NC 4.0
+ * https://creativecommons.org/licenses/by-nc/4.0/
+ *
  * Production-ready error handling, monitoring, and failure mitigation
  *
  * Features:
