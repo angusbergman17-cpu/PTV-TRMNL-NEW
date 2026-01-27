@@ -2698,6 +2698,12 @@ Bandwidth (1KB response average):
 
 **ABSOLUTE REQUIREMENT**: 
 Users must NEVER need to:
+- Edit .env files or any configuration files
+- Use command-line tools to set API keys
+
+**ALL API KEYS MUST BE CONFIGURED EXCLUSIVELY THROUGH THE SETUP WIZARD/ADMIN PANEL.**
+
+Specifically, users must NEVER need to:
 - Manually enter API keys in server environment variables (Vercel, Render, etc.)
 - Configure server-side secrets for the system to function
 - Touch deployment configuration after initial setup

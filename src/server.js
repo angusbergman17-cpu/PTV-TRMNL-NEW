@@ -30,6 +30,7 @@ import { readFileSync } from 'fs';
 import nodemailer from 'nodemailer';
 import safeguards from './utils/deployment-safeguards.js';
 import { decodeConfigToken, encodeConfigToken, generateWebhookUrl } from './utils/config-token.js';
+import deviceState from './utils/device-state-manager.js';
 
 // Setup error handlers early (before any async operations)
 safeguards.setupErrorHandlers();
@@ -709,6 +710,8 @@ app.get('/api/version', (req, res) => {
   }
 });
 
+
+/* =========================================================n * Device State Management Endpointsn * Provides verifiable proof of what the device is displayingn * ========================================================= */nn// Get current device state (what is being displayed)napp.get("/api/device-state", (req, res) => {n  res.json(deviceState.getState());n});nn// Get full render historynapp.get("/api/device-state/history", (req, res) => {n  res.json(deviceState.getHistory());n});nn// Reset device state (manual recovery)napp.post("/api/device-state/reset", (req, res) => {n  deviceState.reset();n  res.json({ success: true, message: "Device state reset" });n});n
 /**
  * Get API Status and Configuration
  * Returns status of all configured APIs and services

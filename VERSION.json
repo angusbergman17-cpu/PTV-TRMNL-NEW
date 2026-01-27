@@ -55,7 +55,7 @@
     }
   },
   "firmware": {
-    "version": "5.11.0",
+    "version": "5.18.0",
     "description": "ESP32-C3 TRMNL Firmware - Live Dashboard (NO WATCHDOG)",
     "lastUpdated": "2026-01-27",
     "features": [
