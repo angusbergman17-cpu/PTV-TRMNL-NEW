@@ -2266,9 +2266,25 @@ app.post('/admin/setup/complete', async (req, res) => {
       prefs.transitAuthority = setupData.transitAuthority.name;
     }
 
-    // Update journey
+    // Update journey with full details
     if (setupData.calculatedJourney) {
       prefs.journey = setupData.calculatedJourney;
+    }
+
+    // Save journey configuration (selectedStops, workStartTime, cafeDuration)
+    prefs.journeyConfig = prefs.journeyConfig || {};
+    if (setupData.selectedStops) {
+      prefs.journeyConfig.selectedStops = setupData.selectedStops;
+    }
+    if (setupData.workStartTime) {
+      prefs.journeyConfig.workStartTime = setupData.workStartTime;
+    }
+    if (setupData.cafeDuration !== undefined) {
+      prefs.journeyConfig.cafeDuration = setupData.cafeDuration;
+    }
+    // Save journey options for dashboard recalculation
+    if (setupData.journeyOptions) {
+      prefs.journeyConfig.options = setupData.journeyOptions;
     }
 
     // Update BOM station

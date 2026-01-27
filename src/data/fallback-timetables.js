@@ -321,6 +321,39 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 /**
+ * Get all stops for a state (across all modes)
+ * @param {string} state State code (e.g., 'VIC')
+ * @returns {array} Array of all stops with coordinates
+ */
+export function getAllStops(state) {
+  const stateData = FALLBACK_STOPS[state];
+  if (!stateData) {
+    return [];
+  }
+
+  const allStops = [];
+
+  // Iterate through all modes
+  for (const [modeKey, modeData] of Object.entries(stateData.modes)) {
+    // Get route type from mode key
+    const routeType = modeData.route_type;
+
+    // Add all stops from this mode
+    if (modeData.stops && Array.isArray(modeData.stops)) {
+      modeData.stops.forEach(stop => {
+        allStops.push({
+          ...stop,
+          route_type: routeType,
+          mode: modeKey
+        });
+      });
+    }
+  }
+
+  return allStops;
+}
+
+/**
  * Get all available states with transit data
  * @returns {array} Array of state objects
  */
@@ -338,6 +371,7 @@ export default {
   getStopsByMode,
   searchStops,
   findNearestStop,
+  getAllStops,
   getAllStates,
   FALLBACK_STOPS
 };

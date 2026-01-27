@@ -318,12 +318,17 @@ class JourneyPlanner {
   findBestRoute(homeStops, workStops, includeAlternatives = false) {
     const allRoutes = [];
 
+    // Generate direct routes (single mode)
     for (const originStop of homeStops.slice(0, 5)) {
       for (const destStop of workStops.slice(0, 5)) {
         const routeData = this.calculateRouteForStops(originStop, destStop);
         allRoutes.push(routeData);
       }
     }
+
+    // Generate multi-modal routes (e.g., tram → train station → train)
+    const multiModalRoutes = this.findMultiModalRoutes(homeStops, workStops);
+    allRoutes.push(...multiModalRoutes);
 
     if (allRoutes.length === 0) {
       throw new Error('Could not find a transit route between your locations');
@@ -361,6 +366,155 @@ class JourneyPlanner {
     }
 
     return bestRoute;
+  }
+
+  /**
+   * Find multi-modal routes (e.g., tram → train station → train)
+   * @param {Array} homeStops Stops near home
+   * @param {Array} workStops Stops near work
+   * @returns {Array} Multi-modal route options
+   */
+  findMultiModalRoutes(homeStops, workStops) {
+    const multiModalRoutes = [];
+    const TRANSFER_DISTANCE = 300; // 300m = reasonable transfer distance
+    const TRANSFER_TIME = 5; // 5 minutes for transfer between modes
+
+    console.log('\n  🔄 Searching for multi-modal routes (with transfers)...');
+
+    // Get all available stops from fallback data
+    const allStops = fallbackTimetables.getAllStops('VIC');
+    if (!allStops || allStops.length === 0) {
+      console.log('  ⚠️ No stops available for transfer search');
+      return multiModalRoutes;
+    }
+
+    // For each nearby home stop (especially trams/buses)
+    for (const homeStop of homeStops.slice(0, 3)) {
+      // Skip if already a train (trains don't need transfers)
+      if (homeStop.routeType === 0) continue;
+
+      // Find nearby train stations from this home stop
+      const nearbyTransferStations = allStops.filter(station => {
+        if (station.route_type !== 0) return false; // Only trains
+
+        const distance = this.haversineDistance(
+          homeStop.lat, homeStop.lon,
+          station.stop_lat, station.stop_lon
+        );
+
+        return distance <= TRANSFER_DISTANCE;
+      });
+
+      if (nearbyTransferStations.length === 0) continue;
+
+      console.log(`  Found ${nearbyTransferStations.length} transfer stations near ${homeStop.name}`);
+
+      // For each transfer station
+      for (const transferStation of nearbyTransferStations.slice(0, 2)) {
+        // For each work stop
+        for (const workStop of workStops.slice(0, 3)) {
+          // Calculate multi-modal route
+          const multiRoute = this.calculateMultiModalRoute(
+            homeStop,
+            transferStation,
+            workStop,
+            TRANSFER_TIME
+          );
+
+          if (multiRoute) {
+            multiModalRoutes.push(multiRoute);
+            console.log(`  ✓ Multi-modal: ${homeStop.name} → ${transferStation.stop_name} → ${workStop.name} (${multiRoute.totalMinutes} min)`);
+          }
+        }
+      }
+    }
+
+    console.log(`  Found ${multiModalRoutes.length} multi-modal route options`);
+    return multiModalRoutes;
+  }
+
+  /**
+   * Calculate multi-modal route with transfer
+   * @param {Object} originStop First leg stop (e.g., tram stop)
+   * @param {Object} transferStation Transfer point (e.g., train station)
+   * @param {Object} destStop Final destination stop
+   * @param {number} transferTime Time for transfer (minutes)
+   * @returns {Object} Multi-modal route data
+   */
+  calculateMultiModalRoute(originStop, transferStation, destStop, transferTime) {
+    // Leg 1: Origin stop → Transfer station (e.g., tram to train station)
+    const leg1Distance = this.haversineDistance(
+      originStop.lat, originStop.lon,
+      transferStation.stop_lat, transferStation.stop_lon
+    );
+    const leg1Speed = this.ROUTE_TYPES[originStop.routeType]?.avgSpeed || 20;
+    const leg1Minutes = Math.ceil((leg1Distance / 1000) / leg1Speed * 60);
+
+    // Leg 2: Transfer station → Destination (e.g., train to work stop)
+    const leg2Distance = this.haversineDistance(
+      transferStation.stop_lat, transferStation.stop_lon,
+      destStop.lat, destStop.lon
+    );
+    const leg2Speed = this.ROUTE_TYPES[0]?.avgSpeed || 45; // Train speed
+    const leg2Minutes = Math.ceil((leg2Distance / 1000) / leg2Speed * 60);
+
+    // Total time: initial walk + leg1 + transfer + leg2 + final walk
+    const transitMinutes = leg1Minutes + transferTime + leg2Minutes;
+    const totalMinutes = Math.round(
+      originStop.walkingMinutes +
+      leg1Minutes +
+      transferTime +
+      leg2Minutes +
+      destStop.walkingMinutes
+    );
+
+    // Score includes slight transfer penalty but recognizes speed advantage
+    let score = totalMinutes + 3; // Small penalty for complexity of transfer
+
+    return {
+      originStop: {
+        id: originStop.id,
+        name: originStop.name,
+        lat: originStop.lat,
+        lon: originStop.lon,
+        mode: originStop.mode,
+        walkingMinutes: originStop.walkingMinutes,
+        distance: originStop.distance
+      },
+      destinationStop: {
+        id: destStop.id,
+        name: destStop.name,
+        lat: destStop.lat,
+        lon: destStop.lon,
+        mode: destStop.mode,
+        walkingMinutes: destStop.walkingMinutes,
+        distance: destStop.distance
+      },
+      // Multi-modal specific fields
+      isMultiModal: true,
+      transferStation: {
+        name: transferStation.stop_name,
+        lat: transferStation.stop_lat,
+        lon: transferStation.stop_lon
+      },
+      leg1: {
+        mode: originStop.routeTypeName,
+        icon: originStop.icon,
+        minutes: leg1Minutes
+      },
+      leg2: {
+        mode: 'Train',
+        icon: '🚆',
+        minutes: leg2Minutes
+      },
+      transferMinutes: transferTime,
+      mode: `${originStop.routeTypeName} + Train`, // e.g., "Tram + Train"
+      modeType: -1, // Special indicator for multi-modal
+      icon: `${originStop.icon}➔🚆`, // e.g., "🚊➔🚆"
+      transitMinutes: transitMinutes,
+      totalMinutes: totalMinutes,
+      score: score
+    };
   }
 
   /**
@@ -460,19 +614,60 @@ class JourneyPlanner {
       time: this.formatTime(currentMinutes)
     });
 
-    // Transit
+    // Transit (handle both single-mode and multi-modal routes)
     currentMinutes -= route.transitMinutes;
 
-    segments.unshift({
-      type: 'transit',
-      mode: route.mode,
-      icon: route.icon,
-      from: route.originStop.name,
-      to: route.destinationStop.name,
-      minutes: route.transitMinutes,
-      time: this.formatTime(currentMinutes),
-      note: 'Timetabled estimate (configure Transport API for live times)'
-    });
+    if (route.isMultiModal) {
+      // Multi-modal route: Create separate segments for each leg
+      const leg2StartTime = currentMinutes + route.leg1.minutes + route.transferMinutes;
+
+      // Leg 2: Train from transfer station to destination
+      segments.unshift({
+        type: 'transit',
+        mode: route.leg2.mode,
+        icon: route.leg2.icon,
+        from: route.transferStation.name,
+        to: route.destinationStop.name,
+        minutes: route.leg2.minutes,
+        time: this.formatTime(leg2StartTime),
+        note: 'Timetabled estimate (configure Transport API for live times)'
+      });
+
+      // Transfer at station
+      segments.unshift({
+        type: 'transfer',
+        location: route.transferStation.name,
+        from: route.leg1.mode,
+        to: route.leg2.mode,
+        minutes: route.transferMinutes,
+        time: this.formatTime(currentMinutes + route.leg1.minutes),
+        icon: `${route.leg1.icon} ➔ ${route.leg2.icon}`
+      });
+
+      // Leg 1: First mode (e.g., tram) from origin to transfer station
+      segments.unshift({
+        type: 'transit',
+        mode: route.leg1.mode,
+        icon: route.leg1.icon,
+        from: route.originStop.name,
+        to: route.transferStation.name,
+        minutes: route.leg1.minutes,
+        time: this.formatTime(currentMinutes),
+        note: 'Timetabled estimate (configure Transport API for live times)'
+      });
+    } else {
+      // Single-mode route
+      segments.unshift({
+        type: 'transit',
+        mode: route.mode,
+        icon: route.icon,
+        from: route.originStop.name,
+        to: route.destinationStop.name,
+        minutes: route.transitMinutes,
+        time: this.formatTime(currentMinutes),
+        note: 'Timetabled estimate (configure Transport API for live times)'
+      });
+    }
 
     // Buffer at station
     currentMinutes -= this.SAFETY_BUFFER;

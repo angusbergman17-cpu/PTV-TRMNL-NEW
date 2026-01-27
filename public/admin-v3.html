@@ -1790,6 +1790,9 @@
                 }
 
                 setupData.calculatedJourney = journey;
+                setupData.workStartTime = workStartTime; // Save work start time
+                setupData.cafeDuration = cafeDuration; // Save cafe duration
+                setupData.journeyOptions = journey.options; // Save journey options for recalculation
                 hideLoading();
 
                 // Display journey visualization
@@ -1829,7 +1832,8 @@
                     'walk': '🚶',
                     'wait': '⏳',
                     'transit': '🚆',
-                    'coffee': '☕'
+                    'coffee': '☕',
+                    'transfer': '🔄'
                 };
                 return icons[type] || '•';
             };
@@ -1866,6 +1870,13 @@
                     html += `<div class="leg-details">`;
                     html += `<strong>${seg.location}</strong><br>`;
                     html += `${seg.minutes} minutes buffer`;
+                    html += `</div>`;
+                } else if (seg.type === 'transfer') {
+                    html += `<div class="leg-mode">${seg.icon || icon} Transfer</div>`;
+                    html += `<div class="leg-details">`;
+                    html += `<strong>${seg.location}</strong><br>`;
+                    html += `Change from ${seg.from} to ${seg.to}<br>`;
+                    html += `${seg.minutes} minutes transfer time`;
                     html += `</div>`;
                 }
 
@@ -2132,6 +2143,13 @@
                 }
 
                 setupData.calculatedJourney = journey;
+                setupData.workStartTime = workStartTime; // Save work start time
+                setupData.cafeDuration = cafeDuration; // Save cafe duration
+                setupData.journeyOptions = journey.options; // Save journey options
+                setupData.selectedStops = { // Save selected stops
+                    originStopId: selectedHomeStopId,
+                    destinationStopId: selectedWorkStopId
+                };
                 hideLoading();
 
                 // Display updated journey
@@ -2141,6 +2159,10 @@
                 // Keep customize panel visible (user might want to try other stops)
                 // Hide floating button since we just recalculated
                 hideRecalculateButton();
+
+                // Store current selections before resetting for next recalculation
+                const previousHomeStopId = selectedHomeStopId;
+                const previousWorkStopId = selectedWorkStopId;
 
                 // Reset selected stops for next recalculation
                 selectedHomeStopId = null;
@@ -2397,10 +2419,93 @@
         }
 
         // Dashboard
-        function goToDashboard() {
+        async function goToDashboard() {
+            // Load preferences from server if setupData is empty (e.g., after page refresh)
+            if (!setupData.calculatedJourney) {
+                await loadPreferencesFromServer();
+            }
+
             goToStep('dashboard');
             updateDashboard();
             startLiveUpdates();
+        }
+
+        // Load saved preferences from server
+        async function loadPreferencesFromServer() {
+            try {
+                console.log('Loading preferences from server...');
+                const response = await fetch('/admin/preferences');
+                const result = await response.json();
+
+                if (result.success && result.preferences) {
+                    const prefs = result.preferences;
+
+                    // Load locations
+                    if (prefs.locations) {
+                        if (prefs.locations.home) {
+                            setupData.homeLocation = {
+                                lat: prefs.locations.home.lat,
+                                lon: prefs.locations.home.lon,
+                                formattedAddress: prefs.locations.home.address
+                            };
+                        }
+                        if (prefs.locations.work) {
+                            setupData.workLocation = {
+                                lat: prefs.locations.work.lat,
+                                lon: prefs.locations.work.lon,
+                                formattedAddress: prefs.locations.work.address
+                            };
+                        }
+                        if (prefs.locations.cafe) {
+                            setupData.cafeLocation = {
+                                lat: prefs.locations.cafe.lat,
+                                lon: prefs.locations.cafe.lon,
+                                formattedAddress: prefs.locations.cafe.address,
+                                businessName: prefs.locations.cafe.businessName
+                            };
+                        }
+                    }
+
+                    // Load journey
+                    if (prefs.journey) {
+                        setupData.calculatedJourney = prefs.journey;
+                    }
+
+                    // Load journey config (selectedStops, workStartTime, cafeDuration)
+                    if (prefs.journeyConfig) {
+                        setupData.selectedStops = prefs.journeyConfig.selectedStops;
+                        setupData.workStartTime = prefs.journeyConfig.workStartTime;
+                        setupData.cafeDuration = prefs.journeyConfig.cafeDuration;
+                        setupData.journeyOptions = prefs.journeyConfig.options;
+                    }
+
+                    // Load state and transit authority
+                    if (prefs.state) {
+                        setupData.detectedState = prefs.state;
+                    }
+
+                    // Load BOM station
+                    if (prefs.weatherStation) {
+                        setupData.bomStation = {
+                            stationID: prefs.weatherStation.id,
+                            stationName: prefs.weatherStation.name
+                        };
+                    }
+
+                    // Load device
+                    if (prefs.device) {
+                        setupData.selectedDevice = prefs.device.type;
+                    }
+
+                    console.log('✅ Preferences loaded successfully');
+                    console.log('Loaded setupData:', setupData);
+                } else {
+                    console.log('ℹ️ No saved preferences found');
+                }
+            } catch (error) {
+                console.error('Failed to load preferences:', error);
+                // Don't show error to user - they might just be starting setup
+            }
         }
 
         function updateDashboard() {
@@ -2518,8 +2623,18 @@
             }, 60000);
         }
 
-        // Initialize
-        updateProgress();
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            updateProgress();
+
+            // Load saved preferences from server (for dashboard access after page refresh)
+            await loadPreferencesFromServer();
+
+            // If we have a complete configuration, show option to go to dashboard
+            if (setupData.calculatedJourney && setupData.selectedDevice) {
+                console.log('✅ Configuration detected - dashboard available');
+            }
+        });
     </script>
 </body>
 </html>
