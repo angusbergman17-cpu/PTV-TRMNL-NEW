@@ -1,0 +1,9 @@
+PTV-TRMNL Firmware v5.45
+Device: TRMNL OG (ESP32-C3)
+Build: 2026-01-29 10:05
+Server: https://ptvtrmnl.vercel.app
+
+Features:
+- Plain-text zone parsing (no JSON)
+- Zone-based partial refresh
+- WiFiManager captive portal setup

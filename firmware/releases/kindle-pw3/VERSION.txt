@@ -1,0 +1,4 @@
+PTV-TRMNL Kindle Firmware v5.45
+Device: kindle-pw3
+Build: 2026-01-29 10:05
+Server: https://ptvtrmnl.vercel.app
