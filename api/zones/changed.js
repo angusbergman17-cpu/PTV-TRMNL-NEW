@@ -4,7 +4,7 @@ import v11Renderer from '../../src/services/zone-renderer-v11.js';
 import CafeBusyDetector from '../../src/services/cafe-busy-detector.js';
 
 const busyDetector = new CafeBusyDetector();
-const BATCH_SIZE = 6;
+const BATCH_SIZE = 3;
 
 function getMelbourneTime() {
   const now = new Date();

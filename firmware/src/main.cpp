@@ -13,10 +13,10 @@
 
 #define SCREEN_W 800
 #define SCREEN_H 480
-#define MAX_ZONES 10
+#define MAX_ZONES 6
 #define ZONE_BMP_MAX_SIZE 20000
 #define ZONE_ID_MAX_LEN 32
-#define ZONE_DATA_MAX_LEN 15000
+#define ZONE_DATA_MAX_LEN 8000
 #define FIRMWARE_VERSION "5.32"
 
 // Fallback server URL if none configured
