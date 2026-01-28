@@ -42,6 +42,12 @@ export default async function handler(req, res) {
     
     const result = renderZones(data, {}, forceAll);
     const changedIds = result.zones.filter(z => z.changed || forceAll).map(z => z.id);
+    // Plain text format for ESP32 (no JSON parsing needed)
+    if (req.query.plain === "1") {
+      res.setHeader("Content-Type", "text/plain");
+      res.setHeader("Cache-Control", "no-cache");
+      return res.status(200).send(changedIds.join(","));
+    }
     
     // Fix: Ensure changed is boolean, not object
     result.zones = result.zones.map(zone => ({

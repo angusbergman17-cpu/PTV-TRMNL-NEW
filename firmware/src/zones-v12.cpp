@@ -26,7 +26,7 @@
 
 #define SCREEN_W 800
 #define SCREEN_H 480
-#define FIRMWARE_VERSION "5.43"
+#define FIRMWARE_VERSION "5.45"
 #define ZONE_BUFFER_SIZE 16384
 static uint8_t* zoneBuffer = nullptr;
 
@@ -103,34 +103,26 @@ bool fetchChangedZoneList(bool forceAll, bool* changedFlags) {
     WiFiClientSecure* client = new WiFiClientSecure(); if (!client) return false;
     client->setInsecure();
     HTTPClient http;
-    String url = String(serverUrl) + "/api/zones?batch=0"; if (forceAll) url += "&force=true";
+    String url = String(serverUrl) + "/api/zones?plain=1"; if (forceAll) url += "&force=true";
     url.replace("//api", "/api");
     http.setTimeout(10000); if (!http.begin(*client, url)) { delete client; return false; }
     http.addHeader("User-Agent", "PTV-TRMNL/" FIRMWARE_VERSION);
     int httpCode = http.GET();
     if (httpCode != 200) { http.end(); delete client; return false; }
-    String payload = http.getString(); Serial.printf("Got payload: %d bytes\n", payload.length()); http.end(); Serial.println("HTTP end"); delete client; Serial.println("Client deleted");
-    // Manual JSON parsing (ArduinoJson crashes on ESP32-C3)
-    Serial.println("Parsing changed zones...");
-    int start = payload.indexOf("\"changed\":");
-    if (start < 0) { Serial.println("No changed field"); return false; }
-    int arrStart = payload.indexOf('[', start);
-    int arrEnd = payload.indexOf(']', arrStart);
-    if (arrStart < 0 || arrEnd < 0) { Serial.println("No array"); return false; }
-    String arr = payload.substring(arrStart + 1, arrEnd);
+    String payload = http.getString(); Serial.printf("Zones: %s\n", payload.c_str()); http.end(); delete client;
+    // Simple CSV parsing: time,weather,trains,trams,coffee,footer
     int pos = 0;
-    while (pos < (int)arr.length()) {
-        int q1 = arr.indexOf('"', pos);
-        if (q1 < 0) break;
-        int q2 = arr.indexOf('"', q1 + 1);
-        if (q2 < 0) break;
-        String zid = arr.substring(q1 + 1, q2);
+    while (pos < (int)payload.length()) {
+        int comma = payload.indexOf(',', pos);
+        if (comma < 0) comma = payload.length();
+        String zid = payload.substring(pos, comma);
+        zid.trim();
         for (int i = 0; i < ZONE_COUNT; i++) {
-            if (zid.equals(ZONES[i].id)) { changedFlags[i] = true; Serial.printf("Zone %s changed\n", ZONES[i].id); break; }
+            if (zid.equals(ZONES[i].id)) { changedFlags[i] = true; break; }
         }
-        pos = q2 + 1;
+        pos = comma + 1;
     }
-    Serial.println("Parsing done");
+    Serial.println("Zones parsed");
     return true;
 }
 
