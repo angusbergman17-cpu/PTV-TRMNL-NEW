@@ -1,9 +1,10 @@
-// /api/zone/:id - Returns raw BMP for a single zone (firmware stage 2)
+// /api/zone/:id - Returns raw BMP for a single zone
 import { renderZones } from '../../src/services/zone-renderer.js';
 
 export default async function handler(req, res) {
   try {
     const { id } = req.query;
+    console.log('Requested zone:', id);
     
     const now = new Date();
     const currentTime = now.toLocaleTimeString('en-AU', {
@@ -21,17 +22,23 @@ export default async function handler(req, res) {
       coffee: { canGet: true, subtext: 'You have 8 minutes' }
     };
     
-    const result = renderZones(data, {}, true);
+    // forceAll=true to ensure data is rendered
+    const result = renderZones(data, true);
+    console.log('Rendered zones:', result.zones.map(z => z.id));
+    
     const zone = result.zones.find(z => z.id === id);
     
-    if (!zone || !zone.data) {
-      return res.status(404).json({ error: 'Zone not found: ' + id });
+    if (!zone) {
+      return res.status(404).json({ error: 'Zone not found', requested: id, available: result.zones.map(z => z.id) });
+    }
+    
+    if (!zone.data) {
+      return res.status(404).json({ error: 'Zone has no data', zoneId: id });
     }
     
     // Decode base64 to raw BMP
     const bmpBuffer = Buffer.from(zone.data, 'base64');
     
-    // Set zone position headers for firmware
     res.setHeader('X-Zone-X', zone.x);
     res.setHeader('X-Zone-Y', zone.y);
     res.setHeader('X-Zone-Width', zone.w);
@@ -43,6 +50,6 @@ export default async function handler(req, res) {
     res.status(200).send(bmpBuffer);
   } catch (error) {
     console.error('Zone error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 }
