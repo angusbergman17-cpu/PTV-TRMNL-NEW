@@ -2,7 +2,7 @@
 import { renderZones } from '../src/services/zone-renderer.js';
 
 export default async function handler(req, res) {
-  try {
+  try { if (req.query.ver) return res.json({version: 'v2-test', ts: Date.now()});
     const forceAll = req.query.force === 'true';
     
     const now = new Date();
