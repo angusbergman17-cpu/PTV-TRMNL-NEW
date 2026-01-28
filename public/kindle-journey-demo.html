@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1072, height=1448">
+  <title>Journey - Kindle 11</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    /* Kindle 11 Display: 1072x1448 portrait */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #f5f5f0;
+      color: #000;
+      width: 1072px;
+      height: 1448px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Bar - LEAVE TIME */
+    .top-bar {
+      background: #000;
+      color: #fff;
+      padding: 40px 50px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .leave-section {
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+    }
+
+    .leave-label {
+      font-size: 36px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+    }
+
+    .leave-time {
+      font-size: 120px;
+      font-weight: 900;
+      letter-spacing: -5px;
+    }
+
+    .arrive-section {
+      text-align: right;
+    }
+
+    .arrive-label {
+      font-size: 20px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      opacity: 0.6;
+    }
+
+    .arrive-time {
+      font-size: 64px;
+      font-weight: 700;
+    }
+
+    .arrive-dest {
+      font-size: 24px;
+      opacity: 0.8;
+    }
+
+    /* Journey Container */
+    .journey-container {
+      flex: 1;
+      padding: 40px 50px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Step Row */
+    .step-row {
+      display: flex;
+      align-items: center;
+      padding: 30px 20px;
+      border-bottom: 4px solid #ddd;
+    }
+
+    .step-row:last-child {
+      border-bottom: none;
+    }
+
+    /* Large Icons */
+    .step-icon {
+      width: 140px;
+      height: 120px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-icon svg {
+      width: 100px;
+      height: 100px;
+    }
+
+    /* Step Info */
+    .step-info {
+      flex: 1;
+      padding: 0 30px;
+    }
+
+    .step-title {
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .step-subtitle {
+      font-size: 28px;
+      color: #555;
+      margin-top: 8px;
+    }
+
+    .route-badge {
+      display: inline-block;
+      background: #000;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 28px;
+      font-weight: 700;
+      margin-left: 12px;
+      vertical-align: middle;
+    }
+
+    /* Duration */
+    .step-duration {
+      text-align: right;
+      min-width: 140px;
+    }
+
+    .duration-value {
+      font-size: 72px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .duration-unit {
+      font-size: 28px;
+      color: #555;
+      font-weight: 600;
+    }
+
+    /* Coffee Step */
+    .step-row.coffee-step {
+      background: #e8e8e8;
+      border-radius: 16px;
+      margin: 10px 0;
+      padding: 35px 20px;
+      border: 5px dashed #999;
+    }
+
+    .no-time {
+      font-size: 48px;
+      color: #888;
+      font-weight: 600;
+    }
+
+    .flex-label {
+      font-size: 20px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* Footer */
+    .status-footer {
+      background: #e5e5e5;
+      padding: 30px 50px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 28px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="leave-section">
+      <span class="leave-label">Leave</span>
+      <span class="leave-time">8:34</span>
+    </div>
+    <div class="arrive-section">
+      <div class="arrive-label">Arrive</div>
+      <div class="arrive-time">9:00</div>
+      <div class="arrive-dest">80 Collins St</div>
+    </div>
+  </div>
+
+  <!-- Journey Steps -->
+  <div class="journey-container">
+    
+    <!-- Walk to Cafe -->
+    <div class="step-row">
+      <div class="step-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="10" r="7" fill="#000"/>
+          <path d="M26 20h12l6 22-8 4v14h-5V44l-7-8 2-16z" fill="#000"/>
+          <path d="M22 26l-10 16h8l8-10" fill="#000"/>
+          <path d="M42 26l8 26h-6l-6-20" fill="#000"/>
+        </svg>
+      </div>
+      <div class="step-info">
+        <div class="step-title">Walk to Norman</div>
+        <div class="step-subtitle">300 Toorak Rd</div>
+      </div>
+      <div class="step-duration">
+        <div class="duration-value">4</div>
+        <div class="duration-unit">min</div>
+      </div>
+    </div>
+
+    <!-- Coffee Stop -->
+    <div class="step-row coffee-step">
+      <div class="step-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 22h36v6c0 14-7 22-18 22S10 42 10 28v-6z" fill="#000"/>
+          <path d="M46 26h8c5 0 8 3 8 8s-3 8-8 8h-8" stroke="#000" stroke-width="5"/>
+          <path d="M18 10c2-5 5-5 5 0s3 5 5 0" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+          <path d="M30 10c2-5 5-5 5 0s3 5 5 0" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+          <rect x="6" y="54" width="44" height="5" rx="2" fill="#000"/>
+        </svg>
+      </div>
+      <div class="step-info">
+        <div class="step-title">Coffee at Norman</div>
+        <div class="step-subtitle">Quick stop on route</div>
+      </div>
+      <div class="step-duration">
+        <div class="no-time">—</div>
+        <div class="flex-label">Flexible</div>
+      </div>
+    </div>
+
+    <!-- Walk to Station -->
+    <div class="step-row">
+      <div class="step-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="10" r="7" fill="#000"/>
+          <path d="M26 20h12l6 22-8 4v14h-5V44l-7-8 2-16z" fill="#000"/>
+          <path d="M22 26l-10 16h8l8-10" fill="#000"/>
+          <path d="M42 26l8 26h-6l-6-20" fill="#000"/>
+        </svg>
+      </div>
+      <div class="step-info">
+        <div class="step-title">Walk to Station</div>
+        <div class="step-subtitle">South Yarra • Platform 1</div>
+      </div>
+      <div class="step-duration">
+        <div class="duration-value">5</div>
+        <div class="duration-unit">min</div>
+      </div>
+    </div>
+
+    <!-- Train -->
+    <div class="step-row">
+      <div class="step-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="6" width="44" height="44" rx="8" fill="#000"/>
+          <rect x="16" y="12" width="32" height="14" rx="3" fill="#fff"/>
+          <circle cx="20" cy="42" r="6" fill="#fff"/>
+          <circle cx="44" cy="42" r="6" fill="#fff"/>
+          <rect x="28" y="32" width="8" height="12" rx="2" fill="#fff"/>
+          <path d="M18 54l-5 10h10l-5-10z" fill="#000"/>
+          <path d="M46 54l-5 10h10l-5-10z" fill="#000"/>
+        </svg>
+      </div>
+      <div class="step-info">
+        <div class="step-title">Train<span class="route-badge">Sandringham</span></div>
+        <div class="step-subtitle">South Yarra → Parliament</div>
+      </div>
+      <div class="step-duration">
+        <div class="duration-value">5</div>
+        <div class="duration-unit">min</div>
+      </div>
+    </div>
+
+    <!-- Walk to Work -->
+    <div class="step-row">
+      <div class="step-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="10" r="7" fill="#000"/>
+          <path d="M26 20h12l6 22-8 4v14h-5V44l-7-8 2-16z" fill="#000"/>
+          <path d="M22 26l-10 16h8l8-10" fill="#000"/>
+          <path d="M42 26l8 26h-6l-6-20" fill="#000"/>
+        </svg>
+      </div>
+      <div class="step-info">
+        <div class="step-title">Walk to Work</div>
+        <div class="step-subtitle">80 Collins Street</div>
+      </div>
+      <div class="step-duration">
+        <div class="duration-value">5</div>
+        <div class="duration-unit">min</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="status-footer">
+    <span>☀️ 18°C Sunny</span>
+    <span>Total: 26 min</span>
+    <span>Updated 8:34</span>
+  </div>
+</body>
+</html>
