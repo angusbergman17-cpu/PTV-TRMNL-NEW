@@ -94,6 +94,72 @@ router.get('/trmnl', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Kindle device resolutions
+const KINDLE_DEVICES = {
+  'kindle-pw3': { width: 1072, height: 1448, name: 'Kindle Paperwhite 3' },
+  'kindle-pw4': { width: 1072, height: 1448, name: 'Kindle Paperwhite 4' },
+  'kindle-pw5': { width: 1236, height: 1648, name: 'Kindle Paperwhite 5' },
+  'kindle-basic-10': { width: 600, height: 800, name: 'Kindle Basic (10th gen)' },
+  'kindle-11': { width: 1072, height: 1448, name: 'Kindle (11th gen)' },
+  'default': { width: 1072, height: 1448, name: 'Default Kindle' }
+};
+
+// Kindle endpoint - returns HTML for Kindle extension to render
+router.get('/kindle', async (req, res) => {
+  try {
+    const model = req.query.model || 'default';
+    const deviceConfig = KINDLE_DEVICES[model] || KINDLE_DEVICES['default'];
+    
+    await calculateJourney(await getLiveDataFromServices());
+    const journey = currentJourney;
+    
+    // Generate HTML optimized for Kindle e-ink
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:serif;background:#fff;color:#000;width:${deviceConfig.width}px;height:${deviceConfig.height}px;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:15px}
+.origin{font-size:14px;font-weight:bold}
+.time{font-size:48px;font-weight:bold}
+.date{text-align:center}
+.weather{border:2px solid #000;padding:10px;text-align:center}
+.weather .temp{font-size:28px;font-weight:bold}
+.status-bar{background:#000;color:#fff;padding:8px 15px;margin:10px 0;display:flex;justify-content:space-between}
+.step{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #ccc}
+.step-num{width:30px;height:30px;border-radius:50%;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;margin-right:15px}
+.step.skipped{opacity:0.5}.step.skipped .step-num{background:transparent;border:2px dashed #000;color:#000}
+.step.cancelled{background:repeating-linear-gradient(45deg,#fff,#fff 5px,#ddd 5px,#ddd 10px)}
+.step-content{flex:1}
+.step-title{font-size:16px;font-weight:bold}
+.step-subtitle{font-size:12px;color:#666}
+.step-duration{text-align:right;font-size:24px;font-weight:bold}
+.step-duration small{display:block;font-size:10px;font-weight:normal}
+.footer{position:absolute;bottom:20px;left:20px;right:20px;display:flex;justify-content:space-between;border-top:2px solid #000;padding-top:10px}
+</style></head>
+<body>
+<div class="header">
+  <div><div class="origin">${journey.originAddress}</div><div class="time">${journey.currentTime.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit',hour12:false})}</div></div>
+  <div class="date"><strong>${journey.dayOfWeek}</strong><br>${journey.dateString}</div>
+  <div class="weather"><div class="temp">${journey.temperature || '--'}°</div><div>${journey.weatherCondition}</div><div style="margin-top:5px;font-size:11px;${journey.bringUmbrella?'background:#000;color:#fff;padding:2px 5px':''}">${journey.bringUmbrella?'BRING UMBRELLA':'NO UMBRELLA'}</div></div>
+</div>
+<div class="status-bar"><span>${journey.getStatusBarText()}</span><span>${journey.totalDuration} min</span></div>
+${journey.steps.slice(0,6).map((s,i)=>`
+<div class="step ${s.status}">
+  <div class="step-num">${s.status==='cancelled'?'✗':i+1}</div>
+  <div class="step-content"><div class="step-title">${s.title}</div><div class="step-subtitle">${s.subtitle}</div></div>
+  <div class="step-duration">${s.status==='cancelled'?'CANCELLED':(s.status==='extended'?'~':'')+s.getDurationDisplay()}<small>${s.getDurationLabel()}</small></div>
+</div>`).join('')}
+<div class="footer">
+  <div style="font-weight:bold">${journey.isHomebound?'HOME — ':''}${journey.destinationAddress}</div>
+  <div>ARRIVE <strong style="font-size:20px">${journey.arrivalTime?journey.arrivalTime.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit',hour12:false}):'--:--'}</strong></div>
+</div>
+</body></html>`;
+    
+    res.set('Content-Type', 'text/html');
+    res.send(html);
+  } catch (e) { res.status(500).send(`<h1>Error</h1><pre>${e.message}</pre>`); }
+});
+
 router.get('/demo', async (req, res) => {
   try {
     const scenario = req.query.scenario || 'normal', format = req.query.format || 'png';
