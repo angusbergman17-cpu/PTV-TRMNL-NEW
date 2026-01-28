@@ -364,6 +364,184 @@ class JourneyPlanner {
     const icons = { 0: '🚆', 1: '🚊', 2: '🚌', 3: '🚄', 4: '⛴️' };
     return icons[routeType] || '🚇';
   }
+
+  /**
+   * Calculate multi-modal journey with up to 4 transit modes
+   * Supports: Walk → Mode1 → [Walk] → Mode2 → [Walk] → Mode3 → [Walk] → Mode4 → Walk
+   * @param {Object} params - Journey parameters
+   * @param {Object} params.locations - { home, cafe, work } with lat/lon
+   * @param {Array} params.modes - Array of mode configs (1-4 modes)
+   * @param {Object} params.routePrefs - Route preferences from config
+   * @param {string} params.arrivalTime - Target arrival time (HH:MM)
+   */
+  calculateMultiModalJourney(params) {
+    const { locations, modes, routePrefs, arrivalTime, cafeDuration = 5 } = params;
+    const segments = [];
+    
+    if (!modes || modes.length === 0 || modes.length > 4) {
+      return { success: false, error: 'Must have 1-4 transit modes' };
+    }
+
+    console.log('🗺️  Calculating multi-modal journey with', modes.length, 'mode(s)');
+
+    // Get walking constraints from preferences
+    const maxWalk = routePrefs?.walking?.maxDistanceMeters || 500;
+    const walkSpeed = 80; // meters per minute
+
+    // Track current position through the journey
+    let currentPos = locations.home;
+    let totalMinutes = 0;
+
+    // Optional: Start with cafe
+    if (locations.cafe) {
+      const walkToCafe = this.haversineDistance(
+        currentPos.lat, currentPos.lon,
+        locations.cafe.lat, locations.cafe.lon
+      );
+      const walkMinutes = Math.ceil(walkToCafe / walkSpeed);
+      
+      segments.push({
+        type: 'walk',
+        from: 'Home',
+        to: 'Cafe',
+        distance: Math.round(walkToCafe),
+        minutes: walkMinutes
+      });
+      totalMinutes += walkMinutes;
+
+      segments.push({
+        type: 'coffee',
+        location: 'Cafe',
+        minutes: cafeDuration
+      });
+      totalMinutes += cafeDuration;
+
+      currentPos = locations.cafe;
+    }
+
+    // Process each transit mode (up to 4)
+    for (let i = 0; i < modes.length; i++) {
+      const mode = modes[i];
+      const isFirstMode = (i === 0 && !locations.cafe) || (i === 0 && locations.cafe);
+      const isLastMode = (i === modes.length - 1);
+
+      // Walk to this mode's origin station
+      const walkToStation = this.haversineDistance(
+        currentPos.lat, currentPos.lon,
+        mode.originStation.lat, mode.originStation.lon
+      );
+
+      // Check walking distance constraint
+      if (walkToStation > maxWalk && routePrefs?.walking?.avoidLongWalks) {
+        console.log('⚠️  Walk to', mode.originStation.name, 'exceeds max (' + Math.round(walkToStation) + 'm)');
+      }
+
+      const walkMinutes = Math.ceil(walkToStation / walkSpeed);
+      segments.push({
+        type: 'walk',
+        from: isFirstMode ? (locations.cafe ? 'Cafe' : 'Home') : modes[i-1].destinationStation.name,
+        to: mode.originStation.name,
+        distance: Math.round(walkToStation),
+        minutes: walkMinutes
+      });
+      totalMinutes += walkMinutes;
+
+      // Wait time (average 2-3 min)
+      const waitMinutes = 2;
+      segments.push({
+        type: 'wait',
+        location: mode.originStation.name,
+        minutes: waitMinutes
+      });
+      totalMinutes += waitMinutes;
+
+      // Transit leg
+      const transitMinutes = mode.estimatedDuration || 
+        this.estimateTransitTime(mode.originStation, mode.destinationStation);
+      
+      segments.push({
+        type: 'transit',
+        mode: this.getModeName(mode.type),
+        icon: this.getModeIcon(mode.type),
+        routeType: mode.type,
+        from: mode.originStation.name,
+        to: mode.destinationStation.name,
+        minutes: transitMinutes,
+        leg: i + 1
+      });
+      totalMinutes += transitMinutes;
+
+      // Update current position to destination station
+      currentPos = mode.destinationStation;
+    }
+
+    // Final walk to work
+    const walkToWork = this.haversineDistance(
+      currentPos.lat, currentPos.lon,
+      locations.work.lat, locations.work.lon
+    );
+    const finalWalkMinutes = Math.ceil(walkToWork / walkSpeed);
+    
+    segments.push({
+      type: 'walk',
+      from: modes[modes.length - 1].destinationStation.name,
+      to: 'Work',
+      distance: Math.round(walkToWork),
+      minutes: finalWalkMinutes
+    });
+    totalMinutes += finalWalkMinutes;
+
+    // Calculate departure time from arrival time
+    const [arrHours, arrMins] = arrivalTime.split(':').map(Number);
+    const arrivalMinutes = arrHours * 60 + arrMins;
+    const departureMinutes = arrivalMinutes - totalMinutes;
+    const depHours = Math.floor(departureMinutes / 60);
+    const depMins = departureMinutes % 60;
+    const departureTime = String(depHours).padStart(2, '0') + ':' + String(depMins).padStart(2, '0');
+
+    // Add times to each segment (working backwards)
+    let currentMinutes = arrivalMinutes;
+    for (let i = segments.length - 1; i >= 0; i--) {
+      currentMinutes -= segments[i].minutes;
+      const h = Math.floor(currentMinutes / 60);
+      const m = currentMinutes % 60;
+      segments[i].time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+
+    return {
+      success: true,
+      journey: {
+        departureTime,
+        arrivalTime,
+        totalMinutes,
+        numberOfModes: modes.length,
+        segments,
+        summary: modes.map(m => this.getModeIcon(m.type)).join(' → ')
+      }
+    };
+  }
+
+  /**
+   * Build a mode config for multi-modal journey
+   */
+  buildModeConfig(type, originStation, destinationStation, estimatedDuration = null) {
+    return {
+      type,
+      originStation: {
+        name: originStation.name,
+        id: originStation.id,
+        lat: originStation.lat,
+        lon: originStation.lon
+      },
+      destinationStation: {
+        name: destinationStation.name,
+        id: destinationStation.id,
+        lat: destinationStation.lat,
+        lon: destinationStation.lon
+      },
+      estimatedDuration
+    };
+  }
 }
 
 export default JourneyPlanner;
