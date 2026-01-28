@@ -22,7 +22,7 @@
 #define SCREEN_W 800
 #define SCREEN_H 480
 
-BBEPAPER bbep(EP75_800x480);
+BBEPAPER bbep(EP75_800x480_GEN2);
 Preferences preferences;
 
 unsigned long lastRefresh = 0;
@@ -152,10 +152,10 @@ void loop() {
 
 void initDisplay() {
     bbep.initIO(EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN, EPD_CS_PIN, EPD_MOSI_PIN, EPD_SCK_PIN, 8000000);
-    bbep.setPanelType(EP75_800x480);
-    bbep.setRotation(0);
+    bbep.setPanelType(EP75_800x480_GEN2);
+    bbep.setRotation(2);
     pinMode(PIN_INTERRUPT, INPUT_PULLUP);
-    Serial.println("Display: 800x480 Landscape");
+    Serial.printf("Display: %dx%d (rotation=%d)\n", bbep.width(), bbep.height(), bbep.getRotation());
 }
 
 void connectWiFiSafe() {
