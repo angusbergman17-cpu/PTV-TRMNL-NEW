@@ -120,6 +120,112 @@ global.journeyPlanner = journeyPlanner; // Compliant implementation
 global.weatherBOM = weather;
 global.fallbackTimetables = fallbackTimetables; // For journey planner stop lookup
 
+// Smart Journey Planner - combines geocoding + stop detection for admin setup
+const smartJourneyPlanner = {
+  /**
+   * Detect Australian state from coordinates
+   * @param {number} lat - Latitude
+   * @param {number} lon - Longitude
+   * @returns {string} State code (VIC, NSW, QLD, etc.)
+   */
+  detectStateFromCoordinates(lat, lon) {
+    // Approximate bounding boxes for Australian states
+    const states = [
+      { code: 'VIC', minLat: -39.2, maxLat: -34.0, minLon: 140.9, maxLon: 150.0 },
+      { code: 'NSW', minLat: -37.5, maxLat: -28.2, minLon: 140.9, maxLon: 153.6 },
+      { code: 'QLD', minLat: -29.2, maxLat: -10.7, minLon: 138.0, maxLon: 153.6 },
+      { code: 'SA', minLat: -38.1, maxLat: -26.0, minLon: 129.0, maxLon: 141.0 },
+      { code: 'WA', minLat: -35.1, maxLat: -13.7, minLon: 112.9, maxLon: 129.0 },
+      { code: 'TAS', minLat: -43.7, maxLat: -39.6, minLon: 143.8, maxLon: 148.5 },
+      { code: 'NT', minLat: -26.0, maxLat: -10.9, minLon: 129.0, maxLon: 138.0 },
+      { code: 'ACT', minLat: -35.9, maxLat: -35.1, minLon: 148.8, maxLon: 149.4 }
+    ];
+
+    for (const state of states) {
+      if (lat >= state.minLat && lat <= state.maxLat &&
+          lon >= state.minLon && lon <= state.maxLon) {
+        return state.code;
+      }
+    }
+
+    // Default to VIC if coordinates don't match any state (likely Melbourne area)
+    return 'VIC';
+  },
+
+  /**
+   * Find nearby transit stops using fallback timetable data
+   * @param {Object} location - { lat, lon } coordinates
+   * @param {Object} apiCredentials - Unused (for compatibility)
+   * @returns {Array} Array of nearby stops with metadata
+   */
+  async findNearbyStops(location, apiCredentials = null) {
+    if (!location?.lat || !location?.lon) {
+      console.error('❌ findNearbyStops: Invalid location');
+      return [];
+    }
+
+    // Detect state from coordinates
+    const state = this.detectStateFromCoordinates(location.lat, location.lon);
+    console.log(`  🗺️  Detected state for stops: ${state}`);
+
+    // Get all stops for this state from fallback timetables
+    const allStops = fallbackTimetables.getStopsForState(state);
+    if (!allStops || allStops.length === 0) {
+      console.warn(`  ⚠️  No fallback stops for state: ${state}`);
+      return [];
+    }
+
+    // Calculate distance to each stop and filter nearby ones
+    const stopsWithDistance = allStops.map(stop => {
+      const distance = this.haversineDistance(location.lat, location.lon, stop.lat, stop.lon);
+      return {
+        ...stop,
+        stop_id: stop.id,
+        stop_name: stop.name,
+        distance: Math.round(distance),
+        walkingMinutes: Math.ceil(distance / 80), // 80m/min walking speed
+        route_type_name: this.getRouteTypeName(stop.route_type)
+      };
+    })
+    .filter(stop => stop.distance < 2000) // Within 2km
+    .sort((a, b) => {
+      // Prioritize by mode (train > tram > bus), then by distance
+      const modePriority = { 0: 1, 1: 2, 2: 3, 3: 1.5 }; // train, tram, bus, vline
+      const aPriority = modePriority[a.route_type] || 4;
+      const bPriority = modePriority[b.route_type] || 4;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return a.distance - b.distance;
+    });
+
+    console.log(`  📍 Found ${stopsWithDistance.length} stops within 2km`);
+    return stopsWithDistance;
+  },
+
+  /**
+   * Haversine distance calculation (meters)
+   */
+  haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  },
+
+  /**
+   * Get route type display name
+   */
+  getRouteTypeName(routeType) {
+    const types = { 0: 'Train', 1: 'Tram', 2: 'Bus', 3: 'V/Line', 4: 'Ferry' };
+    return types[routeType] || 'Transit';
+  }
+};
+
 global.geocodingService = new GeocodingService({
   googlePlacesKey: prefs.additionalAPIs?.google_places || process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACES_KEY,
   mapboxToken: prefs.additionalAPIs?.mapbox || process.env.MAPBOX_ACCESS_TOKEN || process.env.MAPBOX_TOKEN
@@ -3485,32 +3591,66 @@ app.post('/admin/smart-setup', async (req, res) => {
     }
 
     // Step 1: Geocode addresses to get coordinates
+    // GeocodingService returns { lat, lon, formattedAddress, source } directly
     console.log('  📍 Geocoding home address:', addresses.home);
-    const homeGeocode = await geocodingService.geocode(addresses.home);
-    console.log('  📍 Home geocode result:', homeGeocode);
-
-    console.log('  📍 Geocoding work address:', addresses.work);
-    const workGeocode = await geocodingService.geocode(addresses.work);
-    console.log('  📍 Work geocode result:', workGeocode);
-
-    if (!homeGeocode.success || !homeGeocode.location) {
-      console.error('  ❌ Home address geocoding failed');
+    let homeGeocode;
+    try {
+      homeGeocode = await global.geocodingService.geocode(addresses.home, { country: 'AU' });
+      console.log('  📍 Home geocode result:', homeGeocode);
+    } catch (geoError) {
+      console.error('  ❌ Home address geocoding failed:', geoError.message);
+      clearTimeout(timeoutId);
       return res.status(400).json({
         success: false,
         message: `Could not find home address: "${addresses.home}". Please try entering the full address with suburb and state (e.g., "1 Clara Street, South Yarra VIC 3141")`
       });
     }
 
-    if (!workGeocode.success || !workGeocode.location) {
-      console.error('  ❌ Work address geocoding failed');
+    console.log('  📍 Geocoding work address:', addresses.work);
+    let workGeocode;
+    try {
+      workGeocode = await global.geocodingService.geocode(addresses.work, { country: 'AU' });
+      console.log('  📍 Work geocode result:', workGeocode);
+    } catch (geoError) {
+      console.error('  ❌ Work address geocoding failed:', geoError.message);
+      clearTimeout(timeoutId);
       return res.status(400).json({
         success: false,
         message: `Could not find work address: "${addresses.work}". Please try entering the full address with suburb and state.`
       });
     }
 
-    const homeLocation = homeGeocode.location;
-    const workLocation = workGeocode.location;
+    if (!homeGeocode?.lat || !homeGeocode?.lon) {
+      console.error('  ❌ Home address geocoding returned no coordinates');
+      clearTimeout(timeoutId);
+      return res.status(400).json({
+        success: false,
+        message: `Could not find home address: "${addresses.home}". Please try entering the full address with suburb and state (e.g., "1 Clara Street, South Yarra VIC 3141")`
+      });
+    }
+
+    if (!workGeocode?.lat || !workGeocode?.lon) {
+      console.error('  ❌ Work address geocoding returned no coordinates');
+      clearTimeout(timeoutId);
+      return res.status(400).json({
+        success: false,
+        message: `Could not find work address: "${addresses.work}". Please try entering the full address with suburb and state.`
+      });
+    }
+
+    // Convert geocode result to location format expected by rest of code
+    const homeLocation = {
+      lat: homeGeocode.lat,
+      lon: homeGeocode.lon,
+      city: homeGeocode.formattedAddress?.split(',')[1]?.trim() || '',
+      formattedAddress: homeGeocode.formattedAddress
+    };
+    const workLocation = {
+      lat: workGeocode.lat,
+      lon: workGeocode.lon,
+      city: workGeocode.formattedAddress?.split(',')[1]?.trim() || '',
+      formattedAddress: workGeocode.formattedAddress
+    };
 
     console.log(`  ✅ Home: ${homeLocation.lat}, ${homeLocation.lon} (${homeLocation.city || 'unknown city'})`);
     console.log(`  ✅ Work: ${workLocation.lat}, ${workLocation.lon} (${workLocation.city || 'unknown city'})`);
