@@ -118,24 +118,76 @@ class JourneyPlanner {
   /**
    * Find stops near a location
    */
-  findNearbyStops(location, allStops, limit = 5) {
+  /**
+   * Find nearby stops with route preference support
+   * @param {Object} location - Location with lat/lon
+   * @param {Array} allStops - All available stops
+   * @param {number} limit - Max stops to return
+   * @param {Object} routePrefs - Optional route preferences from config
+   */
+  findNearbyStops(location, allStops, limit = 5, routePrefs = null) {
     if (!location?.lat || !location?.lon || !allStops?.length) {
       return [];
     }
 
+    // Default preferences (can be overridden by config)
+    const prefs = routePrefs || {
+      optimizeFor: 'minimal-walking',
+      walking: {
+        maxDistanceMeters: 500,
+        idealDistanceMeters: 300,
+        weightFactor: 2.0
+      },
+      modePriority: { train: 1, tram: 2, vline: 2, bus: 3 }
+    };
+
+    // Map route_type to mode name for priority lookup
+    const routeTypeToMode = { 0: 'train', 1: 'tram', 2: 'bus', 3: 'vline' };
+    const maxDist = prefs.walking?.maxDistanceMeters || 500;
+    const idealDist = prefs.walking?.idealDistanceMeters || 300;
+    const walkWeight = prefs.walking?.weightFactor || 2.0;
+
     return allStops
-      .map(stop => ({
-        ...stop,
-        distance: this.haversineDistance(location.lat, location.lon, stop.lat, stop.lon),
-        walkingMinutes: Math.ceil(this.haversineDistance(location.lat, location.lon, stop.lat, stop.lon) / 80),
-        icon: this.getModeIcon(stop.route_type)
-      }))
-      .filter(stop => stop.distance < 2000) // Within 2km
+      .map(stop => {
+        const distance = this.haversineDistance(location.lat, location.lon, stop.lat, stop.lon);
+        const walkingMinutes = Math.ceil(distance / 80); // ~80m/min walking
+        return {
+          ...stop,
+          distance,
+          walkingMinutes,
+          icon: this.getModeIcon(stop.route_type),
+          withinIdeal: distance <= idealDist,
+          withinMax: distance <= maxDist
+        };
+      })
+      .filter(stop => {
+        // When optimizing for minimal walking, strictly enforce max distance
+        if (prefs.optimizeFor === 'minimal-walking') {
+          return stop.distance <= maxDist;
+        }
+        return stop.distance < 2000; // Fallback: 2km max
+      })
       .sort((a, b) => {
-        // Prioritize by mode (train > tram > bus), then by distance
-        const modePriority = { 0: 1, 1: 2, 2: 3, 3: 1.5 }; // train, tram, bus, vline
-        const aPriority = modePriority[a.route_type] || 4;
-        const bPriority = modePriority[b.route_type] || 4;
+        // When optimizing for minimal walking: distance first, then mode
+        if (prefs.optimizeFor === 'minimal-walking') {
+          // Prefer stops within ideal distance
+          if (a.withinIdeal && !b.withinIdeal) return -1;
+          if (!a.withinIdeal && b.withinIdeal) return 1;
+          // Then sort by distance (weighted)
+          const distDiff = (a.distance * walkWeight) - (b.distance * walkWeight);
+          if (Math.abs(distDiff) > 50) return distDiff; // Significant distance difference
+          // If similar distance, prefer better mode
+          const aMode = routeTypeToMode[a.route_type] || 'bus';
+          const bMode = routeTypeToMode[b.route_type] || 'bus';
+          const aPriority = prefs.modePriority[aMode] || 4;
+          const bPriority = prefs.modePriority[bMode] || 4;
+          return aPriority - bPriority;
+        }
+        // Default: mode first, then distance
+        const aMode = routeTypeToMode[a.route_type] || 'bus';
+        const bMode = routeTypeToMode[b.route_type] || 'bus';
+        const aPriority = prefs.modePriority[aMode] || 4;
+        const bPriority = prefs.modePriority[bMode] || 4;
         if (aPriority !== bPriority) return aPriority - bPriority;
         return a.distance - b.distance;
       })
