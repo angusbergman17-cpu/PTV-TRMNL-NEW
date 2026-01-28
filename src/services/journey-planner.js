@@ -366,6 +366,93 @@ class JourneyPlanner {
   }
 
   /**
+   * Use user's saved/selected route alternative
+   * @param {Object} savedRoute - Saved route config from preferences
+   * @param {Object} locations - { home, cafe, work } with lat/lon
+   * @param {string} arrivalTime - Target arrival time
+   */
+  useSelectedRoute(savedRoute, locations, arrivalTime) {
+    if (!savedRoute?.enabled || !savedRoute?.alternatives?.length) {
+      console.log('⚠️  No saved route configured, using auto-calculation');
+      return null;
+    }
+
+    const selectedIndex = savedRoute.selectedAlternative || 0;
+    const selected = savedRoute.alternatives[selectedIndex];
+    
+    if (!selected) {
+      console.log('⚠️  Selected alternative not found');
+      return null;
+    }
+
+    console.log('📍 Using saved route:', selected.name);
+    
+    // Build modes array from the selected alternative
+    const modes = selected.modes.map(m => ({
+      type: m.type,
+      routeNumber: m.routeNumber,
+      originStation: m.originStation,
+      destinationStation: m.destinationStation,
+      estimatedDuration: m.estimatedDuration || null
+    }));
+
+    return {
+      routeId: selected.id,
+      routeName: selected.name,
+      description: selected.description,
+      modes
+    };
+  }
+
+  /**
+   * Get available route alternatives for display/selection
+   * @param {Object} routePrefs - Route preferences from config
+   */
+  getRouteAlternatives(routePrefs) {
+    const alternatives = routePrefs?.savedRoute?.alternatives || [];
+    const selectedIndex = routePrefs?.savedRoute?.selectedAlternative || 0;
+    
+    return alternatives.map((alt, index) => ({
+      ...alt,
+      isSelected: index === selectedIndex,
+      index
+    }));
+  }
+
+  /**
+   * Calculate journey using user's preferred route if available
+   * Falls back to auto-calculation if no route selected
+   */
+  async calculateWithPreferredRoute(params) {
+    const { locations, routePrefs, arrivalTime, cafeDuration } = params;
+    
+    // Check if user has a saved route preference
+    const selectedRoute = this.useSelectedRoute(routePrefs?.savedRoute, locations, arrivalTime);
+    
+    if (selectedRoute && selectedRoute.modes?.length > 0) {
+      // Use the multi-modal calculator with the saved route
+      console.log('✅ Using preferred route:', selectedRoute.routeName);
+      return this.calculateMultiModalJourney({
+        locations,
+        modes: selectedRoute.modes,
+        routePrefs,
+        arrivalTime,
+        cafeDuration
+      });
+    }
+    
+    // Fall back to auto-calculation
+    console.log('🔄 No preferred route, auto-calculating...');
+    return this.calculateJourney({
+      homeLocation: locations.home,
+      workLocation: locations.work,
+      cafeLocation: locations.cafe,
+      workStartTime: arrivalTime,
+      cafeDuration
+    });
+  }
+
+  /**
    * Calculate multi-modal journey with up to 4 transit modes
    * Supports: Walk → Mode1 → [Walk] → Mode2 → [Walk] → Mode3 → [Walk] → Mode4 → Walk
    * @param {Object} params - Journey parameters
