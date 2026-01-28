@@ -175,3 +175,28 @@ The server is the brain - the device just displays what it's told.
 CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International License)
 Copyright © 2026 Angus Bergman
 https://creativecommons.org/licenses/by-nc/4.0/
+
+## Known Issues & Workarounds
+
+### FONT_12x16 Rotation Bug (bb_epaper + TRMNL)
+
+**Issue:** When using `bbep.begin(EPD_TRMNL_OG)` with `FONT_12x16`, text renders rotated 90° counter-clockwise.
+
+**Affected:** TRMNL OG hardware with bb_epaper library v2.0.3+
+
+**Root Cause:** Font rendering bug in bb_epaper library specific to larger fonts with EPD_TRMNL_OG preset.
+
+**Workaround:** Use `FONT_8x8` only. All 8x8 text renders correctly in the expected orientation.
+
+```cpp
+// BROKEN - text rotates 90° CCW
+bbep.setFont(FONT_12x16);
+bbep.print("This will be rotated");
+
+// WORKING - text renders correctly
+bbep.setFont(FONT_8x8);
+bbep.print("This displays properly");
+```
+
+**Discovered:** 2026-01-28 via test pattern diagnostic
+**Status:** Workaround applied, upstream bug not yet reported
