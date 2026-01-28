@@ -118,6 +118,7 @@ const prefs = preferences.get();
 // Set services as globals for admin endpoints
 global.journeyPlanner = journeyPlanner; // Compliant implementation
 global.weatherBOM = weather;
+global.fallbackTimetables = fallbackTimetables; // For journey planner stop lookup
 
 global.geocodingService = new GeocodingService({
   googlePlacesKey: prefs.additionalAPIs?.google_places || process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACES_KEY,

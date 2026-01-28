@@ -323,24 +323,34 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 /**
  * Get all stops for a state (across all modes)
  * @param {string} state State code (e.g., 'VIC')
- * @returns {array} Array of all stops with coordinates
+ * @returns {array} Array of all stops with coordinates and route_type
  */
 export function getAllStops(state) {
-  const stateData = FALLBACK_STOPS[state];
+  const stateData = FALLBACK_STOPS[state?.toUpperCase()];
   if (!stateData) {
     return [];
   }
 
   const allStops = [];
 
-  // Iterate through all modes
-  for (const [modeKey, modeData] of Object.entries(stateData.modes)) {
-    // Get route type from mode key
-    const routeType = modeData.route_type;
+  // Mode to route_type mapping (GTFS standard)
+  const modeToRouteType = {
+    'train': 0,
+    'tram': 1,
+    'bus': 2,
+    'vline': 3,
+    'ferry': 4,
+    'lightrail': 0  // Light rail treated as train for priority
+  };
 
-    // Add all stops from this mode
-    if (modeData.stops && Array.isArray(modeData.stops)) {
-      modeData.stops.forEach(stop => {
+  // Iterate through all modes - data structure is modes: { train: [...], tram: [...], ... }
+  for (const [modeKey, stops] of Object.entries(stateData.modes)) {
+    // Get route type from mode key
+    const routeType = modeToRouteType[modeKey] ?? 2; // Default to bus (2) if unknown
+
+    // Stops are directly in the array, not nested
+    if (Array.isArray(stops)) {
+      stops.forEach(stop => {
         allStops.push({
           ...stop,
           route_type: routeType,
@@ -351,6 +361,15 @@ export function getAllStops(state) {
   }
 
   return allStops;
+}
+
+/**
+ * Alias for getAllStops - used by journey planner
+ * @param {string} state State code (e.g., 'VIC')
+ * @returns {array} Array of all stops with coordinates
+ */
+export function getStopsForState(state) {
+  return getAllStops(state);
 }
 
 /**
@@ -372,6 +391,7 @@ export default {
   searchStops,
   findNearestStop,
   getAllStops,
+  getStopsForState,
   getAllStates,
   FALLBACK_STOPS
 };
