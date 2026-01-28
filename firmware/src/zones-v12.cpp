@@ -26,7 +26,7 @@
 
 #define SCREEN_W 800
 #define SCREEN_H 480
-#define FIRMWARE_VERSION "5.42"
+#define FIRMWARE_VERSION "5.43"
 #define ZONE_BUFFER_SIZE 16384
 static uint8_t* zoneBuffer = nullptr;
 
@@ -163,7 +163,7 @@ bool fetchAndDrawZone(const ZoneDef& zone, bool doFlash) {
     http.end(); delete client;
     if (read != len || zoneBuffer[0] != 'B' || zoneBuffer[1] != 'M') return false;
     if (doFlash) { bbep.fillRect(zX, zY, zW, zH, BBEP_BLACK); bbep.refresh(REFRESH_PARTIAL, true); delay(30); }
-    return bbep.loadBMP(zoneBuffer, zX, zY, BBEP_BLACK, BBEP_WHITE) == BBEP_SUCCESS;
+    Serial.printf("Drawing zone at %d,%d (%dx%d)\n", zX, zY, zW, zH); bool ok = bbep.loadBMP(zoneBuffer, zX, zY, BBEP_BLACK, BBEP_WHITE) == BBEP_SUCCESS; Serial.printf("loadBMP result: %s\n", ok ? "OK" : "FAIL"); return ok;
 }
 
 void initDisplay() {
