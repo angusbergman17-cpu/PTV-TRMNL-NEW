@@ -8,20 +8,27 @@
         body { font-family: -apple-system, sans-serif; background: #1e293b; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .device-frame { background: #333; padding: 30px 20px; border-radius: 20px; }
         .device-label { color: #888; font-size: 12px; text-align: center; margin-bottom: 15px; }
-        #display { width: 800px; height: 480px; background: #f5f5f0; border: 2px solid #1a1a1a; position: relative; overflow: hidden; font-family: "Courier New", monospace; }
+        #display { width: 800px; height: 480px; background: #f5f5f0; border: 2px solid #1a1a1a; position: relative; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
         .text { position: absolute; color: #1a1a1a; }
         .text-w { position: absolute; color: #f5f5f0; }
-        .mega { font-size: 56px; font-weight: bold; }
-        .huge { font-size: 32px; font-weight: bold; }
-        .xlarge { font-size: 22px; font-weight: bold; }
-        .large { font-size: 15px; font-weight: bold; }
-        .medium { font-size: 12px; font-weight: bold; }
-        .small { font-size: 10px; }
-        .xs { font-size: 8px; }
+        .mega { font-size: 64px; font-weight: 900; letter-spacing: -3px; }
+        .huge { font-size: 36px; font-weight: bold; }
+        .xlarge { font-size: 28px; font-weight: 900; }
+        .large { font-size: 18px; font-weight: bold; }
+        .medium { font-size: 14px; font-weight: 600; }
+        .small { font-size: 11px; }
+        .xs { font-size: 9px; }
         .line { position: absolute; background: #1a1a1a; }
         .box { position: absolute; border: 2px solid #1a1a1a; }
         .fill { position: absolute; background: #1a1a1a; }
         .info { color: #888; text-align: center; margin-top: 15px; font-size: 10px; }
+        
+        /* Transit Mode Icons */
+        .mode-icon { position: absolute; width: 50px; height: 50px; }
+        .mode-icon svg { width: 100%; height: 100%; }
+        
+        /* Coffee step - dashed border */
+        .coffee-box { position: absolute; border: 2px dashed #666; background: #eee; }
     </style>
 </head>
 <body>
@@ -30,98 +37,126 @@
         <div id="display">
             
             <!-- HOME ADDRESS -->
-            <div class="text xs" style="left: 12px; top: 4px;">1 Clara St, South Yarra</div>
+            <div class="text small" style="left: 14px; top: 6px;">1 Clara St, South Yarra</div>
             
             <!-- === BIG TIME & WEATHER === -->
-            <div class="text mega" style="left: 12px; top: 14px;">08:34</div>
-            <div class="text medium" style="left: 12px; top: 72px;">Tue 28 Jan</div>
-            <div class="text huge" style="left: 200px; top: 20px;">22°C</div>
-            <div class="text medium" style="left: 200px; top: 55px;">Sunny</div>
-            <div class="box" style="left: 200px; top: 72px; width: 90px; height: 14px;"></div>
-            <div class="text xs" style="left: 208px; top: 74px;">NO UMBRELLA</div>
+            <div class="text mega" style="left: 14px; top: 18px;">8:34</div>
+            <div class="text medium" style="left: 14px; top: 84px;">Tue 28 Jan</div>
             
-            <div class="line" style="left: 0; top: 92px; width: 800px; height: 2px;"></div>
+            <div class="text huge" style="left: 180px; top: 26px;">22°</div>
+            <div class="text medium" style="left: 180px; top: 64px;">Sunny</div>
+            <div class="box" style="left: 180px; top: 82px; width: 100px; height: 18px;"></div>
+            <div class="text xs" style="left: 188px; top: 86px;">NO UMBRELLA</div>
             
-            <!-- === LEAVE NOW === -->
-            <div class="fill" style="left: 12px; top: 98px; width: 776px; height: 32px;"></div>
-            <div class="text-w medium" style="left: 20px; top: 105px;">IF YOU LEAVE NOW → Arrive 09:12</div>
-            <div class="text-w medium" style="right: 20px; top: 105px;">38 min | 4 stops</div>
+            <div class="line" style="left: 0; top: 106px; width: 800px; height: 3px;"></div>
             
-            <!-- STATUS -->
-            <div class="box" style="left: 12px; top: 136px; width: 776px; height: 18px;"></div>
-            <div class="text xs" style="left: 320px; top: 140px;">ALL SERVICES ON TIME</div>
+            <!-- === LEAVE NOW BAR === -->
+            <div class="fill" style="left: 0; top: 109px; width: 800px; height: 38px;"></div>
+            <div class="text-w large" style="left: 20px; top: 118px;">LEAVE NOW → Arrive 09:00</div>
+            <div class="text-w large" style="right: 20px; top: 118px;">26 min total</div>
             
             <!-- === JOURNEY LEGS === -->
-            <div class="line" style="left: 22px; top: 168px; width: 3px; height: 210px;"></div>
             
-            <!-- LEG 1: TRAM -->
-            <div class="fill" style="left: 14px; top: 164px; width: 18px; height: 18px;"></div>
-            <div class="box" style="left: 38px; top: 160px; width: 750px; height: 42px;"></div>
-            <div class="fill" style="left: 38px; top: 160px; width: 55px; height: 42px;"></div>
-            <div class="text-w small" style="left: 46px; top: 175px;">TRAM</div>
-            <div class="text medium" style="left: 102px; top: 164px;">Chapel St → South Yarra Station</div>
-            <div class="text small" style="left: 102px; top: 180px;">Route 78 | 6 min walk | Then: 10, 15 min</div>
-            <div class="fill" style="right: 12px; top: 160px; width: 50px; height: 42px;"></div>
-            <div class="text-w xlarge" style="right: 22px; top: 166px;">4</div>
-            <div class="text-w xs" style="right: 24px; top: 188px;">min</div>
+            <!-- LEG 1: WALK TO NORMAN -->
+            <div class="box" style="left: 14px; top: 156px; width: 772px; height: 60px;"></div>
             
-            <!-- LEG 2: TRAIN -->
-            <div class="fill" style="left: 14px; top: 216px; width: 18px; height: 18px;"></div>
-            <div class="box" style="left: 38px; top: 212px; width: 750px; height: 42px;"></div>
-            <div class="fill" style="left: 38px; top: 212px; width: 55px; height: 42px;"></div>
-            <div class="text-w small" style="left: 44px; top: 227px;">TRAIN</div>
-            <div class="text medium" style="left: 102px; top: 216px;">South Yarra → Parliament</div>
-            <div class="text small" style="left: 102px; top: 232px;">Pakenham Line | 2 min wait | Then: 18, 28 min</div>
-            <div class="fill" style="right: 12px; top: 212px; width: 50px; height: 42px;"></div>
-            <div class="text-w xlarge" style="right: 18px; top: 218px;">10</div>
-            <div class="text-w xs" style="right: 24px; top: 240px;">min</div>
+            <!-- Walk Icon -->
+            <div class="mode-icon" style="left: 24px; top: 161px;">
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="32" cy="10" r="7" fill="#000"/>
+                    <path d="M26 20h12l6 22-8 4v14h-5V44l-7-8 2-16z" fill="#000"/>
+                    <path d="M22 26l-10 16h8l8-10" fill="#000"/>
+                    <path d="M42 26l8 26h-6l-6-20" fill="#000"/>
+                </svg>
+            </div>
             
-            <!-- LEG 3: COFFEE -->
-            <div class="fill" style="left: 14px; top: 268px; width: 18px; height: 18px;"></div>
-            <div class="box" style="left: 38px; top: 264px; width: 750px; height: 36px;"></div>
-            <div class="fill" style="left: 38px; top: 264px; width: 55px; height: 36px;"></div>
-            <div class="text-w small" style="left: 40px; top: 276px;">COFFEE</div>
-            <div class="text medium" style="left: 102px; top: 268px;">Excello CBD - Spring St</div>
-            <div class="text small" style="left: 102px; top: 284px;">5 min stop | Order ahead via app</div>
-            <div class="fill" style="right: 12px; top: 264px; width: 50px; height: 36px;"></div>
-            <div class="text-w small" style="right: 20px; top: 276px;">~18m</div>
+            <div class="text large" style="left: 84px; top: 162px;">Walk to Norman</div>
+            <div class="text small" style="left: 84px; top: 184px;">300 Toorak Rd, South Yarra</div>
             
-            <!-- LEG 4: WALK -->
-            <div class="fill" style="left: 14px; top: 314px; width: 18px; height: 18px;"></div>
-            <div class="box" style="left: 38px; top: 310px; width: 750px; height: 42px;"></div>
-            <div class="fill" style="left: 38px; top: 310px; width: 55px; height: 42px;"></div>
-            <div class="text-w small" style="left: 46px; top: 325px;">WALK</div>
-            <div class="text medium" style="left: 102px; top: 314px;">Parliament → 80 Collins St</div>
-            <div class="text small" style="left: 102px; top: 330px;">450m walk via Collins St</div>
-            <div class="fill" style="right: 12px; top: 310px; width: 50px; height: 42px;"></div>
-            <div class="text-w xlarge" style="right: 22px; top: 318px;">6</div>
-            <div class="text-w xs" style="right: 24px; top: 340px;">min</div>
+            <!-- Big Minutes -->
+            <div class="fill" style="right: 14px; top: 156px; width: 70px; height: 60px;"></div>
+            <div class="text-w xlarge" style="right: 32px; top: 166px;">4</div>
+            <div class="text-w xs" style="right: 34px; top: 196px;">min</div>
             
-            <!-- DESTINATION -->
-            <div class="fill" style="left: 14px; top: 366px; width: 18px; height: 18px;"></div>
-            <div class="fill" style="left: 38px; top: 362px; width: 750px; height: 40px;"></div>
-            <div class="text-w large" style="left: 52px; top: 374px;">80 COLLINS ST</div>
-            <div class="text-w small" style="left: 200px; top: 376px;">Melbourne CBD</div>
-            <div class="text-w medium" style="right: 120px; top: 368px;">ARRIVE</div>
-            <div class="text-w huge" style="right: 20px; top: 368px;">09:12</div>
+            <!-- LEG 2: COFFEE -->
+            <div class="coffee-box" style="left: 14px; top: 224px; width: 772px; height: 56px;"></div>
             
-            <!-- SUMMARY -->
-            <div class="line" style="left: 12px; top: 412px; width: 776px; height: 1px;"></div>
-            <div class="text small" style="left: 12px; top: 420px;">12 min late for 09:00 | Tram → Train → Coffee → Walk | Consider skipping coffee to arrive on time</div>
+            <!-- Coffee Icon -->
+            <div class="mode-icon" style="left: 24px; top: 227px;">
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 22h36v6c0 14-7 22-18 22S10 42 10 28v-6z" fill="#000"/>
+                    <path d="M46 26h8c5 0 8 3 8 8s-3 8-8 8h-8" stroke="#000" stroke-width="5"/>
+                    <path d="M18 10c2-5 5-5 5 0s3 5 5 0" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M30 10c2-5 5-5 5 0s3 5 5 0" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                    <rect x="6" y="54" width="44" height="5" rx="2" fill="#000"/>
+                </svg>
+            </div>
             
-            <!-- SERVICE STATUS -->
-            <div class="line" style="left: 12px; top: 436px; width: 776px; height: 1px;"></div>
-            <div class="text xs" style="left: 12px; top: 442px;">SERVICE STATUS: Tram 78: Good | Pakenham Line: Good | Cranbourne Line: Good</div>
+            <div class="text large" style="left: 84px; top: 230px;">Coffee at Norman</div>
+            <div class="text small" style="left: 84px; top: 252px;">Quick stop • time flexible</div>
+            
+            <!-- Flexible indicator instead of minutes -->
+            <div class="text medium" style="right: 28px; top: 230px; color: #666;">—</div>
+            <div class="text xs" style="right: 18px; top: 250px; color: #888;">FLEX</div>
+            
+            <!-- LEG 3: TRAIN -->
+            <div class="box" style="left: 14px; top: 288px; width: 772px; height: 60px;"></div>
+            
+            <!-- Train Icon -->
+            <div class="mode-icon" style="left: 24px; top: 293px;">
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="10" y="6" width="44" height="44" rx="8" fill="#000"/>
+                    <rect x="16" y="12" width="32" height="14" rx="3" fill="#fff"/>
+                    <circle cx="20" cy="42" r="6" fill="#fff"/>
+                    <circle cx="44" cy="42" r="6" fill="#fff"/>
+                    <rect x="28" y="32" width="8" height="12" rx="2" fill="#fff"/>
+                    <path d="M18 54l-5 10h10l-5-10z" fill="#000"/>
+                    <path d="M46 54l-5 10h10l-5-10z" fill="#000"/>
+                </svg>
+            </div>
+            
+            <div class="text large" style="left: 84px; top: 294px;">Train to Parliament</div>
+            <div class="text small" style="left: 84px; top: 316px;">South Yarra • Sandringham Line • Then: 10, 18 min</div>
+            
+            <!-- Big Minutes -->
+            <div class="fill" style="right: 14px; top: 288px; width: 70px; height: 60px;"></div>
+            <div class="text-w xlarge" style="right: 32px; top: 298px;">5</div>
+            <div class="text-w xs" style="right: 34px; top: 328px;">min</div>
+            
+            <!-- LEG 4: WALK TO WORK -->
+            <div class="box" style="left: 14px; top: 356px; width: 772px; height: 60px;"></div>
+            
+            <!-- Walk Icon -->
+            <div class="mode-icon" style="left: 24px; top: 361px;">
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="32" cy="10" r="7" fill="#000"/>
+                    <path d="M26 20h12l6 22-8 4v14h-5V44l-7-8 2-16z" fill="#000"/>
+                    <path d="M22 26l-10 16h8l8-10" fill="#000"/>
+                    <path d="M42 26l8 26h-6l-6-20" fill="#000"/>
+                </svg>
+            </div>
+            
+            <div class="text large" style="left: 84px; top: 362px;">Walk to Work</div>
+            <div class="text small" style="left: 84px; top: 384px;">Parliament Station → 80 Collins St</div>
+            
+            <!-- Big Minutes -->
+            <div class="fill" style="right: 14px; top: 356px; width: 70px; height: 60px;"></div>
+            <div class="text-w xlarge" style="right: 32px; top: 366px;">5</div>
+            <div class="text-w xs" style="right: 34px; top: 396px;">min</div>
+            
+            <!-- DESTINATION BAR -->
+            <div class="fill" style="left: 0; top: 424px; width: 800px; height: 36px;"></div>
+            <div class="text-w large" style="left: 20px; top: 432px;">80 COLLINS ST</div>
+            <div class="text-w medium" style="left: 200px; top: 434px;">Melbourne CBD</div>
+            <div class="text-w medium" style="right: 120px; top: 428px;">ARRIVE</div>
+            <div class="text-w huge" style="right: 20px; top: 426px;">9:00</div>
             
             <!-- FOOTER -->
-            <div class="line" style="left: 0; top: 458px; width: 800px; height: 2px;"></div>
-            <div class="text xs" style="left: 12px; top: 466px;">PTV-TRMNL</div>
-            <div class="text xs" style="left: 100px; top: 466px;">Updated: 08:34:22</div>
-            <div class="text xs" style="left: 280px; top: 466px;">© 2025 Angus Bergman</div>
-            <div class="text xs" style="left: 480px; top: 466px;">CC BY-NC 4.0</div>
-            <div class="text xs" style="right: 12px; top: 466px;">v5.18</div>
+            <div class="text xs" style="left: 14px; top: 466px;">PTV-TRMNL v5.19</div>
+            <div class="text xs" style="left: 150px; top: 466px;">Updated 08:34</div>
+            <div class="text xs" style="right: 14px; top: 466px;">© 2025 Angus Bergman • CC BY-NC 4.0</div>
         </div>
-        <div class="info">8:34 AM - Coffee included, running 12 min late</div>
+        <div class="info">8:34 AM - Coffee stop included, on time for 9:00</div>
     </div>
 </body>
 </html>
