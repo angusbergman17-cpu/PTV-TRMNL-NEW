@@ -1,4 +1,10 @@
 /**
+ * CRITICAL HARDWARE NOTES (TRMNL OG):
+ * - FONT_8x8 ONLY: FONT_12x16 causes 90° rotation bug
+ * - BROWNOUT DISABLED: ESP32-C3 needs WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0)
+ * - See KNOWN-ISSUES.md and DEVELOPMENT-RULES.md for details
+ *
+
  * PTV-TRMNL v5.24 - FIXED Orientation
  * Complete rebuild with verified 800x480 landscape dimensions
  * Simple, clean layout - text renders HORIZONTALLY
