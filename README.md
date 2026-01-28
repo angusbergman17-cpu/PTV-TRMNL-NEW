@@ -1,52 +1,72 @@
 # PTV-TRMNL - Smart Transit Display
 
-> Real-time Australian public transit on e-ink displays (TRMNL, Kindle BYOS)
+> Real-time Australian public transit on e-ink displays (TRMNL, Kindle)
 
 ![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue)
-![Version](https://img.shields.io/badge/version-2.8.0-green)
+![Version](https://img.shields.io/badge/version-3.0.0-green)
 
-## 🚀 Quick Start (5 Minutes)
+**📘 [Complete Distribution Guide](DISTRIBUTION.md)** - Full self-service deployment instructions
 
-### Step 1: Deploy Your Server
+## 🎯 What is PTV-TRMNL?
+
+A personal transit display system that shows real-time departure information on e-ink screens. Deploy your own instance with your own server - no dependency on external services.
+
+**Features:**
+- ⚡ 20-second zone refresh for live data
+- 🖥️ Supports TRMNL and Kindle devices
+- 🇦🇺 All Australian states supported
+- 🔒 Your data stays on your server
+- 🆓 Free to deploy (Vercel/Render)
+
+## 🚀 Quick Start (30 Minutes)
+
+### Step 1: Fork the Repository
+
+1. [Fork this repo](https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW/fork) to your GitHub account
+2. Name it uniquely: `ptv-trmnl-yourname`
+
+### Step 2: Deploy Your Server
+
+**Option A: Vercel (Recommended)**
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW&env=ODATA_API_KEY&envDescription=Optional%20Transport%20Victoria%20API%20key%20for%20live%20data&project-name=ptv-trmnl&repository-name=ptv-trmnl)
 
-1. Click the button above
-2. Connect your GitHub account
-3. (Optional) Add your Transport Victoria API key
-4. Click Deploy
-5. Note your server URL: `https://your-project.vercel.app`
+**Option B: Render**
+- Import your fork at [render.com](https://render.com)
+- Free tier available (sleeps after 15min)
 
-### Step 2: Flash Your Device
+Your server URL: `https://ptv-trmnl-yourname.vercel.app`
 
-**Option A: Web Flasher (Easiest)**
-> Coming soon - browser-based flashing
+### Step 3: Flash Your Device
 
-**Option B: Pre-built Binary**
-1. Download `firmware.bin` from [Releases](https://github.com/angusbergman17-cpu/PTV-TRMNL-NEW/releases)
-2. Flash using [ESP Web Tools](https://web.esphome.io/) or esptool
-
-**Option C: Build from Source**
+**TRMNL Devices (OG/Mini):**
 ```bash
 cd firmware
 pio run -e trmnl -t upload
 ```
 
-### Step 3: Configure Device
+**Kindle Devices:** See [KINDLE-DEPLOYMENT.md](KINDLE-DEPLOYMENT.md)
 
-1. Power on your device
-2. Connect to WiFi network `PTV-TRMNL-Setup`
-3. Enter your WiFi credentials
-4. Enter your server URL: `https://your-project.vercel.app`
-5. Visit `https://your-project.vercel.app/setup` to configure stops
+### Step 4: Configure Your Journey
+
+1. Power on device → Connect to `PTV-TRMNL-Setup` WiFi
+2. Enter your WiFi credentials + server URL
+3. Visit `https://ptv-trmnl-yourname.vercel.app/setup`
+4. Complete the setup wizard
+
+📘 **[Full Guide →](DISTRIBUTION.md)**
 
 ## 📱 Supported Devices
 
 | Device | Status | Notes |
 |--------|--------|-------|
-| TRMNL OG | ✅ Full Support | 800x480 e-ink |
-| TRMNL Mini | ✅ Full Support | 400x300 e-ink |
-| Kindle (BYOS) | 🔄 In Progress | Custom firmware |
+| **TRMNL OG** | ✅ Full Support | 800x480 e-ink, ESP32-C3 |
+| **TRMNL Mini** | ✅ Full Support | 400x300 e-ink, ESP32-C3 |
+| **TRMNL X** | ⚠️ Not Yet | Different architecture |
+| **Kindle Paperwhite 3/4/5** | ✅ Supported | Requires jailbreak |
+| **Kindle Basic 10/11** | ✅ Supported | Requires jailbreak |
+
+⚠️ **Device Rules:** Read [DEVICE-COMPATIBILITY.md](docs/hardware/DEVICE-COMPATIBILITY.md) before flashing
 
 ## ✨ Features
 

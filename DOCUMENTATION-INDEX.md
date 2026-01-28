@@ -1,6 +1,6 @@
 # PTV-TRMNL Documentation Index
-**Version**: 2.5.2 (Reorganized)
-**Last Updated**: 2026-01-26
+**Version**: 3.0.0 (Distribution Model)
+**Last Updated**: 2026-01-28
 
 ---
 
@@ -8,8 +8,32 @@
 
 **New to PTV-TRMNL?** Start here:
 1. **[README.md](README.md)** - Overview, features, quick start
-2. **[docs/guides/COMPLETE-BEGINNER-GUIDE.md](docs/guides/COMPLETE-BEGINNER-GUIDE.md)** - Step-by-step setup for beginners
-3. **[docs/guides/OPENDATA-VIC-API-GUIDE.md](docs/guides/OPENDATA-VIC-API-GUIDE.md)** - Get your API credentials (Victoria users)
+2. **[DISTRIBUTION.md](DISTRIBUTION.md)** - **Complete self-service deployment guide** ⭐
+3. **[QUICK-REFERENCE-CARD.md](QUICK-REFERENCE-CARD.md)** - Print-friendly setup checklist
+4. **[docs/guides/OPENDATA-VIC-API-GUIDE.md](docs/guides/OPENDATA-VIC-API-GUIDE.md)** - Get your API credentials (Victoria users)
+
+---
+
+## 📦 Distribution & Deployment (NEW)
+
+**The self-service deployment model:**
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [DISTRIBUTION.md](DISTRIBUTION.md) | Complete user onboarding flow | **Start here** |
+| [QUICK-REFERENCE-CARD.md](QUICK-REFERENCE-CARD.md) | Print-friendly checklist | During setup |
+| [KINDLE-DEPLOYMENT.md](KINDLE-DEPLOYMENT.md) | Kindle device setup | Kindle users |
+| [docs/ARCHITECTURE-VALIDATION.md](docs/ARCHITECTURE-VALIDATION.md) | System architecture validation | Developers |
+| [docs/api/DISTRIBUTION-ENDPOINTS.md](docs/api/DISTRIBUTION-ENDPOINTS.md) | Required server endpoints | Developers |
+| [firmware/docs/BOOT-WELCOME-SCREEN.md](firmware/docs/BOOT-WELCOME-SCREEN.md) | First-boot screen spec | Firmware devs |
+
+### Device Compatibility
+
+| Document | Purpose |
+|----------|---------|
+| [docs/hardware/DEVICE-COMPATIBILITY.md](docs/hardware/DEVICE-COMPATIBILITY.md) | All supported devices |
+| [firmware/docs/DEVICE-COMPATIBILITY.md](firmware/docs/DEVICE-COMPATIBILITY.md) | Firmware device support |
+| [docs/development/DEVELOPMENT-RULES.md](docs/development/DEVELOPMENT-RULES.md) | Section P: Hardware rules |
 
 ---
 
