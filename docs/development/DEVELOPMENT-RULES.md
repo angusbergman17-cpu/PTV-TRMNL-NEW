@@ -5740,3 +5740,193 @@ grep -l 'Historical Notice' docs/guides/ docs/
 
 **Reference**: See `docs/development/AUDIT-PROCESS.md` for complete methodology.
 
+
+---
+
+## 2️⃣5️⃣ JOURNEY DISPLAY SYSTEM (SERVER-SIDE RENDERING)
+
+**Version**: 1.0.0
+**Added**: 2026-01-28
+
+### Core Architecture Philosophy
+
+**PRINCIPLE**: Server does ALL the thinking. Device is dumb.
+
+The Journey Display system implements a server-side rendering architecture where:
+- **Server**: Fetches data, calculates journey, renders bitmap, tracks changes
+- **Device**: Receives PNG image, displays it, performs partial refresh
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    SERVER                           │
+│                                                     │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐            │
+│  │ PTV API │  │ Weather │  │ Config  │            │
+│  └────┬────┘  └────┬────┘  └────┬────┘            │
+│       │            │            │                  │
+│       ▼            ▼            ▼                  │
+│  ┌─────────────────────────────────────┐          │
+│  │         JOURNEY ENGINE              │          │
+│  │  • Calculate optimal departure      │          │
+│  │  • Detect delays/disruptions        │          │
+│  │  • Coffee skip/extend logic         │          │
+│  └────────────────┬────────────────────┘          │
+│                   │                                │
+│                   ▼                                │
+│  ┌─────────────────────────────────────┐          │
+│  │         RENDERER (Canvas)           │          │
+│  │  • Render full 800×480 bitmap       │          │
+│  │  • Track dirty regions              │          │
+│  │  • Generate region diff mask        │          │
+│  └────────────────┬────────────────────┘          │
+│                   │                                │
+└───────────────────┼─────────────────────────────────┘
+                    │
+                    ▼
+          ┌─────────────────┐
+          │  TRMNL Device   │
+          │                 │
+          │  • Receive PNG  │
+          │  • Partial blit │
+          │  • (no logic)   │
+          └─────────────────┘
+```
+
+### Display Layout (800×480 e-ink)
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ ORIGIN ADDRESS                    Day/Date        ┌─────────────┐  │
+│ TIME  AM/PM                                       │  TEMP°      │  │ HEADER
+│                                                   │  Condition  │  │ (80px)
+│                                                   │  [UMBRELLA] │  │
+├────────────────────────────────────────────────────────────────────┤
+│ ▌LEAVE NOW → Arrive 8:32                              47 min ▌    │ STATUS
+├────────────────────────────────────────────────────────────────────┤ (30px)
+│  ① 🚶  Step Title                                           X     │
+│        Subtitle • Next: X, Y min                        MIN WALK  │
+│        ▼                                                          │ STEPS
+│  ② ☕  Step Title                                          ~X     │ (5 max)
+│        ✓ TIME FOR COFFEE                                    MIN   │ (66px each)
+│        ▼                                                          │
+│  ...                                                              │
+├────────────────────────────────────────────────────────────────────┤
+│ DESTINATION ADDRESS                              ARRIVE    8:32   │ FOOTER
+└────────────────────────────────────────────────────────────────────┘ (35px)
+```
+
+### Static vs Dynamic Elements
+
+**Static (set at journey config time):**
+- Origin/destination addresses
+- Step structure (number of steps, modes, names)
+- Mode icons (walk/tram/bus/train/coffee)
+- Layout grid
+
+**Dynamic (updated with live data):**
+| Region | Trigger | Example |
+|--------|---------|---------|
+| Clock | Every 60s | `7:45 AM` → `7:46 AM` |
+| Weather | Every 15-30 min | `22° Sunny` |
+| Status bar | Journey recalc | `LEAVE NOW` → `DELAY → Arrive 9:18` |
+| Step durations | Live departures | `4 MIN` → `12 MIN` |
+| Next departures | Live departures | `Next: 4, 12 min` |
+| Delay badges | Disruption feed | (none) → `+8 MIN` |
+| Step borders | Delay detection | Solid → Dashed |
+| Coffee decision | Slack calculation | `✓ TIME` → `✗ SKIP` |
+
+### Coffee Decision Logic
+
+**MANDATORY**: Coffee steps are intelligent and context-aware.
+
+| Condition | Decision | Display |
+|-----------|----------|---------|
+| Sufficient slack time | `time` | ✓ TIME FOR COFFEE |
+| Running late (< 3 min slack) | `skip` | ✗ SKIP — Running late |
+| Disruption but extra time | `extra` | ✓ EXTRA TIME — Disruption |
+| Friday evening (homebound) | `time` | ✓ FRIDAY TREAT |
+
+**Skip Coffee Walk Modification**:
+When coffee is skipped, the walk step title changes:
+- Normal: `Walk to Norman Cafe`
+- Skipped: `Walk past Norman Cafe`
+
+### Step Status Visual Indicators
+
+| Status | Border Style | Circle | Duration |
+|--------|--------------|--------|----------|
+| `normal` | None | Filled black | `X` |
+| `delayed` | Dashed 8,4 | Filled black | `X` + badge |
+| `skipped` | Dashed 5,3 + dimmed | Dashed circle | (grayed) |
+| `cancelled` | Hatched background | `✗` | `CANCELLED` |
+| `diverted` | None | Filled black | Title has `←` prefix |
+| `extended` | None | Filled black | `~X` |
+
+### Partial Refresh Optimization
+
+**MANDATORY**: Track region changes for efficient e-ink updates.
+
+**Regions tracked:**
+- `header` (time, weather)
+- `status_bar` (leave time, delay indicator)
+- `step_1` through `step_5`
+- `footer` (destination, arrival)
+
+**Refresh strategy:**
+- Partial refresh: Every 20 seconds, only changed regions
+- Full refresh: Every 10 minutes (30 renders) to prevent ghosting
+
+### API Endpoints
+
+| Endpoint | Returns | Use Case |
+|----------|---------|----------|
+| `GET /api/journey-display` | PNG 800×480 | Direct image display |
+| `GET /api/journey-display?format=json` | JSON data | Client rendering |
+| `GET /api/journey-display/trmnl` | BYOS webhook | TRMNL device |
+| `GET /api/journey-display/regions` | Changed regions | Partial refresh |
+| `GET /api/journey-display/preview` | HTML page | Browser testing |
+| `GET /api/journey-display/demo?scenario=X` | Demo image | Testing |
+
+### Demo Scenarios
+
+Test implementations with:
+- `normal` - Standard commute with coffee
+- `delay` - Train delayed, shows +X MIN badge
+- `skip-coffee` - Running late, coffee skipped
+- `disruption` - Line suspended, replacement bus, extended coffee
+- `diversion` - Tram diverted, extra walking
+
+### Implementation Requirements
+
+**Server integration:**
+```javascript
+import { journeyDisplayRouter, initJourneyDisplay } from './journey-display/api.js';
+
+initJourneyDisplay(preferences);
+app.use('/api/journey-display', journeyDisplayRouter);
+```
+
+**Dependencies:**
+```json
+{
+  "canvas": "^3.1.0"
+}
+```
+
+### Compliance Checklist
+
+Before deploying Journey Display changes:
+
+```
+□ Server renders complete 800×480 PNG
+□ Device receives image only (no logic on device)
+□ Partial refresh tracks all 8 regions
+□ Coffee decision follows skip/extend logic
+□ Delay badges show with dashed borders
+□ Cancelled steps have hatched background
+□ Status bar shows correct delay format
+□ Weather includes umbrella recommendation
+□ All scenarios tested via /demo endpoint
+□ Full refresh every 30 renders
+```
+
