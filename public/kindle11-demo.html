@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Kindle 11 - Final Design</title>
+    <title>PTV-TRMNL - Kindle 11</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, sans-serif; background: #1e293b; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
@@ -26,104 +26,108 @@
 </head>
 <body>
     <div class="device-frame">
-        <div class="device-label">Final Design - Fixed</div>
+        <div class="device-label">Kindle 11 (536 x 724)</div>
         <div id="display">
             
+            <!-- HOME ADDRESS -->
+            <div class="text xs" style="left: 20px; top: 5px;">1 Clara St, South Yarra</div>
+            
             <!-- === BIG TIME & WEATHER === -->
-            <div class="text mega" style="left: 20px; top: 12px;">07:32</div>
-            <div class="text large" style="left: 20px; top: 85px;">Tuesday 28 Jan</div>
-            <div class="text huge" style="right: 20px; top: 18px;">17°C</div>
-            <div class="text large" style="right: 20px; top: 65px;">Clear</div>
+            <div class="text mega" style="left: 20px; top: 18px;">07:32</div>
+            <div class="text large" style="left: 20px; top: 92px;">Tuesday 28 Jan</div>
+            <div class="text huge" style="right: 20px; top: 24px;">17°C</div>
+            <div class="text large" style="right: 20px; top: 72px;">Clear</div>
             
             <!-- UMBRELLA STATUS -->
-            <div class="box" style="right: 20px; top: 88px; width: 120px; height: 20px;"></div>
-            <div class="text xs" style="right: 35px; top: 92px;">NO UMBRELLA NEEDED</div>
+            <div class="box" style="right: 20px; top: 94px; width: 120px; height: 18px;"></div>
+            <div class="text xs" style="right: 32px; top: 97px;">NO UMBRELLA NEEDED</div>
             
-            <div class="line" style="left: 0; top: 115px; width: 536px; height: 2px;"></div>
+            <div class="line" style="left: 0; top: 118px; width: 536px; height: 2px;"></div>
             
             <!-- === LEAVE NOW === -->
-            <div class="fill" style="left: 20px; top: 122px; width: 496px; height: 45px;"></div>
-            <div class="text-w medium" style="left: 35px; top: 130px;">IF YOU LEAVE NOW → Arrive 08:27</div>
-            <div class="text-w medium" style="right: 35px; top: 130px;">55 min | 4 stops</div>
+            <div class="fill" style="left: 20px; top: 125px; width: 496px; height: 42px;"></div>
+            <div class="text-w medium" style="left: 35px; top: 133px;">IF YOU LEAVE NOW → Arrive 08:27</div>
+            <div class="text-w medium" style="right: 35px; top: 133px;">55 min | 4 stops</div>
             
             <!-- STATUS -->
-            <div class="box" style="left: 20px; top: 175px; width: 496px; height: 22px;"></div>
-            <div class="text small" style="left: 175px; top: 179px;">ALL SERVICES ON TIME</div>
+            <div class="box" style="left: 20px; top: 175px; width: 496px; height: 20px;"></div>
+            <div class="text xs" style="left: 180px; top: 179px;">ALL SERVICES ON TIME</div>
             
             <!-- === JOURNEY === -->
-            <div class="line" style="left: 28px; top: 212px; width: 4px; height: 310px;"></div>
+            <div class="line" style="left: 28px; top: 210px; width: 4px; height: 295px;"></div>
             
             <!-- LEG 1: TRAM -->
-            <div class="fill" style="left: 20px; top: 207px; width: 20px; height: 20px;"></div>
-            <div class="box" style="left: 50px; top: 202px; width: 466px; height: 62px;"></div>
-            <div class="fill" style="left: 50px; top: 202px; width: 65px; height: 62px;"></div>
-            <div class="text-w medium" style="left: 58px; top: 225px;">TRAM</div>
-            <div class="text medium" style="left: 125px; top: 207px;">Chapel St → South Yarra</div>
-            <div class="text small" style="left: 125px; top: 225px;">8 min walk | 2 min ride</div>
-            <div class="text small" style="left: 125px; top: 243px;">Then: 13 min, 18 min</div>
-            <div class="fill" style="right: 20px; top: 202px; width: 65px; height: 62px;"></div>
-            <div class="text-w xlarge" style="right: 30px; top: 214px;">8</div>
-            <div class="text-w small" style="right: 32px; top: 244px;">min</div>
+            <div class="fill" style="left: 20px; top: 205px; width: 20px; height: 20px;"></div>
+            <div class="box" style="left: 50px; top: 200px; width: 466px; height: 58px;"></div>
+            <div class="fill" style="left: 50px; top: 200px; width: 60px; height: 58px;"></div>
+            <div class="text-w small" style="left: 58px; top: 222px;">TRAM</div>
+            <div class="text small" style="left: 120px; top: 205px;">Chapel St → South Yarra</div>
+            <div class="text xs" style="left: 120px; top: 220px;">8 min walk | 2 min ride</div>
+            <div class="text xs" style="left: 120px; top: 235px;">Then: 13 min, 18 min</div>
+            <div class="fill" style="right: 20px; top: 200px; width: 55px; height: 58px;"></div>
+            <div class="text-w xlarge" style="right: 30px; top: 210px;">8</div>
+            <div class="text-w xs" style="right: 32px; top: 240px;">min</div>
             
             <!-- LEG 2: TRAIN -->
-            <div class="fill" style="left: 20px; top: 279px; width: 20px; height: 20px;"></div>
-            <div class="box" style="left: 50px; top: 274px; width: 466px; height: 62px;"></div>
-            <div class="fill" style="left: 50px; top: 274px; width: 65px; height: 62px;"></div>
-            <div class="text-w medium" style="left: 56px; top: 297px;">TRAIN</div>
-            <div class="text medium" style="left: 125px; top: 279px;">South Yarra → Parliament</div>
-            <div class="text small" style="left: 125px; top: 297px;">3 min wait | 4 min ride</div>
-            <div class="text small" style="left: 125px; top: 315px;">Then: 23 min, 33 min</div>
-            <div class="fill" style="right: 20px; top: 274px; width: 65px; height: 62px;"></div>
-            <div class="text-w xlarge" style="right: 25px; top: 286px;">13</div>
-            <div class="text-w small" style="right: 32px; top: 316px;">min</div>
+            <div class="fill" style="left: 20px; top: 273px; width: 20px; height: 20px;"></div>
+            <div class="box" style="left: 50px; top: 268px; width: 466px; height: 58px;"></div>
+            <div class="fill" style="left: 50px; top: 268px; width: 60px; height: 58px;"></div>
+            <div class="text-w small" style="left: 55px; top: 290px;">TRAIN</div>
+            <div class="text small" style="left: 120px; top: 273px;">South Yarra → Parliament</div>
+            <div class="text xs" style="left: 120px; top: 288px;">3 min wait | 4 min ride</div>
+            <div class="text xs" style="left: 120px; top: 303px;">Then: 23 min, 33 min</div>
+            <div class="fill" style="right: 20px; top: 268px; width: 55px; height: 58px;"></div>
+            <div class="text-w xlarge" style="right: 25px; top: 278px;">13</div>
+            <div class="text-w xs" style="right: 32px; top: 308px;">min</div>
             
             <!-- LEG 3: COFFEE -->
-            <div class="fill" style="left: 20px; top: 351px; width: 20px; height: 20px;"></div>
-            <div class="box" style="left: 50px; top: 346px; width: 466px; height: 42px;"></div>
-            <div class="fill" style="left: 50px; top: 346px; width: 65px; height: 42px;"></div>
-            <div class="text-w medium" style="left: 55px; top: 360px;">COFFEE</div>
-            <div class="text medium" style="left: 125px; top: 353px;">Excello CBD - Spring St</div>
-            <div class="text small" style="left: 125px; top: 371px;">5 min stop</div>
-            <div class="fill" style="right: 20px; top: 346px; width: 65px; height: 42px;"></div>
-            <div class="text-w medium" style="right: 27px; top: 360px;">~20m</div>
+            <div class="fill" style="left: 20px; top: 341px; width: 20px; height: 20px;"></div>
+            <div class="box" style="left: 50px; top: 336px; width: 466px; height: 38px;"></div>
+            <div class="fill" style="left: 50px; top: 336px; width: 60px; height: 38px;"></div>
+            <div class="text-w small" style="left: 52px; top: 348px;">COFFEE</div>
+            <div class="text small" style="left: 120px; top: 343px;">Excello CBD - Spring St</div>
+            <div class="text xs" style="left: 120px; top: 358px;">5 min stop</div>
+            <div class="fill" style="right: 20px; top: 336px; width: 55px; height: 38px;"></div>
+            <div class="text-w small" style="right: 27px; top: 348px;">~20m</div>
             
             <!-- LEG 4: TRAM 86 -->
-            <div class="fill" style="left: 20px; top: 403px; width: 20px; height: 20px;"></div>
-            <div class="box" style="left: 50px; top: 398px; width: 466px; height: 62px;"></div>
-            <div class="fill" style="left: 50px; top: 398px; width: 65px; height: 62px;"></div>
-            <div class="text-w medium" style="left: 58px; top: 421px;">TRAM</div>
-            <div class="text medium" style="left: 125px; top: 403px;">Bourke St → Smith St (86)</div>
-            <div class="text small" style="left: 125px; top: 421px;">2 min walk | 5 min ride</div>
-            <div class="text small" style="left: 125px; top: 439px;">Then: 34 min, 40 min</div>
-            <div class="fill" style="right: 20px; top: 398px; width: 65px; height: 62px;"></div>
-            <div class="text-w xlarge" style="right: 25px; top: 410px;">28</div>
-            <div class="text-w small" style="right: 32px; top: 440px;">min</div>
+            <div class="fill" style="left: 20px; top: 389px; width: 20px; height: 20px;"></div>
+            <div class="box" style="left: 50px; top: 384px; width: 466px; height: 58px;"></div>
+            <div class="fill" style="left: 50px; top: 384px; width: 60px; height: 58px;"></div>
+            <div class="text-w small" style="left: 58px; top: 406px;">TRAM</div>
+            <div class="text small" style="left: 120px; top: 389px;">Bourke St → Smith St (86)</div>
+            <div class="text xs" style="left: 120px; top: 404px;">2 min walk | 5 min ride</div>
+            <div class="text xs" style="left: 120px; top: 419px;">Then: 34 min, 40 min</div>
+            <div class="fill" style="right: 20px; top: 384px; width: 55px; height: 58px;"></div>
+            <div class="text-w xlarge" style="right: 25px; top: 394px;">28</div>
+            <div class="text-w xs" style="right: 32px; top: 424px;">min</div>
             
             <!-- DESTINATION -->
-            <div class="fill" style="left: 20px; top: 475px; width: 20px; height: 20px;"></div>
-            <div class="fill" style="left: 50px; top: 470px; width: 466px; height: 65px;"></div>
-            <div class="text-w large" style="left: 65px; top: 482px;">SIRCUIT</div>
-            <div class="text-w small" style="left: 65px; top: 507px;">Smith St, Collingwood</div>
-            <div class="text-w medium" style="right: 115px; top: 480px;">ARRIVE</div>
-            <div class="text-w huge" style="right: 25px; top: 490px;">08:27</div>
+            <div class="fill" style="left: 20px; top: 457px; width: 20px; height: 20px;"></div>
+            <div class="fill" style="left: 50px; top: 452px; width: 466px; height: 58px;"></div>
+            <div class="text-w large" style="left: 65px; top: 465px;">SIRCUIT</div>
+            <div class="text-w xs" style="left: 65px; top: 488px;">Smith St, Collingwood</div>
+            <div class="text-w small" style="right: 105px; top: 462px;">ARRIVE</div>
+            <div class="text-w huge" style="right: 20px; top: 468px;">08:27</div>
             
             <!-- SUMMARY -->
-            <div class="line" style="left: 20px; top: 550px; width: 496px; height: 2px;"></div>
-            <div class="text small" style="left: 20px; top: 563px;">33 min early for 09:00 start | Coffee included</div>
+            <div class="line" style="left: 20px; top: 525px; width: 496px; height: 2px;"></div>
+            <div class="text xs" style="left: 20px; top: 535px;">33 min early for 09:00 start | Coffee included</div>
             
             <!-- SERVICE STATUS -->
-            <div class="line" style="left: 20px; top: 585px; width: 496px; height: 1px;"></div>
-            <div class="text xs" style="left: 20px; top: 595px;">SERVICE STATUS</div>
-            <div class="text xs" style="left: 20px; top: 608px;">Tram 78: Good | Pakenham Line: Good | Tram 86: Good</div>
-            <div class="text xs" style="left: 20px; top: 621px;">Sandringham Line: Minor delays (5 min)</div>
+            <div class="line" style="left: 20px; top: 555px; width: 496px; height: 1px;"></div>
+            <div class="text xs" style="left: 20px; top: 563px;">SERVICE STATUS</div>
+            <div class="text xs" style="left: 20px; top: 576px;">Tram 78: Good | Pakenham Line: Good | Tram 86: Good</div>
+            <div class="text xs" style="left: 20px; top: 589px;">Sandringham Line: Minor delays (5 min)</div>
             
             <!-- FOOTER -->
             <div class="line" style="left: 0; top: 670px; width: 536px; height: 2px;"></div>
-            <div class="text small" style="left: 20px; top: 690px;">PTV-TRMNL #12</div>
-            <div class="text small" style="left: 200px; top: 690px;">Updated: 07:32:15</div>
-            <div class="text small" style="right: 20px; top: 690px;">v5.18</div>
+            <div class="text xs" style="left: 20px; top: 690px;">PTV-TRMNL</div>
+            <div class="text xs" style="left: 120px; top: 690px;">Updated: 07:32:15</div>
+            <div class="text xs" style="left: 280px; top: 690px;">© 2025 Angus Bergman</div>
+            <div class="text xs" style="right: 20px; top: 690px;">v5.18</div>
         </div>
-        <div class="info">Fixed arrival time, umbrella status always shown</div>
+        <div class="info">Final approved design with copyright</div>
     </div>
 </body>
 </html>
