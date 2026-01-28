@@ -17,8 +17,12 @@
         .inverted { background: #1a1a1a; color: #f5f5f0; padding: 4px 10px; }
         .strikethrough { text-decoration: line-through; opacity: 0.5; }
         .box { position: absolute; border: 2px solid #1a1a1a; }
+        .segment { position: absolute; border: 2px solid #1a1a1a; background: rgba(0,0,0,0.03); }
+        .segment-header { position: absolute; background: #1a1a1a; color: #f5f5f0; padding: 3px 10px; font-size: 12px; font-weight: bold; }
         .line { position: absolute; background: #1a1a1a; height: 1px; }
+        .vline { position: absolute; background: #1a1a1a; width: 2px; }
         .info { color: #6b7280; text-align: center; margin-top: 15px; font-size: 10px; }
+        .connector { position: absolute; font-size: 16px; color: #1a1a1a; }
     </style>
 </head>
 <body>
@@ -26,73 +30,96 @@
         <div class="device-label">Kindle 11 - ⚠️ DELAY SIMULATION (+8 min on Pakenham Line)</div>
         <div id="display">
             <!-- HEADER -->
-            <div class="text large" style="left: 15px; top: 15px;">PTV-TRMNL</div>
-            <div class="text small" style="left: 15px; top: 38px;">1 Clara St, South Yarra</div>
-            <div class="text large" style="right: 15px; top: 15px;">08:15</div>
-            <div class="line" style="left: 0; top: 60px; width: 536px;"></div>
+            <div class="text large" style="left: 15px; top: 12px;">PTV-TRMNL</div>
+            <div class="text small" style="left: 15px; top: 34px;">1 Clara St, South Yarra</div>
+            <div class="text large" style="right: 15px; top: 12px;">08:15</div>
+            <div class="line" style="left: 0; top: 55px; width: 536px;"></div>
             
             <!-- DELAY BANNER -->
-            <div style="position: absolute; left: 0; top: 65px; width: 536px; height: 32px; background: #1a1a1a;"></div>
-            <div class="text medium inverted" style="left: 150px; top: 73px;">⚠️ DELAY: Skip coffee today</div>
+            <div style="position: absolute; left: 0; top: 58px; width: 536px; height: 28px; background: #1a1a1a;"></div>
+            <div class="text small inverted" style="left: 160px; top: 65px;">⚠️ DELAY DETECTED: Skip coffee</div>
             
             <!-- JOURNEY BOX -->
-            <div class="box" style="left: 15px; top: 110px; width: 506px; height: 95px;"></div>
-            <div class="text medium" style="left: 200px; top: 120px;">LEAVE BY</div>
-            <div class="text xl" style="left: 225px; top: 145px;">08:15</div>
-            <div class="text small strikethrough" style="left: 310px; top: 150px;">was 08:18</div>
-            <div class="text small" style="left: 175px; top: 180px;">Arrive: 09:03 (+8 min delay)</div>
+            <div class="box" style="left: 15px; top: 95px; width: 506px; height: 75px;"></div>
+            <div class="text medium" style="left: 180px; top: 103px;">LEAVE BY</div>
+            <div class="text xl" style="left: 235px; top: 122px;">08:15</div>
+            <div class="text small" style="left: 320px; top: 128px; opacity: 0.5;">(was 08:18)</div>
+            <div class="text small" style="left: 180px; top: 152px;">Arrive: 09:03 (+8 min)</div>
             
-            <!-- LEG 1: TRAM -->
-            <div class="text large" style="left: 15px; top: 225px;">🚊 LEG 1: TRAM</div>
-            <div class="text small" style="left: 15px; top: 248px;">Chapel St/Tivoli → South Yarra Stn</div>
-            <div class="text small" style="left: 30px; top: 270px;">● NOW!    ○ 5 min    ○ 10 min</div>
+            <!-- ========== LEG 1: TRAM ========== -->
+            <div class="segment" style="left: 15px; top: 182px; width: 250px; height: 85px;"></div>
+            <div class="segment-header" style="left: 15px; top: 182px;">🚊 LEG 1</div>
+            <div class="text medium" style="left: 25px; top: 205px;">TRAM</div>
+            <div class="text small" style="left: 25px; top: 223px;">Chapel St → South Yarra Stn</div>
+            <div class="text small" style="left: 25px; top: 243px;">● NOW!  ○ 5m  ○ 10m</div>
             
-            <!-- LEG 2: TRAIN (DELAYED) -->
-            <div class="text large" style="left: 15px; top: 305px;">🚆 LEG 2: TRAIN</div>
-            <div class="text medium inverted" style="left: 160px; top: 306px;">⚠️ +8 MIN</div>
-            <div class="text small" style="left: 15px; top: 328px;">South Yarra → Parliament (Pakenham Line)</div>
-            <div class="text small strikethrough" style="left: 30px; top: 350px;">● 4 min</div>
-            <div class="text small" style="left: 90px; top: 350px;">→ 12 min    ○ 18 min</div>
+            <!-- Connector arrow -->
+            <div class="connector" style="left: 270px; top: 215px;">▶</div>
             
-            <!-- COFFEE (SKIPPED) -->
-            <div class="box" style="left: 300px; top: 225px; width: 220px; height: 55px; opacity: 0.35;"></div>
-            <div class="text medium" style="left: 315px; top: 235px; opacity: 0.35;">☕ Excello CBD</div>
-            <div class="text small" style="left: 315px; top: 258px; opacity: 0.35;">❌ SKIPPED</div>
+            <!-- ========== LEG 2: TRAIN (DELAYED) ========== -->
+            <div class="segment" style="left: 285px; top: 182px; width: 236px; height: 85px; border-width: 3px;"></div>
+            <div class="segment-header" style="left: 285px; top: 182px;">🚆 LEG 2 ⚠️ DELAYED</div>
+            <div class="text medium" style="left: 295px; top: 205px;">TRAIN</div>
+            <div class="text small" style="left: 295px; top: 223px;">South Yarra → Parliament</div>
+            <div class="text small strikethrough" style="left: 295px; top: 243px;">4m</div>
+            <div class="text small" style="left: 320px; top: 243px;">→ 12m (+8)  ○ 18m</div>
             
-            <!-- LEG 3: TRAM 86 -->
-            <div class="text large" style="left: 15px; top: 390px;">🚊 LEG 3: TRAM 86</div>
-            <div class="text small" style="left: 15px; top: 413px;">Bourke St Mall → Smith St</div>
-            <div class="text small" style="left: 30px; top: 435px;">● 5 min    ○ 11 min    ○ 17 min</div>
+            <!-- ========== COFFEE (SKIPPED) ========== -->
+            <div class="segment" style="left: 15px; top: 280px; width: 250px; height: 60px; opacity: 0.3;"></div>
+            <div class="segment-header" style="left: 15px; top: 280px; opacity: 0.4;">☕ COFFEE</div>
+            <div class="text medium" style="left: 25px; top: 303px; opacity: 0.4;">Excello CBD</div>
+            <div class="text small" style="left: 25px; top: 321px; opacity: 0.4;">❌ SKIPPED - no time</div>
             
-            <!-- DESTINATION -->
-            <div class="box" style="left: 300px; top: 390px; width: 220px; height: 55px;"></div>
-            <div class="text medium" style="left: 315px; top: 400px;">📍 Sircuit</div>
-            <div class="text small" style="left: 315px; top: 423px;">Smith St, Collingwood</div>
+            <!-- Connector arrow -->
+            <div class="connector" style="left: 270px; top: 295px;">▶</div>
+            
+            <!-- ========== LEG 3: TRAM 86 ========== -->
+            <div class="segment" style="left: 285px; top: 280px; width: 236px; height: 60px;"></div>
+            <div class="segment-header" style="left: 285px; top: 280px;">🚊 LEG 3</div>
+            <div class="text medium" style="left: 295px; top: 303px;">TRAM 86</div>
+            <div class="text small" style="left: 295px; top: 321px;">Bourke St → Smith St</div>
+            
+            <!-- ========== DESTINATION ========== -->
+            <div class="box" style="left: 15px; top: 355px; width: 506px; height: 55px; background: rgba(0,0,0,0.08);"></div>
+            <div class="text large" style="left: 25px; top: 368px;">📍 DESTINATION</div>
+            <div class="text medium" style="left: 200px; top: 370px;">Sircuit</div>
+            <div class="text small" style="left: 200px; top: 388px;">Smith St, Collingwood</div>
+            <div class="text small" style="left: 400px; top: 378px;">ETA 09:03</div>
+            
+            <!-- ROUTE VISUAL -->
+            <div class="line" style="left: 15px; top: 425px; width: 506px;"></div>
+            <div class="text small" style="left: 15px; top: 435px;">ROUTE:</div>
+            
+            <!-- Visual journey line -->
+            <div style="position: absolute; left: 65px; top: 440px; width: 450px; height: 30px;">
+                <div class="text small" style="left: 0; top: 0;">🏠</div>
+                <div class="line" style="left: 25px; top: 8px; width: 50px;"></div>
+                <div class="text small" style="left: 80px; top: 0;">🚊</div>
+                <div class="line" style="left: 105px; top: 8px; width: 50px;"></div>
+                <div class="text small" style="left: 160px; top: 0;">🚆⚠️</div>
+                <div class="line" style="left: 200px; top: 8px; width: 40px; opacity: 0.3;"></div>
+                <div class="text small" style="left: 245px; top: 0; opacity: 0.3;">☕❌</div>
+                <div class="line" style="left: 275px; top: 8px; width: 50px;"></div>
+                <div class="text small" style="left: 330px; top: 0;">🚊</div>
+                <div class="line" style="left: 355px; top: 8px; width: 50px;"></div>
+                <div class="text small" style="left: 410px; top: 0;">📍</div>
+            </div>
             
             <!-- SUMMARY -->
-            <div class="line" style="left: 15px; top: 475px; width: 506px;"></div>
-            <div class="text small" style="left: 15px; top: 490px;">⚠️ Route adjusted due to Pakenham Line delay</div>
-            <div class="text small" style="left: 15px; top: 510px;">• Coffee stop removed to maintain arrival time</div>
-            <div class="text small" style="left: 15px; top: 530px;">• Total journey: ~48 min</div>
-            <div class="text medium" style="left: 15px; top: 555px;">→ Leave NOW to arrive on time!</div>
-            
-            <!-- CONNECTION DIAGRAM -->
-            <div class="line" style="left: 15px; top: 590px; width: 506px;"></div>
-            <div class="text small" style="left: 15px; top: 605px;">🏠 Home</div>
-            <div class="text small" style="left: 70px; top: 605px;">→ 🚊</div>
-            <div class="text small" style="left: 105px; top: 605px;">→ 🚆⚠️</div>
-            <div class="text small" style="left: 160px; top: 605px;">→ ☕❌</div>
-            <div class="text small" style="left: 210px; top: 605px;">→ 🚊</div>
-            <div class="text small" style="left: 245px; top: 605px;">→ 📍 Work</div>
+            <div class="text small" style="left: 15px; top: 480px;">⚠️ Pakenham Line +8 min delay detected</div>
+            <div class="text small" style="left: 15px; top: 498px;">• Coffee stop removed to maintain arrival</div>
+            <div class="text small" style="left: 15px; top: 516px;">• Total: 48 min (3 legs)</div>
+            <div class="text medium" style="left: 15px; top: 540px;">➡️ Leave NOW to arrive on time!</div>
             
             <!-- FOOTER -->
             <div class="line" style="left: 0; top: 670px; width: 536px;"></div>
-            <div class="text small" style="left: 15px; top: 685px;">☀️ 19°C Sunny</div>
-            <div class="text small" style="left: 180px; top: 685px;">Refresh #43</div>
-            <div class="text small" style="left: 320px; top: 685px;">08:15:42</div>
+            <div class="text small" style="left: 15px; top: 685px;">☀️ 19°C</div>
+            <div class="text small" style="left: 100px; top: 685px;">Refresh #43</div>
+            <div class="text small" style="left: 220px; top: 685px;">08:15:42</div>
+            <div class="text small" style="left: 340px; top: 685px;">Kindle 11</div>
             <div class="text small" style="right: 15px; top: 685px;">v5.18</div>
         </div>
-        <div class="info">⚠️ Pakenham Line +8 min delay → Route optimized, coffee skipped</div>
+        <div class="info">⚠️ Live delay handling • Route dynamically adjusted</div>
     </div>
 </body>
 </html>
