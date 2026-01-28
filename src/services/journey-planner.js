@@ -366,6 +366,211 @@ class JourneyPlanner {
   }
 
   /**
+   * Auto-discover route alternatives from home to work
+   * Finds all viable routes and ranks by user preferences
+   * @param {Object} locations - { home, cafe, work } with lat/lon
+   * @param {Array} allStops - All available stops from timetable
+   * @param {Object} routePrefs - Route preferences from config
+   * @returns {Array} Ranked list of route alternatives
+   */
+  discoverRouteAlternatives(locations, allStops, routePrefs) {
+    console.log('🔍 Auto-discovering route alternatives...');
+    
+    const maxWalk = routePrefs?.walking?.maxDistanceMeters || 500;
+    const walkWeight = routePrefs?.walking?.weightFactor || 2.0;
+    const alternatives = [];
+
+    // Find all stops near home and work
+    const homeStops = this.findNearbyStops(locations.home, allStops, 10, routePrefs);
+    const workStops = this.findNearbyStops(locations.work, allStops, 10, routePrefs);
+    
+    console.log('  Found', homeStops.length, 'stops near home');
+    console.log('  Found', workStops.length, 'stops near work');
+
+    // Group stops by route for better alternative discovery
+    const homeByRoute = this.groupStopsByRoute(homeStops);
+    const workByRoute = this.groupStopsByRoute(workStops);
+
+    // Strategy 1: Direct routes (same route serves both areas)
+    for (const [routeId, homeRouteStops] of Object.entries(homeByRoute)) {
+      if (workByRoute[routeId]) {
+        const workRouteStops = workByRoute[routeId];
+        const bestHome = homeRouteStops[0];
+        const bestWork = workRouteStops[0];
+        
+        alternatives.push({
+          id: 'direct-' + routeId,
+          name: bestHome.route_name || this.getModeName(bestHome.route_type) + ' ' + (bestHome.route_number || ''),
+          type: 'direct',
+          modes: [{
+            type: bestHome.route_type,
+            routeNumber: bestHome.route_number,
+            routeName: bestHome.route_name,
+            originStation: bestHome,
+            destinationStation: bestWork,
+            estimatedDuration: this.estimateTransitTime(bestHome, bestWork)
+          }],
+          totalWalking: bestHome.distance + bestWork.distance,
+          totalTransit: this.estimateTransitTime(bestHome, bestWork),
+          score: this.scoreRoute([bestHome, bestWork], routePrefs)
+        });
+      }
+    }
+
+    // Strategy 2: Multi-modal via interchange stations
+    const interchanges = this.findInterchangeStations(allStops);
+    
+    for (const homeStop of homeStops.slice(0, 5)) {
+      for (const interchange of interchanges) {
+        // Check if homeStop's route goes to this interchange
+        const interchangeStops = allStops.filter(s => 
+          s.stop_id === interchange.stop_id || 
+          (Math.abs(s.lat - interchange.lat) < 0.001 && Math.abs(s.lon - interchange.lon) < 0.001)
+        );
+        
+        for (const workStop of workStops.slice(0, 5)) {
+          // Check if there's a connecting route from interchange to work
+          const connectingStops = interchangeStops.filter(s => 
+            s.route_type === workStop.route_type || this.routesConnect(s, workStop, allStops)
+          );
+          
+          if (connectingStops.length > 0) {
+            const connecting = connectingStops[0];
+            const walkToInterchange = this.haversineDistance(
+              homeStop.lat, homeStop.lon, connecting.lat, connecting.lon
+            );
+            
+            // Only include if transfer walk is reasonable
+            if (walkToInterchange < 300) {
+              alternatives.push({
+                id: 'multi-' + homeStop.route_number + '-' + interchange.name + '-' + workStop.route_number,
+                name: (homeStop.route_number || this.getModeName(homeStop.route_type)) + 
+                      ' via ' + interchange.name + ' to ' + 
+                      (workStop.route_number || this.getModeName(workStop.route_type)),
+                type: 'multi-modal',
+                via: interchange.name,
+                modes: [
+                  {
+                    type: homeStop.route_type,
+                    routeNumber: homeStop.route_number,
+                    originStation: homeStop,
+                    destinationStation: { ...connecting, name: interchange.name }
+                  },
+                  {
+                    type: workStop.route_type,
+                    routeNumber: workStop.route_number,
+                    originStation: { ...connecting, name: interchange.name },
+                    destinationStation: workStop
+                  }
+                ],
+                totalWalking: homeStop.distance + walkToInterchange + workStop.distance,
+                totalTransit: this.estimateTransitTime(homeStop, connecting) + 
+                              this.estimateTransitTime(connecting, workStop),
+                score: this.scoreRoute([homeStop, connecting, workStop], routePrefs)
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Sort by score (lower = better)
+    alternatives.sort((a, b) => a.score - b.score);
+    
+    // Remove duplicates and limit
+    const seen = new Set();
+    const unique = alternatives.filter(alt => {
+      const key = alt.modes.map(m => m.routeNumber + '-' + m.originStation?.name).join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 5);
+
+    console.log('✅ Discovered', unique.length, 'route alternatives');
+    unique.forEach((alt, i) => {
+      console.log('  ', i + 1 + '.', alt.name, '- score:', alt.score.toFixed(1));
+    });
+
+    return unique;
+  }
+
+  /**
+   * Group stops by their route ID
+   */
+  groupStopsByRoute(stops) {
+    const grouped = {};
+    for (const stop of stops) {
+      const routeId = stop.route_id || stop.route_number || stop.route_type;
+      if (!grouped[routeId]) grouped[routeId] = [];
+      grouped[routeId].push(stop);
+    }
+    return grouped;
+  }
+
+  /**
+   * Find major interchange stations (stations with multiple modes)
+   */
+  findInterchangeStations(allStops) {
+    // Group stops by location (within 200m)
+    const locations = {};
+    for (const stop of allStops) {
+      const key = Math.round(stop.lat * 500) + ',' + Math.round(stop.lon * 500);
+      if (!locations[key]) locations[key] = [];
+      locations[key].push(stop);
+    }
+    
+    // Find locations with multiple route types (interchange)
+    const interchanges = [];
+    for (const stops of Object.values(locations)) {
+      const types = new Set(stops.map(s => s.route_type));
+      if (types.size > 1) {
+        // This is an interchange - has multiple modes
+        const trainStop = stops.find(s => s.route_type === 0);
+        interchanges.push(trainStop || stops[0]);
+      }
+    }
+    
+    return interchanges;
+  }
+
+  /**
+   * Check if two routes connect (share a stop)
+   */
+  routesConnect(stop1, stop2, allStops) {
+    // Simplified: check if they're the same route type or at same location
+    return stop1.route_id === stop2.route_id;
+  }
+
+  /**
+   * Score a route based on preferences (lower = better)
+   */
+  scoreRoute(stops, routePrefs) {
+    const walkWeight = routePrefs?.walking?.weightFactor || 2.0;
+    const modePriority = routePrefs?.modePriority || { train: 1, tram: 2, vline: 2, bus: 3 };
+    const routeTypeToMode = { 0: 'train', 1: 'tram', 2: 'bus', 3: 'vline' };
+    
+    let score = 0;
+    
+    // Walking penalty (weighted)
+    for (const stop of stops) {
+      if (stop.distance) {
+        score += (stop.distance / 100) * walkWeight;
+      }
+    }
+    
+    // Mode preference bonus
+    for (const stop of stops) {
+      const mode = routeTypeToMode[stop.route_type] || 'bus';
+      score += modePriority[mode] || 3;
+    }
+    
+    // Fewer transfers is better
+    score += (stops.length - 2) * 5;
+    
+    return score;
+  }
+
+  /**
    * Use user's saved/selected route alternative
    * @param {Object} savedRoute - Saved route config from preferences
    * @param {Object} locations - { home, cafe, work } with lat/lon
@@ -420,29 +625,62 @@ class JourneyPlanner {
   }
 
   /**
-   * Calculate journey using user's preferred route if available
-   * Falls back to auto-calculation if no route selected
+   * Smart journey planner - auto-discovers alternatives and uses preferred route
+   * @param {Object} params.locations - { home, cafe, work }
+   * @param {Array} params.allStops - All stops from timetable data
+   * @param {Object} params.routePrefs - User's route preferences
+   * @param {string} params.arrivalTime - Target arrival time
+   * @param {number} params.selectedAlternative - Index of selected alternative (optional)
    */
   async calculateWithPreferredRoute(params) {
-    const { locations, routePrefs, arrivalTime, cafeDuration } = params;
+    const { locations, allStops, routePrefs, arrivalTime, cafeDuration, selectedAlternative } = params;
     
-    // Check if user has a saved route preference
-    const selectedRoute = this.useSelectedRoute(routePrefs?.savedRoute, locations, arrivalTime);
+    // Auto-discover route alternatives
+    let alternatives = [];
+    if (allStops?.length > 0) {
+      alternatives = this.discoverRouteAlternatives(locations, allStops, routePrefs);
+    }
     
-    if (selectedRoute && selectedRoute.modes?.length > 0) {
-      // Use the multi-modal calculator with the saved route
-      console.log('✅ Using preferred route:', selectedRoute.routeName);
+    // Check if user has manually selected an alternative
+    const selectedIndex = selectedAlternative ?? routePrefs?.savedRoute?.selectedAlternative ?? 0;
+    
+    // Use discovered alternative if available
+    if (alternatives.length > 0) {
+      const selected = alternatives[Math.min(selectedIndex, alternatives.length - 1)];
+      console.log('✅ Using discovered route:', selected.name);
+      
+      const result = this.calculateMultiModalJourney({
+        locations,
+        modes: selected.modes,
+        routePrefs,
+        arrivalTime,
+        cafeDuration
+      });
+      
+      // Attach alternatives to result for UI
+      if (result.success) {
+        result.alternatives = alternatives;
+        result.selectedAlternative = selectedIndex;
+      }
+      
+      return result;
+    }
+    
+    // Check for manually saved route
+    const savedRoute = this.useSelectedRoute(routePrefs?.savedRoute, locations, arrivalTime);
+    if (savedRoute?.modes?.length > 0) {
+      console.log('✅ Using saved route:', savedRoute.routeName);
       return this.calculateMultiModalJourney({
         locations,
-        modes: selectedRoute.modes,
+        modes: savedRoute.modes,
         routePrefs,
         arrivalTime,
         cafeDuration
       });
     }
     
-    // Fall back to auto-calculation
-    console.log('🔄 No preferred route, auto-calculating...');
+    // Fall back to basic auto-calculation
+    console.log('🔄 No alternatives found, using basic calculation...');
     return this.calculateJourney({
       homeLocation: locations.home,
       workLocation: locations.work,
