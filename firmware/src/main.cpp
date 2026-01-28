@@ -17,7 +17,7 @@
 #define ZONE_BMP_MAX_SIZE 20000
 #define ZONE_ID_MAX_LEN 32
 #define ZONE_DATA_MAX_LEN 8000
-#define FIRMWARE_VERSION "5.32"
+#define FIRMWARE_VERSION "5.33"
 
 // Fallback server URL if none configured
 #define DEFAULT_SERVER_URL "https://ptvtrmnl.vercel.app"
@@ -331,8 +331,8 @@ bool fetchZoneUpdates(bool forceAll) {
     String url = String(serverUrl);
     // Ensure clean URL construction
     if (!url.endsWith("/")) url += "/";
-    url += "api/zones";
-    if (forceAll) url += "?force=true";
+    url += "api/zones?batch=0";
+    if (forceAll) url += "&force=true";
     
     Serial.printf("Fetch: %s\n", url.c_str());
     http.setTimeout(30000);
