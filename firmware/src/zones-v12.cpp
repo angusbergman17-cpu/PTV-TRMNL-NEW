@@ -26,7 +26,7 @@
 
 #define SCREEN_W 800
 #define SCREEN_H 480
-#define FIRMWARE_VERSION "5.31"
+#define FIRMWARE_VERSION "5.41"
 #define ZONE_BUFFER_SIZE 16384
 static uint8_t* zoneBuffer = nullptr;
 
@@ -45,18 +45,12 @@ WiFiManagerParameter customServerUrl("server", "Server URL", "", 120);
 struct ZoneDef { const char* id; int16_t x, y, w, h; uint8_t refreshPriority; };
 
 static const ZoneDef ZONES[] = {
-    {"header.location", 16, 8, 260, 20, 3},
-    {"header.time", 16, 28, 150, 72, 2},
-    {"header.dayDate", 280, 32, 200, 56, 3},
-    {"header.weather", 640, 16, 144, 80, 2},
-    {"status", 0, 100, 800, 28, 1},
-    {"leg1.info", 16, 136, 684, 52, 2}, {"leg2.info", 16, 190, 684, 52, 2},
-    {"leg3.info", 16, 244, 684, 52, 2}, {"leg4.info", 16, 298, 684, 52, 2},
-    {"leg5.info", 16, 352, 684, 52, 2}, {"leg6.info", 16, 406, 684, 52, 2},
-    {"leg1.time", 700, 136, 84, 52, 1}, {"leg2.time", 700, 190, 84, 52, 1},
-    {"leg3.time", 700, 244, 84, 52, 1}, {"leg4.time", 700, 298, 84, 52, 1},
-    {"leg5.time", 700, 352, 84, 52, 1}, {"leg6.time", 700, 406, 84, 52, 1},
-    {"footer", 0, 452, 800, 28, 2},
+    {"time", 20, 45, 180, 70, 1},
+    {"weather", 620, 10, 160, 95, 2},
+    {"trains", 20, 155, 370, 150, 1},
+    {"trams", 410, 155, 370, 150, 1},
+    {"coffee", 20, 315, 760, 65, 2},
+    {"footer", 0, 445, 800, 35, 3},
 };
 static const int ZONE_COUNT = sizeof(ZONES) / sizeof(ZONES[0]);
 
@@ -109,21 +103,34 @@ bool fetchChangedZoneList(bool forceAll, bool* changedFlags) {
     WiFiClientSecure* client = new WiFiClientSecure(); if (!client) return false;
     client->setInsecure();
     HTTPClient http;
-    String url = String(serverUrl) + "/api/zones/changed"; if (forceAll) url += "?force=true";
+    String url = String(serverUrl) + "/api/zones?batch=0"; if (forceAll) url += "&force=true";
     url.replace("//api", "/api");
     http.setTimeout(10000); if (!http.begin(*client, url)) { delete client; return false; }
     http.addHeader("User-Agent", "PTV-TRMNL/" FIRMWARE_VERSION);
     int httpCode = http.GET();
     if (httpCode != 200) { http.end(); delete client; return false; }
-    String payload = http.getString(); http.end(); delete client;
-    StaticJsonDocument<512> doc;
-    if (deserializeJson(doc, payload)) return false;
-    JsonArray changed = doc["changed"].as<JsonArray>();
-    for (const char* zoneId : changed) {
+    String payload = http.getString(); Serial.printf("Got payload: %d bytes\n", payload.length()); http.end(); Serial.println("HTTP end"); delete client; Serial.println("Client deleted");
+    // Manual JSON parsing (ArduinoJson crashes on ESP32-C3)
+    Serial.println("Parsing changed zones...");
+    int start = payload.indexOf("\"changed\":");
+    if (start < 0) { Serial.println("No changed field"); return false; }
+    int arrStart = payload.indexOf('[', start);
+    int arrEnd = payload.indexOf(']', arrStart);
+    if (arrStart < 0 || arrEnd < 0) { Serial.println("No array"); return false; }
+    String arr = payload.substring(arrStart + 1, arrEnd);
+    int pos = 0;
+    while (pos < (int)arr.length()) {
+        int q1 = arr.indexOf('"', pos);
+        if (q1 < 0) break;
+        int q2 = arr.indexOf('"', q1 + 1);
+        if (q2 < 0) break;
+        String zid = arr.substring(q1 + 1, q2);
         for (int i = 0; i < ZONE_COUNT; i++) {
-            if (strcmp(ZONES[i].id, zoneId) == 0) { changedFlags[i] = true; break; }
+            if (zid.equals(ZONES[i].id)) { changedFlags[i] = true; Serial.printf("Zone %s changed\n", ZONES[i].id); break; }
         }
+        pos = q2 + 1;
     }
+    Serial.println("Parsing done");
     return true;
 }
 
