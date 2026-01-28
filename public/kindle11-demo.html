@@ -2,124 +2,117 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Kindle 11 - Delay Simulation</title>
+    <title>Kindle 11 - At a Glance</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, sans-serif; background: #1e293b; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .device-frame { background: #333; padding: 30px 20px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
         .device-label { color: #888; font-size: 12px; text-align: center; margin-bottom: 15px; }
         #display { width: 536px; height: 724px; background: #f5f5f0; border: 2px solid #1a1a1a; border-radius: 2px; position: relative; overflow: hidden; font-family: "Courier New", monospace; }
-        .text { position: absolute; color: #1a1a1a; white-space: nowrap; }
-        .large { font-size: 18px; font-weight: bold; }
-        .medium { font-size: 13px; font-weight: bold; }
+        .text { position: absolute; color: #1a1a1a; }
+        .huge { font-size: 42px; font-weight: bold; }
+        .large { font-size: 20px; font-weight: bold; }
+        .medium { font-size: 14px; font-weight: bold; }
         .small { font-size: 11px; }
-        .xl { font-size: 28px; font-weight: bold; }
-        .inverted { background: #1a1a1a; color: #f5f5f0; padding: 4px 10px; }
-        .strikethrough { text-decoration: line-through; opacity: 0.5; }
-        .box { position: absolute; border: 2px solid #1a1a1a; }
-        .segment { position: absolute; border: 2px solid #1a1a1a; background: rgba(0,0,0,0.03); }
-        .segment-header { position: absolute; background: #1a1a1a; color: #f5f5f0; padding: 3px 10px; font-size: 12px; font-weight: bold; }
-        .line { position: absolute; background: #1a1a1a; height: 1px; }
-        .vline { position: absolute; background: #1a1a1a; width: 2px; }
+        .inverted { background: #1a1a1a; color: #f5f5f0; padding: 6px 12px; }
+        .line { position: absolute; background: #1a1a1a; height: 2px; }
         .info { color: #6b7280; text-align: center; margin-top: 15px; font-size: 10px; }
-        .connector { position: absolute; font-size: 16px; color: #1a1a1a; }
+        .card { position: absolute; border: 3px solid #1a1a1a; background: #fff; }
+        .card-dark { position: absolute; background: #1a1a1a; color: #f5f5f0; }
     </style>
 </head>
 <body>
     <div class="device-frame">
-        <div class="device-label">Kindle 11 - ⚠️ DELAY SIMULATION (+8 min on Pakenham Line)</div>
+        <div class="device-label">Kindle 11 - At a Glance View</div>
         <div id="display">
             <!-- HEADER -->
-            <div class="text large" style="left: 15px; top: 12px;">PTV-TRMNL</div>
-            <div class="text small" style="left: 15px; top: 34px;">1 Clara St, South Yarra</div>
-            <div class="text large" style="right: 15px; top: 12px;">08:15</div>
-            <div class="line" style="left: 0; top: 55px; width: 536px;"></div>
+            <div class="text large" style="left: 20px; top: 15px;">PTV-TRMNL</div>
+            <div class="text large" style="right: 20px; top: 15px;">08:15</div>
             
-            <!-- DELAY BANNER -->
-            <div style="position: absolute; left: 0; top: 58px; width: 536px; height: 28px; background: #1a1a1a;"></div>
-            <div class="text small inverted" style="left: 160px; top: 65px;">⚠️ DELAY DETECTED: Skip coffee</div>
+            <!-- ALERT BAR -->
+            <div class="card-dark" style="left: 0; top: 50px; width: 536px; height: 35px;"></div>
+            <div class="text medium" style="left: 150px; top: 58px; color: #f5f5f0;">⚠️ TRAIN DELAYED • SKIP COFFEE</div>
             
-            <!-- JOURNEY BOX -->
-            <div class="box" style="left: 15px; top: 95px; width: 506px; height: 75px;"></div>
-            <div class="text medium" style="left: 180px; top: 103px;">LEAVE BY</div>
-            <div class="text xl" style="left: 235px; top: 122px;">08:15</div>
-            <div class="text small" style="left: 320px; top: 128px; opacity: 0.5;">(was 08:18)</div>
-            <div class="text small" style="left: 180px; top: 152px;">Arrive: 09:03 (+8 min)</div>
+            <!-- BIG LEAVE TIME -->
+            <div class="card" style="left: 20px; top: 100px; width: 496px; height: 100px;"></div>
+            <div class="text medium" style="left: 40px; top: 115px;">LEAVE IN</div>
+            <div class="text huge" style="left: 40px; top: 140px;">NOW</div>
+            <div class="text medium" style="left: 200px; top: 115px;">ARRIVE</div>
+            <div class="text huge" style="left: 200px; top: 140px;">09:03</div>
+            <div class="text large" style="right: 40px; top: 135px;">48min</div>
             
-            <!-- ========== LEG 1: TRAM ========== -->
-            <div class="segment" style="left: 15px; top: 182px; width: 250px; height: 85px;"></div>
-            <div class="segment-header" style="left: 15px; top: 182px;">🚊 LEG 1</div>
-            <div class="text medium" style="left: 25px; top: 205px;">TRAM</div>
-            <div class="text small" style="left: 25px; top: 223px;">Chapel St → South Yarra Stn</div>
-            <div class="text small" style="left: 25px; top: 243px;">● NOW!  ○ 5m  ○ 10m</div>
+            <!-- ========== JOURNEY CARDS ========== -->
             
-            <!-- Connector arrow -->
-            <div class="connector" style="left: 270px; top: 215px;">▶</div>
+            <!-- LEG 1 -->
+            <div class="card" style="left: 20px; top: 215px; width: 240px; height: 90px;"></div>
+            <div class="card-dark" style="left: 20px; top: 215px; width: 240px; height: 28px;"></div>
+            <div class="text medium" style="left: 30px; top: 221px; color: #f5f5f0;">🚊  TRAM</div>
+            <div class="text medium" style="right: 286px; top: 221px; color: #f5f5f0;">2 min</div>
+            <div class="text small" style="left: 30px; top: 252px;">Chapel St</div>
+            <div class="text small" style="left: 30px; top: 268px;">→ South Yarra Stn</div>
+            <div class="text small" style="left: 30px; top: 286px;">Next: NOW, 5m, 10m</div>
             
-            <!-- ========== LEG 2: TRAIN (DELAYED) ========== -->
-            <div class="segment" style="left: 285px; top: 182px; width: 236px; height: 85px; border-width: 3px;"></div>
-            <div class="segment-header" style="left: 285px; top: 182px;">🚆 LEG 2 ⚠️ DELAYED</div>
-            <div class="text medium" style="left: 295px; top: 205px;">TRAIN</div>
-            <div class="text small" style="left: 295px; top: 223px;">South Yarra → Parliament</div>
-            <div class="text small strikethrough" style="left: 295px; top: 243px;">4m</div>
-            <div class="text small" style="left: 320px; top: 243px;">→ 12m (+8)  ○ 18m</div>
+            <!-- ARROW -->
+            <div class="text large" style="left: 265px; top: 250px;">▶</div>
             
-            <!-- ========== COFFEE (SKIPPED) ========== -->
-            <div class="segment" style="left: 15px; top: 280px; width: 250px; height: 60px; opacity: 0.3;"></div>
-            <div class="segment-header" style="left: 15px; top: 280px; opacity: 0.4;">☕ COFFEE</div>
-            <div class="text medium" style="left: 25px; top: 303px; opacity: 0.4;">Excello CBD</div>
-            <div class="text small" style="left: 25px; top: 321px; opacity: 0.4;">❌ SKIPPED - no time</div>
+            <!-- LEG 2 (DELAYED) -->
+            <div class="card" style="left: 276px; top: 215px; width: 240px; height: 90px; border-width: 4px;"></div>
+            <div class="card-dark" style="left: 276px; top: 215px; width: 240px; height: 28px;"></div>
+            <div class="text medium" style="left: 286px; top: 221px; color: #f5f5f0;">🚆  TRAIN  ⚠️</div>
+            <div class="text medium" style="right: 30px; top: 221px; color: #f5f5f0;">12 min</div>
+            <div class="text small" style="left: 286px; top: 252px;">South Yarra</div>
+            <div class="text small" style="left: 286px; top: 268px;">→ Parliament</div>
+            <div class="text small" style="left: 286px; top: 286px;">+8 min delay</div>
             
-            <!-- Connector arrow -->
-            <div class="connector" style="left: 270px; top: 295px;">▶</div>
+            <!-- ARROW -->
+            <div class="text large" style="left: 130px; top: 315px;">▼</div>
+            <div class="text large" style="left: 395px; top: 315px;">▼</div>
             
-            <!-- ========== LEG 3: TRAM 86 ========== -->
-            <div class="segment" style="left: 285px; top: 280px; width: 236px; height: 60px;"></div>
-            <div class="segment-header" style="left: 285px; top: 280px;">🚊 LEG 3</div>
-            <div class="text medium" style="left: 295px; top: 303px;">TRAM 86</div>
-            <div class="text small" style="left: 295px; top: 321px;">Bourke St → Smith St</div>
+            <!-- COFFEE (SKIPPED) -->
+            <div class="card" style="left: 20px; top: 335px; width: 240px; height: 70px; opacity: 0.25;"></div>
+            <div style="position: absolute; left: 20px; top: 335px; width: 240px; height: 28px; background: #888;"></div>
+            <div class="text medium" style="left: 30px; top: 341px; color: #f5f5f0; opacity: 0.6;">☕  COFFEE</div>
+            <div class="text medium" style="right: 286px; top: 341px; color: #f5f5f0; opacity: 0.6;">❌</div>
+            <div class="text small" style="left: 30px; top: 372px; opacity: 0.4;">Excello CBD</div>
+            <div class="text small" style="left: 30px; top: 388px; opacity: 0.4;">SKIPPED</div>
             
-            <!-- ========== DESTINATION ========== -->
-            <div class="box" style="left: 15px; top: 355px; width: 506px; height: 55px; background: rgba(0,0,0,0.08);"></div>
-            <div class="text large" style="left: 25px; top: 368px;">📍 DESTINATION</div>
-            <div class="text medium" style="left: 200px; top: 370px;">Sircuit</div>
-            <div class="text small" style="left: 200px; top: 388px;">Smith St, Collingwood</div>
-            <div class="text small" style="left: 400px; top: 378px;">ETA 09:03</div>
+            <!-- ARROW -->
+            <div class="text large" style="left: 265px; top: 360px;">▶</div>
             
-            <!-- ROUTE VISUAL -->
-            <div class="line" style="left: 15px; top: 425px; width: 506px;"></div>
-            <div class="text small" style="left: 15px; top: 435px;">ROUTE:</div>
+            <!-- LEG 3 -->
+            <div class="card" style="left: 276px; top: 335px; width: 240px; height: 70px;"></div>
+            <div class="card-dark" style="left: 276px; top: 335px; width: 240px; height: 28px;"></div>
+            <div class="text medium" style="left: 286px; top: 341px; color: #f5f5f0;">🚊  TRAM 86</div>
+            <div class="text medium" style="right: 30px; top: 341px; color: #f5f5f0;">5 min</div>
+            <div class="text small" style="left: 286px; top: 372px;">Bourke St → Smith St</div>
+            <div class="text small" style="left: 286px; top: 388px;">Next: 5m, 11m, 17m</div>
             
-            <!-- Visual journey line -->
-            <div style="position: absolute; left: 65px; top: 440px; width: 450px; height: 30px;">
-                <div class="text small" style="left: 0; top: 0;">🏠</div>
-                <div class="line" style="left: 25px; top: 8px; width: 50px;"></div>
-                <div class="text small" style="left: 80px; top: 0;">🚊</div>
-                <div class="line" style="left: 105px; top: 8px; width: 50px;"></div>
-                <div class="text small" style="left: 160px; top: 0;">🚆⚠️</div>
-                <div class="line" style="left: 200px; top: 8px; width: 40px; opacity: 0.3;"></div>
-                <div class="text small" style="left: 245px; top: 0; opacity: 0.3;">☕❌</div>
-                <div class="line" style="left: 275px; top: 8px; width: 50px;"></div>
-                <div class="text small" style="left: 330px; top: 0;">🚊</div>
-                <div class="line" style="left: 355px; top: 8px; width: 50px;"></div>
-                <div class="text small" style="left: 410px; top: 0;">📍</div>
-            </div>
+            <!-- ARROW -->
+            <div class="text large" style="left: 395px; top: 415px;">▼</div>
             
-            <!-- SUMMARY -->
-            <div class="text small" style="left: 15px; top: 480px;">⚠️ Pakenham Line +8 min delay detected</div>
-            <div class="text small" style="left: 15px; top: 498px;">• Coffee stop removed to maintain arrival</div>
-            <div class="text small" style="left: 15px; top: 516px;">• Total: 48 min (3 legs)</div>
-            <div class="text medium" style="left: 15px; top: 540px;">➡️ Leave NOW to arrive on time!</div>
+            <!-- DESTINATION -->
+            <div class="card-dark" style="left: 20px; top: 430px; width: 496px; height: 60px;"></div>
+            <div class="text large" style="left: 40px; top: 448px; color: #f5f5f0;">📍 SIRCUIT</div>
+            <div class="text medium" style="left: 200px; top: 450px; color: #f5f5f0;">Smith St, Collingwood</div>
+            <div class="text medium" style="right: 40px; top: 450px; color: #f5f5f0;">09:03</div>
+            
+            <!-- ROUTE SUMMARY -->
+            <div class="line" style="left: 20px; top: 510px; width: 496px;"></div>
+            <div class="text medium" style="left: 20px; top: 525px;">🏠 → 🚊 → 🚆⚠️ → ☕❌ → 🚊 → 📍</div>
+            <div class="text small" style="left: 20px; top: 550px;">3 legs • 48 min total • Coffee skipped due to delay</div>
+            
+            <!-- ACTION -->
+            <div class="card-dark" style="left: 20px; top: 580px; width: 496px; height: 45px;"></div>
+            <div class="text large" style="left: 120px; top: 592px; color: #f5f5f0;">➡️ LEAVE NOW!</div>
             
             <!-- FOOTER -->
             <div class="line" style="left: 0; top: 670px; width: 536px;"></div>
-            <div class="text small" style="left: 15px; top: 685px;">☀️ 19°C</div>
-            <div class="text small" style="left: 100px; top: 685px;">Refresh #43</div>
-            <div class="text small" style="left: 220px; top: 685px;">08:15:42</div>
-            <div class="text small" style="left: 340px; top: 685px;">Kindle 11</div>
-            <div class="text small" style="right: 15px; top: 685px;">v5.18</div>
+            <div class="text small" style="left: 20px; top: 690px;">☀️ 19°C</div>
+            <div class="text small" style="left: 120px; top: 690px;">#43</div>
+            <div class="text small" style="left: 200px; top: 690px;">08:15:42</div>
+            <div class="text small" style="right: 20px; top: 690px;">v5.18</div>
         </div>
-        <div class="info">⚠️ Live delay handling • Route dynamically adjusted</div>
+        <div class="info">At-a-glance design • Key info immediately visible</div>
     </div>
 </body>
 </html>
