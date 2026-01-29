@@ -1,7 +1,7 @@
 /**
- * /api/zonedata - V11 Full Zone Data API
+ * /api/screen - Full Dashboard PNG for TRMNL Webhook
  * 
- * Returns all zones with BMP data in a single request.
+ * Renders the complete V11 dashboard as an 800×480 PNG image.
  * Uses Smart Journey Calculator + Coffee Decision Engine.
  * 
  * Copyright (c) 2026 Angus Bergman
@@ -10,7 +10,7 @@
 
 import { getDepartures, getWeather } from '../src/services/ptv-api.js';
 import CoffeeDecision from '../src/core/coffee-decision.js';
-import { renderZones } from '../src/services/zone-renderer.js';
+import { renderFullDashboard } from '../src/services/zone-renderer.js';
 
 // Config
 const TRAIN_STOP_ID = parseInt(process.env.TRAIN_STOP_ID) || 1071;
@@ -39,9 +39,12 @@ function formatTime(date) {
 }
 
 function formatDateParts(date) {
-  const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  return { day: days[date.getDay()], date: `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}` };
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return {
+    day: days[date.getDay()],
+    date: `${date.getDate()} ${months[date.getMonth()]}`
+  };
 }
 
 function buildJourneyLegs(trains, trams, coffeeDecision) {
@@ -55,23 +58,33 @@ function buildJourneyLegs(trains, trams, coffeeDecision) {
   const transitType = useTram ? 'tram' : 'train';
   
   if (coffeeDecision.canGet) {
-    legs.push({ number: legNumber++, type: 'walk', icon: '🚶', title: `Walk to ${COFFEE_SHOP}`, subtitle: `${JOURNEY_CONFIG.homeToCafe} min walk`, minutes: JOURNEY_CONFIG.homeToCafe, state: 'normal' });
-    legs.push({ number: legNumber++, type: 'coffee', icon: '☕', title: coffeeDecision.decision, subtitle: coffeeDecision.subtext, minutes: JOURNEY_CONFIG.makeCoffee, state: coffeeDecision.urgent ? 'delayed' : 'normal' });
-    legs.push({ number: legNumber++, type: 'walk', icon: '🚶', title: 'Walk to Station', subtitle: `${JOURNEY_CONFIG.cafeToTransit} min`, minutes: JOURNEY_CONFIG.cafeToTransit, state: 'normal' });
+    legs.push({ number: legNumber++, type: 'coffee', icon: '☕', title: `Coffee at ${COFFEE_SHOP}`, subtitle: coffeeDecision.subtext, minutes: JOURNEY_CONFIG.makeCoffee, state: coffeeDecision.urgent ? 'delayed' : 'normal' });
+    legs.push({ number: legNumber++, type: 'walk', icon: '🚶', title: 'Walk to Station', subtitle: `${JOURNEY_CONFIG.homeToCafe + JOURNEY_CONFIG.cafeToTransit} min walk`, minutes: JOURNEY_CONFIG.homeToCafe + JOURNEY_CONFIG.cafeToTransit, state: 'normal' });
   } else {
-    legs.push({ number: legNumber++, type: 'walk', icon: '⚡', title: 'GO DIRECT', subtitle: coffeeDecision.subtext, minutes: JOURNEY_CONFIG.homeToCafe + JOURNEY_CONFIG.cafeToTransit, state: coffeeDecision.urgent ? 'delayed' : 'normal' });
+    legs.push({ number: legNumber++, type: 'walk', icon: '🚶', title: 'Walk to Station', subtitle: coffeeDecision.subtext || 'No time for coffee', minutes: JOURNEY_CONFIG.homeToCafe + JOURNEY_CONFIG.cafeToTransit, state: coffeeDecision.urgent ? 'delayed' : 'normal' });
   }
   
   if (primaryTransit) {
-    legs.push({ number: legNumber++, type: transitType, icon: useTram ? '🚊' : '🚆', title: `${transitType === 'train' ? 'Train' : 'Tram'} to ${primaryTransit.destination}`, subtitle: primaryTransit.platform ? `Platform ${primaryTransit.platform}` : '', minutes: primaryTransit.minutes, state: primaryTransit.delayed ? 'delayed' : 'normal' });
+    const dest = primaryTransit.destination || 'City';
+    const nextTimes = [primaryTransit, ...(useTram ? trams : trains).slice(1, 3)].map(t => t.minutes).join(', ');
+    legs.push({ 
+      number: legNumber++, 
+      type: transitType, 
+      icon: useTram ? '🚃' : '🚃', 
+      title: `${useTram ? 'Tram' : 'Train'} to ${dest}`, 
+      subtitle: `Next: ${nextTimes} min`, 
+      minutes: primaryTransit.minutes, 
+      state: primaryTransit.delayed ? 'delayed' : 'normal' 
+    });
   }
   
   if (useTram && nextTrain) {
-    legs.push({ number: legNumber++, type: 'walk', icon: '🔄', title: 'Connection', subtitle: `${JOURNEY_CONFIG.platformChange} min`, minutes: JOURNEY_CONFIG.platformChange, state: 'normal' });
-    legs.push({ number: legNumber++, type: 'train', icon: '🚆', title: `Train to ${nextTrain.destination}`, subtitle: '', minutes: nextTrain.minutes, state: 'normal' });
+    legs.push({ number: legNumber++, type: 'walk', icon: '🚶', title: 'Walk to Train', subtitle: `${JOURNEY_CONFIG.platformChange} min`, minutes: JOURNEY_CONFIG.platformChange, state: 'normal' });
+    const nextTrainTimes = trains.slice(0, 3).map(t => t.minutes).join(', ');
+    legs.push({ number: legNumber++, type: 'train', icon: '🚃', title: `Train to ${nextTrain.destination}`, subtitle: `Next: ${nextTrainTimes} min`, minutes: nextTrain.minutes, state: 'normal' });
   }
   
-  legs.push({ number: legNumber++, type: 'walk', icon: '🏢', title: 'Walk to Work', subtitle: `${JOURNEY_CONFIG.walkToWork} min`, minutes: JOURNEY_CONFIG.walkToWork, state: 'normal' });
+  legs.push({ number: legNumber++, type: 'walk', icon: '🚶', title: 'Walk to Work', subtitle: `${JOURNEY_CONFIG.walkToWork} min walk`, minutes: JOURNEY_CONFIG.walkToWork, state: 'normal' });
   
   return legs;
 }
@@ -87,10 +100,6 @@ function calculateLeaveInMinutes(now, totalMinutes) {
 }
 
 export default async function handler(req, res) {
-  if (req.query.ping) {
-    return res.json({ pong: 'v11-zonedata', ts: Date.now() });
-  }
-  
   try {
     const now = getMelbourneTime();
     const currentTime = formatTime(now);
@@ -112,9 +121,10 @@ export default async function handler(req, res) {
     const leaveInMinutes = calculateLeaveInMinutes(now, totalMinutes);
     
     const dashboardData = {
-      location: 'HOME',
+      location: process.env.HOME_ADDRESS || '68 Cambridge St, Collingwood',
       current_time: currentTime,
-      day, date,
+      day,
+      date,
       temp: weather?.temp ?? '--',
       condition: weather?.condition || 'N/A',
       umbrella: (weather?.condition || '').toLowerCase().includes('rain'),
@@ -123,23 +133,19 @@ export default async function handler(req, res) {
       total_minutes: totalMinutes,
       leave_in_minutes: leaveInMinutes > 0 ? leaveInMinutes : null,
       journey_legs: journeyLegs,
-      destination: 'WORK'
+      destination: process.env.WORK_ADDRESS || '80 Collins St, Melbourne'
     };
     
-    const result = renderZones(dashboardData, true);
+    const png = renderFullDashboard(dashboardData);
     
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Content-Length', png.length);
     
-    return res.json({
-      timestamp: result.timestamp,
-      version: 'v11',
-      data: dashboardData,
-      zones: result.zones
-    });
+    return res.status(200).send(png);
     
   } catch (error) {
-    console.error('Zonedata error:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('Screen render error:', error);
+    return res.status(500).send('Render failed: ' + error.message);
   }
 }
