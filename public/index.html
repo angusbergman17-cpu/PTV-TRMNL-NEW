@@ -9,8 +9,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PTV-TRMNL</title>
+    <meta name="description" content="PTV-TRMNL - Intelligent transit display for Australian public transport">
+    <title>PTV-TRMNL - Smart Transit Display</title>
     <style>
+        /* Accessibility: Skip Link */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--accent);
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            text-decoration: none;
+            border-radius: 0 0 8px 0;
+        }
+        
+        .skip-link:focus {
+            top: 0;
+        }
+        
+        /* Focus visible for keyboard navigation */
+        *:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        
         :root {
             --bg-primary: #0f172a;
             --bg-secondary: #1e293b;
@@ -414,20 +438,23 @@
     </style>
 </head>
 <body>
+    <!-- Accessibility: Skip to main content -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <!-- Global Navigation -->
-    <nav class="global-nav">
-        <div class="nav-brand">
-            <span>🚃</span>
+    <nav class="global-nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-brand" aria-label="PTV-TRMNL Home">
+            <span aria-hidden="true">🚃</span>
             <span>PTV-TRMNL</span>
         </div>
-        <div class="nav-links" id="nav-links">
-            <a href="/" class="nav-link active">Dashboard</a>
-            <a href="/admin" class="nav-link">Settings</a>
-            <a href="/simulator.html" class="nav-link">Simulator</a>
+        <div class="nav-links" id="nav-links" role="menubar">
+            <a href="/" class="nav-link active" role="menuitem" aria-current="page">Dashboard</a>
+            <a href="/admin" class="nav-link" role="menuitem">Settings</a>
+            <a href="/simulator.html" class="nav-link" role="menuitem">Simulator</a>
         </div>
     </nav>
     
-    <div class="container">
+    <main id="main-content" class="container" role="main">
         <!-- Loading State -->
         <div class="loading-state" id="loading-state">
             <div class="spinner"></div>
@@ -533,11 +560,11 @@
                 <a href="/simulator.html" class="btn-secondary">View Demo First</a>
             </div>
         </div>
-    </div>
+    </main>
     
-    <footer class="version-footer">
+    <footer class="version-footer" role="contentinfo">
         PTV-TRMNL <span id="version">v--</span> • 
-        <a href="https://github.com/angusbergman17-cpu/einkptdashboard" target="_blank">GitHub</a> • 
+        <a href="https://github.com/angusbergman17-cpu/einkptdashboard" target="_blank" rel="noopener noreferrer">GitHub</a> • 
         CC BY-NC 4.0
     </footer>
     

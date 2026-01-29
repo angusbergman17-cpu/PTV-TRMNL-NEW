@@ -839,23 +839,49 @@
         @media (max-width: 600px) {
             .nav-links { display: none; }
         }
+        
+        /* Accessibility: Skip Link */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--color-accent-primary);
+            color: white;
+            padding: 8px 16px;
+            z-index: 1001;
+            text-decoration: none;
+            border-radius: 0 0 8px 0;
+        }
+        
+        .skip-link:focus {
+            top: 0;
+        }
+        
+        /* Focus visible for keyboard navigation */
+        *:focus-visible {
+            outline: 2px solid var(--color-accent-primary);
+            outline-offset: 2px;
+        }
     </style>
 </head>
 <body>
+    <!-- Accessibility: Skip to main content -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <!-- Global Navigation -->
-    <nav class="global-nav">
-        <a href="/" class="nav-brand">
-            <span>🚃</span>
+    <nav class="global-nav" role="navigation" aria-label="Main navigation">
+        <a href="/" class="nav-brand" aria-label="PTV-TRMNL Home">
+            <span aria-hidden="true">🚃</span>
             <span>PTV-TRMNL</span>
         </a>
-        <div class="nav-links">
-            <a href="/" class="nav-link">Dashboard</a>
-            <a href="/admin" class="nav-link active">Settings</a>
-            <a href="/simulator.html" class="nav-link">Simulator</a>
+        <div class="nav-links" role="menubar">
+            <a href="/" class="nav-link" role="menuitem">Dashboard</a>
+            <a href="/admin" class="nav-link active" role="menuitem" aria-current="page">Settings</a>
+            <a href="/simulator.html" class="nav-link" role="menuitem">Simulator</a>
         </div>
     </nav>
 
-    <div class="container">
+    <main id="main-content" class="container" role="main">
         <div class="header">
             <h1>⚙️ Setup & Settings</h1>
             <p id="header-subtitle">Configure your transit display</p>
@@ -1373,7 +1399,7 @@
                 Journey Planner v2.0.0 (Multi-Modal Routing) • Geocoding Service v1.2.0 (Auto-Population)
             </p>
         </div>
-    </div>
+    </main>
 
     <script>
         /**

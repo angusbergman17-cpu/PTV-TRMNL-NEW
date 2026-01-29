@@ -42,6 +42,21 @@ bbep.setFont(FONT_8x8);     // ONLY use 8x8 font
 
 ---
 
+## Design Decisions (Not Bugs)
+
+### `/api/geocode` Not Exposed
+
+**Status:** Intentional (Security by Design)
+
+The `/api/geocode` endpoint returns 404 by design. Geocoding functionality is:
+- Handled server-side only via `/admin/geocode` POST endpoint
+- Protected to prevent API key abuse from public access
+- Used internally by the admin panel forms
+
+**Workaround:** Use the admin panel UI for address lookups, which calls the protected endpoint with proper authentication context.
+
+---
+
 ## Other Notes
 
 ### Display Coordinate System

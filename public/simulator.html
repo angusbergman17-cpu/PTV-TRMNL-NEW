@@ -116,23 +116,49 @@
         @media (max-width: 600px) {
             .global-nav .nav-links { display: none; }
         }
+        
+        /* Accessibility: Skip Link */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #6366f1;
+            color: white;
+            padding: 8px 16px;
+            z-index: 1001;
+            text-decoration: none;
+            border-radius: 0 0 8px 0;
+        }
+        
+        .skip-link:focus {
+            top: 0;
+        }
+        
+        /* Focus visible for keyboard navigation */
+        *:focus-visible {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+        }
     </style>
 </head>
 <body>
+    <!-- Accessibility: Skip to main content -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <!-- Global Navigation -->
-    <nav class="global-nav">
-        <a href="/" class="nav-brand">
-            <span>🚃</span>
+    <nav class="global-nav" role="navigation" aria-label="Main navigation">
+        <a href="/" class="nav-brand" aria-label="PTV-TRMNL Home">
+            <span aria-hidden="true">🚃</span>
             <span>PTV-TRMNL</span>
         </a>
-        <div class="nav-links">
-            <a href="/" class="nav-link">Dashboard</a>
-            <a href="/admin" class="nav-link">Settings</a>
-            <a href="/simulator.html" class="nav-link active">Simulator</a>
+        <div class="nav-links" role="menubar">
+            <a href="/" class="nav-link" role="menuitem">Dashboard</a>
+            <a href="/admin" class="nav-link" role="menuitem">Settings</a>
+            <a href="/simulator.html" class="nav-link active" role="menuitem" aria-current="page">Simulator</a>
         </div>
     </nav>
 
-    <div class="container">
+    <main id="main-content" class="container" role="main">
         <header>
             <h1>📟 PTV-TRMNL Multi-Device Simulator</h1>
             <p>Firmware simulation with Flash → Setup → Boot → Live display</p>
@@ -169,18 +195,18 @@
                 </div>
                 <div class="control-section">
                     <h3>📍 Content</h3>
-                    <div class="control-group"><label>Location</label><input type="text" id="input-location" value="South Yarra, VIC" oninput="updateDisplay()"></div>
-                    <div class="control-group"><label>Time</label><input type="text" id="input-time" value="08:15" oninput="updateDisplay()"></div>
+                    <div class="control-group"><label for="input-location">Location</label><input type="text" id="input-location" value="South Yarra, VIC" oninput="updateDisplay()"></div>
+                    <div class="control-group"><label for="input-time">Time</label><input type="text" id="input-time" value="08:15" oninput="updateDisplay()"></div>
                 </div>
             </div>
         </div>
-        <div class="status-bar">
-            <div class="status-item"><div class="status-dot" id="status-dot"></div><span id="status-text">Ready</span></div>
+        <div class="status-bar" role="status" aria-live="polite">
+            <div class="status-item"><div class="status-dot" id="status-dot" aria-hidden="true"></div><span id="status-text">Ready</span></div>
             <div class="status-item"><span id="device-ppi">--</span></div>
             <div class="status-item"><span>v5.18</span></div>
         </div>
-        <footer>PTV-TRMNL Simulator • © 2026 Angus Bergman • CC BY-NC 4.0</footer>
-    </div>
+        <footer role="contentinfo">PTV-TRMNL Simulator • © 2026 Angus Bergman • CC BY-NC 4.0</footer>
+    </main>
     <script>
         const DEVICES={"trmnl-og":{name:"TRMNL OG",width:800,height:480,ppi:150,orientation:"landscape"}};
         let currentDevice="trmnl-og",refreshCount=0,partialCount=0,ghostElements=[];
