@@ -756,8 +756,13 @@ async function getRegionUpdates() {
    ROUTES
    ========================================================= */
 
-// Health check
+// Smart Landing Page - Detects setup state and shows appropriate view
 app.get('/', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+});
+
+// Health check endpoint (for monitoring/uptime checks)
+app.get('/health', (req, res) => {
   res.send('✅ PTV-TRMNL service running');
 });
 

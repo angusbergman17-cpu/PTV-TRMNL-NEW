@@ -53,9 +53,85 @@
         .zone.active { background: #6366f1; }
         .zone.dirty { background: #f59e0b; }
         footer { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #334155; color: #64748b; font-size: 12px; }
+        
+        /* Global Navigation */
+        .global-nav {
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .global-nav .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #f8fafc;
+            text-decoration: none;
+        }
+        
+        .global-nav .nav-brand span:first-child { font-size: 24px; }
+        
+        .global-nav .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .global-nav .nav-link {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        
+        .global-nav .nav-link:hover {
+            background: rgba(30, 41, 59, 0.8);
+            color: #f8fafc;
+            border-color: #6366f1;
+        }
+        
+        .global-nav .nav-link.active {
+            background: #6366f1;
+            color: white;
+            border-color: #6366f1;
+        }
+        
+        body { padding-top: 56px; }
+        
+        @media (max-width: 600px) {
+            .global-nav .nav-links { display: none; }
+        }
     </style>
 </head>
 <body>
+    <!-- Global Navigation -->
+    <nav class="global-nav">
+        <a href="/" class="nav-brand">
+            <span>🚃</span>
+            <span>PTV-TRMNL</span>
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/admin" class="nav-link">Settings</a>
+            <a href="/simulator.html" class="nav-link active">Simulator</a>
+        </div>
+    </nav>
+
     <div class="container">
         <header>
             <h1>📟 PTV-TRMNL Multi-Device Simulator</h1>
