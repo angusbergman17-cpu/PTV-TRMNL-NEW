@@ -441,6 +441,28 @@
             font-size: 11px;
         }
         
+        .footer-support {
+            margin-bottom: 12px;
+        }
+        
+        .support-link {
+            color: var(--accent);
+            text-decoration: none;
+            padding: 4px 12px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 20px;
+            transition: all 0.2s;
+        }
+        
+        .support-link:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+        
+        .footer-divider {
+            margin: 0 8px;
+            opacity: 0.5;
+        }
+        
         /* Live Attribution Bar */
         .attribution-bar {
             background: var(--bg-secondary);
@@ -772,10 +794,16 @@
         <div class="footer-attribution" id="footer-attribution">
             Data sources: <span id="active-sources">Loading...</span>
         </div>
+        <div class="footer-support">
+            <a href="https://buymeacoffee.com/angusbergman" target="_blank" rel="noopener noreferrer" class="support-link">☕ Buy me a coffee</a>
+            <span class="footer-divider">•</span>
+            <a href="https://github.com/sponsors/angusbergman17-cpu" target="_blank" rel="noopener noreferrer" class="support-link">💖 Sponsor</a>
+        </div>
         <div>
             PTV-TRMNL <span id="version">v--</span> • 
             <a href="https://github.com/angusbergman17-cpu/einkptdashboard" target="_blank" rel="noopener noreferrer">GitHub</a> • 
-            <a href="/ATTRIBUTION.md" target="_blank">Full Attribution</a> •
+            <a href="/ATTRIBUTION.md" target="_blank">Attribution</a> •
+            <a href="/SUPPORT.md" target="_blank">Support</a> •
             CC BY-NC 4.0
         </div>
     </footer>
