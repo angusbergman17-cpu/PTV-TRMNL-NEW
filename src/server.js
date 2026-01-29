@@ -1247,6 +1247,55 @@ Sent via PTV-TRMNL Admin Panel`,
       });
     }
 
+    // Also try to create GitHub issue if token is configured
+    const githubToken = process.env.GITHUB_FEEDBACK_TOKEN;
+    if (githubToken) {
+      try {
+        const issueLabels = {
+          'bug': ['bug', 'user-feedback'],
+          'feature': ['enhancement', 'user-feedback'],
+          'general': ['user-feedback']
+        };
+        
+        const issueBody = `## User Feedback
+
+**Type:** ${feedbackLog.type}
+**From:** ${feedbackLog.from}
+**Email:** ${feedbackLog.email}
+**Timestamp:** ${feedbackLog.timestamp}
+
+### Message
+
+${feedbackLog.message}
+
+---
+*Submitted via PTV-TRMNL Feedback System*`;
+
+        const issueResponse = await fetch('https://api.github.com/repos/angusbergman17-cpu/einkptdashboard/issues', {
+          method: 'POST',
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: `[${feedbackLog.type}] ${feedbackLog.message.substring(0, 50)}${feedbackLog.message.length > 50 ? '...' : ''}`,
+            body: issueBody,
+            labels: issueLabels[feedbackLog.type] || ['user-feedback']
+          })
+        });
+        
+        if (issueResponse.ok) {
+          const issue = await issueResponse.json();
+          console.log(`✅ GitHub issue created: #${issue.number}`);
+        } else {
+          console.log('⚠️ GitHub issue creation failed:', await issueResponse.text());
+        }
+      } catch (ghError) {
+        console.log('⚠️ GitHub issue creation error:', ghError.message);
+      }
+    }
+
   } catch (error) {
     console.error('Feedback submission error:', error);
     res.status(500).json({

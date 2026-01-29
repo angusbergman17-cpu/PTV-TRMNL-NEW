@@ -435,6 +435,169 @@
             color: var(--accent);
             text-decoration: none;
         }
+        
+        .footer-attribution {
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+        
+        /* Live Attribution Bar */
+        .attribution-bar {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-top: 24px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .attribution-content {
+            display: flex;
+            gap: 40px;
+            animation: scrollAttribution 30s linear infinite;
+            white-space: nowrap;
+        }
+        
+        .attribution-item {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        @keyframes scrollAttribution {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        .attribution-bar:hover .attribution-content {
+            animation-play-state: paused;
+        }
+        
+        /* Feedback Button */
+        .feedback-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+            transition: all 0.2s;
+            z-index: 99;
+        }
+        
+        .feedback-btn:hover {
+            background: var(--accent-hover);
+            transform: scale(1.05);
+        }
+        
+        /* Feedback Modal */
+        .feedback-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .feedback-modal.active {
+            display: flex;
+        }
+        
+        .feedback-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            position: relative;
+        }
+        
+        .feedback-content h2 {
+            margin-bottom: 8px;
+        }
+        
+        .feedback-content > p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        
+        .feedback-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .feedback-modal .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .feedback-modal label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+        
+        .feedback-modal input,
+        .feedback-modal select,
+        .feedback-modal textarea {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .feedback-modal textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .feedback-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .feedback-actions button {
+            flex: 1;
+        }
+        
+        .feedback-note {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 16px;
+        }
+        
+        .feedback-note a {
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -560,12 +723,61 @@
                 <a href="/simulator.html" class="btn-secondary">View Demo First</a>
             </div>
         </div>
+        <!-- Live Attribution Bar -->
+        <div class="attribution-bar" id="attribution-bar" role="marquee" aria-live="polite">
+            <div class="attribution-content" id="attribution-content">
+                <span class="attribution-item">🚆 Transit data: Transport for Victoria (CC BY 4.0)</span>
+            </div>
+        </div>
+        
+        <!-- Feedback Button -->
+        <button class="feedback-btn" onclick="openFeedback()" aria-label="Send Feedback">
+            💬 Feedback
+        </button>
+        
+        <!-- Feedback Modal -->
+        <div class="feedback-modal" id="feedback-modal" role="dialog" aria-labelledby="feedback-title" aria-hidden="true">
+            <div class="feedback-content">
+                <button class="feedback-close" onclick="closeFeedback()" aria-label="Close">&times;</button>
+                <h2 id="feedback-title">📬 Send Feedback</h2>
+                <p>Help improve PTV-TRMNL! Your feedback goes directly to the developer.</p>
+                <form id="feedback-form" onsubmit="submitFeedback(event)">
+                    <div class="form-group">
+                        <label for="feedback-type">Type</label>
+                        <select id="feedback-type" required>
+                            <option value="bug">🐛 Bug Report</option>
+                            <option value="feature">✨ Feature Request</option>
+                            <option value="general">💬 General Feedback</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="feedback-message">Message</label>
+                        <textarea id="feedback-message" rows="4" placeholder="Describe your feedback..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="feedback-email">Email (optional)</label>
+                        <input type="email" id="feedback-email" placeholder="your@email.com">
+                    </div>
+                    <div class="feedback-actions">
+                        <button type="button" class="btn-secondary" onclick="closeFeedback()">Cancel</button>
+                        <button type="submit" class="btn-primary">Send to Developer</button>
+                    </div>
+                </form>
+                <p class="feedback-note">Or open an issue on <a href="https://github.com/angusbergman17-cpu/einkptdashboard/issues/new" target="_blank">GitHub</a></p>
+            </div>
+        </div>
     </main>
     
     <footer class="version-footer" role="contentinfo">
-        PTV-TRMNL <span id="version">v--</span> • 
-        <a href="https://github.com/angusbergman17-cpu/einkptdashboard" target="_blank" rel="noopener noreferrer">GitHub</a> • 
-        CC BY-NC 4.0
+        <div class="footer-attribution" id="footer-attribution">
+            Data sources: <span id="active-sources">Loading...</span>
+        </div>
+        <div>
+            PTV-TRMNL <span id="version">v--</span> • 
+            <a href="https://github.com/angusbergman17-cpu/einkptdashboard" target="_blank" rel="noopener noreferrer">GitHub</a> • 
+            <a href="/ATTRIBUTION.md" target="_blank">Full Attribution</a> •
+            CC BY-NC 4.0
+        </div>
     </footer>
     
     <script>
@@ -736,8 +948,128 @@
             }
         }
         
+        // ==================== LIVE ATTRIBUTION ====================
+        const attributionSources = [
+            { icon: '🚆', text: 'Transit data: Transport for Victoria (CC BY 4.0)' },
+            { icon: '🗺️', text: 'Geocoding: OpenStreetMap / Nominatim (ODbL)' },
+            { icon: '🌤️', text: 'Weather: Bureau of Meteorology Australia' },
+            { icon: '📍', text: 'Maps: Google Places API / Mapbox' },
+            { icon: '🚊', text: 'NSW data: Transport for NSW Open Data' },
+            { icon: '🚌', text: 'QLD data: TransLink Queensland' },
+            { icon: '🚃', text: 'SA data: Adelaide Metro' },
+            { icon: '🚆', text: 'WA data: Transperth' },
+            { icon: '📟', text: 'Hardware: TRMNL E-ink Display Platform' },
+            { icon: '⚡', text: 'Framework: Node.js / Express' },
+            { icon: '📜', text: 'License: CC BY-NC 4.0 © Angus Bergman' }
+        ];
+        
+        function initAttribution() {
+            const container = document.getElementById('attribution-content');
+            if (!container) return;
+            
+            // Duplicate items for seamless scroll
+            const items = attributionSources.map(s => 
+                `<span class="attribution-item">${s.icon} ${s.text}</span>`
+            ).join('');
+            container.innerHTML = items + items; // Duplicate for seamless loop
+            
+            // Update footer with active sources
+            updateActiveSources();
+        }
+        
+        async function updateActiveSources() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                const sources = [];
+                if (data.dataMode === 'Live') sources.push('PTV Live API');
+                else sources.push('Fallback Timetables');
+                
+                if (data.weather) sources.push('BOM Weather');
+                if (data.geocoding) sources.push('Geocoding Active');
+                
+                const el = document.getElementById('active-sources');
+                if (el) el.textContent = sources.join(' • ') || 'Loading...';
+            } catch (e) {
+                console.log('Could not fetch active sources');
+            }
+        }
+        
+        // ==================== FEEDBACK SYSTEM ====================
+        function openFeedback() {
+            const modal = document.getElementById('feedback-modal');
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            document.getElementById('feedback-message').focus();
+        }
+        
+        function closeFeedback() {
+            const modal = document.getElementById('feedback-modal');
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+        
+        async function submitFeedback(event) {
+            event.preventDefault();
+            
+            const type = document.getElementById('feedback-type').value;
+            const message = document.getElementById('feedback-message').value;
+            const email = document.getElementById('feedback-email').value;
+            
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, message, email })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Thank you! Your feedback has been sent to the developer.');
+                    closeFeedback();
+                    document.getElementById('feedback-form').reset();
+                } else {
+                    // Fallback to GitHub Issues
+                    const title = encodeURIComponent(`[${type}] User Feedback`);
+                    const body = encodeURIComponent(`**Type:** ${type}\n**Message:**\n${message}\n\n**Email:** ${email || 'Not provided'}`);
+                    window.open(`https://github.com/angusbergman17-cpu/einkptdashboard/issues/new?title=${title}&body=${body}`, '_blank');
+                    closeFeedback();
+                }
+            } catch (error) {
+                // Fallback to GitHub Issues
+                const title = encodeURIComponent(`[${type}] User Feedback`);
+                const body = encodeURIComponent(`**Type:** ${type}\n**Message:**\n${message}\n\n**Email:** ${email || 'Not provided'}`);
+                window.open(`https://github.com/angusbergman17-cpu/einkptdashboard/issues/new?title=${title}&body=${body}`, '_blank');
+                closeFeedback();
+            }
+            
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+        
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeFeedback();
+        });
+        
+        // Close modal on backdrop click
+        document.getElementById('feedback-modal')?.addEventListener('click', (e) => {
+            if (e.target.classList.contains('feedback-modal')) closeFeedback();
+        });
+        
         // Initialize
         checkConfiguration();
+        initAttribution();
+        
+        // Update attribution sources every 30 seconds
+        setInterval(updateActiveSources, 30000);
     </script>
 </body>
 </html>
